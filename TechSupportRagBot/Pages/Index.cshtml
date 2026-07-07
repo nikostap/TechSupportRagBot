@@ -191,7 +191,7 @@ else
         <div class="panel dashboard-panel">
             <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QuickActions", "Быстрые действия")</h2>
             <div class="quick-action-list">
-                @if (Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы")</a> }
+                @if (Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">Сотрудники</a> }
                 @if (Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a> }
                 @if (Model.Can("ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</a> }
                 @if (Model.Can("KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</a> }

@@ -218,6 +218,11 @@ public class TicketModel : PageModel
             return Forbid();
         }
 
+        if (!await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted))
+        {
+            return Forbid();
+        }
+
         await _messageDeletion.DeleteOwnMessageAsync(id, messageId, CurrentUserId);
         return RedirectToPage(new { id });
     }

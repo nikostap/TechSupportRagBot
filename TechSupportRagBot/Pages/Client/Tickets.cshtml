@@ -1,7 +1,9 @@
 @page
 @model TechSupportRagBot.Pages.Client.TicketsModel
+@inject TechSupportRagBot.Services.AccessProfileService Access
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения");
+    var canCreateTickets = await Access.IsAllowedAsync(User, "CreateTickets");
 }
 
 <section class="page-head">
@@ -9,7 +11,10 @@
         <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Support", "Поддержка")</p>
         <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets", "Мои обращения")</h1>
     </div>
-    <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+    @if (canCreateTickets)
+    {
+        <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+    }
 </section>
 
 <div class="panel">

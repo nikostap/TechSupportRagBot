@@ -1,8 +1,10 @@
 @page
 @using System.Text.Json
 @model TechSupportRagBot.Pages.Admin.SettingsModel
+@inject TechSupportRagBot.Services.AccessProfileService Access
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки");
+    var canAccessProfiles = await Access.IsAllowedAsync(User, "AccessProfiles");
 
     var ollamaChatModels = Model.Models
         .Where(x => !x.IsLikelyEmbedding)
@@ -113,11 +115,14 @@
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
-    <section class="panel">
-        <h2>Доступы сотрудников</h2>
-        <p>Настройка профилей: менеджер, оператор, программист, администратор, наблюдатель.</p>
-        <a class="btn-main as-link" asp-page="/Admin/AccessProfiles">Открыть профили доступа</a>
-    </section>
+    @if (canAccessProfiles)
+    {
+        <section class="panel">
+            <h2>Доступы сотрудников</h2>
+            <p>Настройка профилей: менеджер, оператор, программист, администратор, наблюдатель.</p>
+            <a class="btn-main as-link" asp-page="/Admin/AccessProfiles">Открыть профили доступа</a>
+        </section>
+    }
 
     <section class="panel">
         <h2>Модели Ollama</h2>

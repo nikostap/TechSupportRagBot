@@ -48,7 +48,7 @@
 </div>
 
 <div class="control-grid">
-    @if (await Access.IsAllowedAsync(User, "ManageAdmins")) { <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы")</a> }
+    @if (await Access.IsAllowedAsync(User, "ManageAdmins")) { <a asp-page="/Admin/Admins">Сотрудники</a> }
     @if (canClients) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a> }
     @if (canMachines) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</a> }
     @if (canLicenses) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</a> }

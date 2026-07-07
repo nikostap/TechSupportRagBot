@@ -1,19 +1,19 @@
 @page
 @model TechSupportRagBot.Pages.Admin.AdminsModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы");
+    ViewData["Title"] = "Сотрудники";
 }
 
 <section class="page-head">
     <div>
         <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Administration", "Администрирование")</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы")</h1>
+        <h1>Сотрудники</h1>
     </div>
 </section>
 
 <div class="split-layout">
     <form method="post" class="panel">
-        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewAdmin", "Новый администратор")</h2>
+        <h2>Новый сотрудник</h2>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" autocomplete="off" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
@@ -34,12 +34,12 @@
                 }
             </select>
         </label>
-        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateAdmin", "Создать администратора")</button>
+        <button class="btn-main" type="submit">Создать сотрудника</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <div class="panel">
-        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы")</h2>
+        <h2>Сотрудники</h2>
         <div class="table-wrap">
             <table>
                 <thead>

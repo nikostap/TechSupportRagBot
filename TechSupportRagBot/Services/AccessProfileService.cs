@@ -27,7 +27,7 @@ public class AccessProfileService
     public static readonly IReadOnlyList<AccessPermissionDefinition> PermissionDefinitions =
     [
         new("AdminDashboard", "Админ-панель"),
-        new("ManageAdmins", "Администраторы"),
+        new("ManageAdmins", "Сотрудники"),
         new("ManageClients", "Клиенты"),
         new("ManageMachines", "Станки"),
         new("ManageLicenses", "Лицензии"),
@@ -102,6 +102,23 @@ public class AccessProfileService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task FillMissingUserProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        var users = await _db.Users
+            .Where(x => string.IsNullOrWhiteSpace(x.AccessProfile))
+            .ToListAsync(cancellationToken);
+
+        foreach (var user in users)
+        {
+            user.AccessProfile = await ResolveProfileKeyAsync(user, cancellationToken);
+        }
+
+        if (users.Count > 0)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<bool> IsAllowedAsync(ClaimsPrincipal principal, string permission, CancellationToken cancellationToken = default)
@@ -185,6 +202,7 @@ public class AccessProfileService
         if (value.StartsWith("/Client/NewTicket", StringComparison.OrdinalIgnoreCase)) return "CreateTickets";
         if (value.StartsWith("/Client/Users", StringComparison.OrdinalIgnoreCase)) return "CompanyUsers";
         if (value.StartsWith("/Client", StringComparison.OrdinalIgnoreCase)) return "ClientCabinet";
+        if (value.StartsWith("/Operator/Ticket", StringComparison.OrdinalIgnoreCase)) return "Tickets";
         if (value.StartsWith("/Operator", StringComparison.OrdinalIgnoreCase)) return "OperatorQueue";
         return null;
     }

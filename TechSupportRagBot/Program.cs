@@ -262,6 +262,7 @@ using (var scope = app.Services.CreateScope())
     await services.GetRequiredService<SystemSettingsService>().SeedDefaultsAsync();
     var accessProfiles = services.GetRequiredService<AccessProfileService>();
     await accessProfiles.SaveProfilesAsync(await accessProfiles.GetProfilesAsync());
+    await accessProfiles.FillMissingUserProfilesAsync();
     await services.GetRequiredService<KnowledgeFtsService>().RebuildAsync();
     if (builder.Configuration.GetValue("Rag:ReindexOnStartup", false))
     {

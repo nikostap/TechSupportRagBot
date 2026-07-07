@@ -57,7 +57,9 @@ namespace TechSupportRagBot.Pages
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = await _userManager.GetUserAsync(User);
             DisplayName = user?.FullName ?? user?.UserName ?? User.Identity?.Name ?? string.Empty;
-            ProfileName = AccessProfileService.DisplayProfile(user?.AccessProfile);
+            ProfileName = user == null
+                ? AccessProfileService.DisplayProfile(null)
+                : AccessProfileService.DisplayProfile(await _access.ResolveProfileKeyAsync(user, HttpContext.RequestAborted));
             ShowOperatorArea = User.IsInRole("Operator");
 
             foreach (var permission in AccessProfileService.PermissionDefinitions)

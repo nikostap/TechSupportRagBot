@@ -55,7 +55,7 @@
                     </span>
                     <span class="message-meta-actions">
                         <span>@message.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
-                        @if (!message.IsBotMessage && message.AuthorUserId == Model.CurrentUserId)
+                        @if (Model.CanWriteChat && !message.IsBotMessage && message.AuthorUserId == Model.CurrentUserId)
                         {
                             <form method="post" asp-page-handler="DeleteMessage" asp-route-messageId="@message.Id" class="message-delete-form">
                                 <button type="submit" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")">×</button>
