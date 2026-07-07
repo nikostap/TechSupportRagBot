@@ -10,6 +10,7 @@ namespace TechSupportRagBot.Services;
 public class AccessProfileService
 {
     public const string Manager = "Manager";
+    public const string Engineer = "Engineer";
     public const string Operator = "Operator";
     public const string Programmer = "Programmer";
     public const string Administrator = "Administrator";
@@ -18,6 +19,7 @@ public class AccessProfileService
     public static readonly IReadOnlyList<(string Key, string Name)> ProfileOptions =
     [
         (Manager, "Менеджер"),
+        (Engineer, "Инженер"),
         (Operator, "Оператор"),
         (Programmer, "Программист"),
         (Administrator, "Администратор"),
@@ -119,6 +121,14 @@ public class AccessProfileService
         {
             await _db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task HardenClientProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        var profiles = await GetProfilesAsync(cancellationToken);
+        ApplyExactPermissions(profiles, Manager, "ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite");
+        ApplyExactPermissions(profiles, Engineer, "ClientCabinet", "CreateTickets", "ChatWrite");
+        await SaveProfilesAsync(profiles, cancellationToken);
     }
 
     public async Task<bool> IsAllowedAsync(ClaimsPrincipal principal, string permission, CancellationToken cancellationToken = default)
@@ -244,7 +254,13 @@ public class AccessProfileService
             {
                 Key = Manager,
                 Name = "Менеджер",
-                Permissions = Only("AdminDashboard", "ManageClients", "ManageMachines", "ManageLicenses", "Tickets", "ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite")
+                Permissions = Only("ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite")
+            },
+            new AccessProfileRule
+            {
+                Key = Engineer,
+                Name = "Инженер",
+                Permissions = Only("ClientCabinet", "CreateTickets", "ChatWrite")
             },
             new AccessProfileRule
             {
@@ -271,6 +287,20 @@ public class AccessProfileService
                 Permissions = Only("AdminDashboard", "Tickets", "ClientCabinet", "OperatorQueue")
             }
         ];
+    }
+
+    private static void ApplyExactPermissions(List<AccessProfileRule> profiles, string profileKey, params string[] allowed)
+    {
+        var profile = profiles.FirstOrDefault(x => x.Key.Equals(profileKey, StringComparison.OrdinalIgnoreCase));
+        if (profile == null)
+        {
+            return;
+        }
+
+        foreach (var permission in PermissionDefinitions)
+        {
+            profile.Permissions[permission.Key] = allowed.Contains(permission.Key);
+        }
     }
 }
 

@@ -46,6 +46,7 @@ namespace TechSupportRagBot.Pages
         public HashSet<int> ClientTicketsWithUnreadMessages { get; private set; } = new();
         public bool HasClientAccount { get; private set; }
         public bool ShowOperatorArea { get; private set; }
+        public bool IsInternalUser { get; private set; }
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -61,6 +62,7 @@ namespace TechSupportRagBot.Pages
                 ? AccessProfileService.DisplayProfile(null)
                 : AccessProfileService.DisplayProfile(await _access.ResolveProfileKeyAsync(user, HttpContext.RequestAborted));
             ShowOperatorArea = User.IsInRole("Operator");
+            IsInternalUser = User.IsInRole("Admin");
 
             foreach (var permission in AccessProfileService.PermissionDefinitions)
             {
