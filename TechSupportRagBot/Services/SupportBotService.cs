@@ -165,11 +165,36 @@ public class SupportBotService
         var answer = await _ollama.GenerateAsync(prompt, cancellationToken);
         if (string.IsNullOrWhiteSpace(answer))
         {
-            await _audit.WriteAsync("Bot.Answer.Empty", new { machineId, question }, traceId, cancellationToken);
+            var deterministicAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
+            await _audit.WriteAsync("Bot.Answer.Empty", new
+            {
+                machineId,
+                question,
+                deterministicFallbackUsed = !string.IsNullOrWhiteSpace(deterministicAnswer)
+            }, traceId, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+            {
+                await _audit.WriteAsync("Bot.Answer.Completed", new
+                {
+                    machineId,
+                    question,
+                    retrievalQuestion,
+                    language,
+                    rawAnswer = (string?)null,
+                    finalAnswer = deterministicAnswer,
+                    mediaCount = answerMedia.Count,
+                    shouldEscalate = false,
+                    source = "deterministic-context-fallback"
+                }, traceId, cancellationToken);
+
+                return new BotAnswerResult(deterministicAnswer, false, answerMedia);
+            }
+
             var fallback = isEnglish
-                ? "I could not form a reliable answer from the found context. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
-                : "Я не смог сформировать надежный ответ по найденному контексту. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
-            return new BotAnswerResult(fallback, false, []);
+                ? "I found context, but could not form a reliable answer. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
+                : "Контекст найден, но я не смог сформировать надежный ответ. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
+            return new BotAnswerResult(fallback, false, answerMedia);
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
@@ -202,6 +227,47 @@ public class SupportBotService
         }, traceId, cancellationToken);
 
         return new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia);
+    }
+
+    private async Task<string?> BuildDeterministicAnswerFromContextAsync(
+        RagSearchResult ragResult,
+        string language,
+        bool isEnglish,
+        CancellationToken cancellationToken)
+    {
+        var qa = ragResult.Chunks
+            .Where(x => string.Equals(x.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(x.Solution))
+            .OrderByDescending(x => x.RerankScore)
+            .FirstOrDefault();
+
+        var answer = qa?.Solution?.Trim();
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return null;
+        }
+
+        if (!language.Equals("Russian", StringComparison.OrdinalIgnoreCase))
+        {
+            var translated = await _translation.TranslateAsync(answer, "Russian", language, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(translated))
+            {
+                answer = translated;
+            }
+        }
+
+        if (!ContainsHelpFollowup(answer))
+        {
+            answer += "\n\n" + HelpFollowup(isEnglish);
+        }
+
+        if (!ContainsOperatorHint(answer))
+        {
+            answer += "\n\n" + OperatorHint(isEnglish);
+        }
+
+        return answer;
     }
 
     public static bool ShouldCallOperator(string text)

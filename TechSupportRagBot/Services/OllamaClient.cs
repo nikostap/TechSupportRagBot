@@ -11,19 +11,22 @@ public class OllamaClient
     private readonly OpenAiOptions _openAiOptions;
     private readonly DeepSeekOptions _deepSeekOptions;
     private readonly SystemSettingsService _settings;
+    private readonly ILogger<OllamaClient> _logger;
 
     public OllamaClient(
         HttpClient httpClient,
         IOptions<RagOptions> options,
         IOptions<OpenAiOptions> openAiOptions,
         IOptions<DeepSeekOptions> deepSeekOptions,
-        SystemSettingsService settings)
+        SystemSettingsService settings,
+        ILogger<OllamaClient> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _openAiOptions = openAiOptions.Value;
         _deepSeekOptions = deepSeekOptions.Value;
         _settings = settings;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<OllamaModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
@@ -75,6 +78,12 @@ public class OllamaClient
 
             if (!response.IsSuccessStatusCode)
             {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Ollama embedding failed. Model={Model}, Status={StatusCode}, Body={Body}",
+                    embeddingModel,
+                    (int)response.StatusCode,
+                    error);
                 return null;
             }
 
@@ -121,6 +130,12 @@ public class OllamaClient
 
             if (!response.IsSuccessStatusCode)
             {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Ollama generation failed. Model={Model}, Status={StatusCode}, Body={Body}",
+                    chatModel,
+                    (int)response.StatusCode,
+                    error);
                 return null;
             }
 
@@ -162,11 +177,24 @@ public class OllamaClient
             var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "OpenAI-compatible generation failed. BaseUrl={BaseUrl}, Model={Model}, Status={StatusCode}, Body={Body}",
+                    baseUrl,
+                    model,
+                    (int)response.StatusCode,
+                    error);
                 return null;
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiChatResponse>(cancellationToken);
-            return payload?.Choices?.FirstOrDefault()?.Message?.Content;
+            var content = payload?.Choices?.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                _logger.LogWarning("OpenAI-compatible generation returned empty content. BaseUrl={BaseUrl}, Model={Model}", baseUrl, model);
+            }
+
+            return content;
         }
         catch
         {
@@ -200,15 +228,28 @@ public class OllamaClient
             var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "OpenAI Responses generation failed. Model={Model}, Status={StatusCode}, Body={Body}",
+                    model,
+                    (int)response.StatusCode,
+                    error);
                 return null;
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiResponsesResponse>(cancellationToken);
-            return payload?.OutputText
+            var text = payload?.OutputText
                 ?? payload?.Output?
                     .SelectMany(x => x.Content ?? new List<OpenAiResponsesContent>())
                     .Select(x => x.Text)
                     .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                _logger.LogWarning("OpenAI Responses generation returned empty content. Model={Model}", model);
+            }
+
+            return text;
         }
         catch
         {
