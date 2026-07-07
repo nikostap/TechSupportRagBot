@@ -94,7 +94,7 @@ public class OllamaClient
 
         if (chatProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
         {
-            return await GenerateOpenAiCompatibleAsync(
+            return await GenerateOpenAiResponsesAsync(
                 _openAiOptions.BaseUrl,
                 _openAiOptions.ApiKey,
                 chatModel,
@@ -167,6 +167,48 @@ public class OllamaClient
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiChatResponse>(cancellationToken);
             return payload?.Choices?.FirstOrDefault()?.Message?.Content;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<string?> GenerateOpenAiResponsesAsync(
+        string baseUrl,
+        string apiKey,
+        string model,
+        string prompt,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/responses");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = JsonContent.Create(new
+            {
+                model,
+                input = prompt,
+                temperature = 0.2
+            });
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<OpenAiResponsesResponse>(cancellationToken);
+            return payload?.OutputText
+                ?? payload?.Output?
+                    .SelectMany(x => x.Content ?? new List<OpenAiResponsesContent>())
+                    .Select(x => x.Text)
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
         }
         catch
         {
@@ -285,5 +327,26 @@ public class OllamaClient
     {
         [JsonPropertyName("embedding")]
         public float[]? Embedding { get; set; }
+    }
+
+    private sealed class OpenAiResponsesResponse
+    {
+        [JsonPropertyName("output_text")]
+        public string? OutputText { get; set; }
+
+        [JsonPropertyName("output")]
+        public List<OpenAiResponsesOutput>? Output { get; set; }
+    }
+
+    private sealed class OpenAiResponsesOutput
+    {
+        [JsonPropertyName("content")]
+        public List<OpenAiResponsesContent>? Content { get; set; }
+    }
+
+    private sealed class OpenAiResponsesContent
+    {
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
     }
 }
