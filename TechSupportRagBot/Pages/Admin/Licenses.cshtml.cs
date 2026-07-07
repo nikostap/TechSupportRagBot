@@ -51,7 +51,9 @@ public class LicensesModel : PageModel
             ClientId = Input.ClientId,
             MachineId = Input.MachineId,
             Key = LicenseKeyGenerator.Generate(),
-            ExpiresAt = Input.ExpiresAt
+            ExpiresAt = Input.ExpiresAt.HasValue
+                ? DateTime.SpecifyKind(Input.ExpiresAt.Value.Date, DateTimeKind.Utc)
+                : null
         };
 
         _db.Licenses.Add(license);

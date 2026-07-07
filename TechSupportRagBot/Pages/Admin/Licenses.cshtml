@@ -20,7 +20,9 @@
         <label>Станок
             <select asp-for="Input.MachineId" asp-items="Model.MachineOptions"></select>
         </label>
-        <label>Действует до<input asp-for="Input.ExpiresAt" type="date" /></label>
+        <label>Действует до
+            <input asp-for="Input.ExpiresAt" type="date" />
+        </label>
         <button class="btn-main" type="submit">Создать лицензию</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
@@ -29,7 +31,15 @@
         <h2>Ключи доступа</h2>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Ключ</th><th>Клиент</th><th>Станок</th><th>Статус</th><th></th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Ключ</th>
+                        <th>Клиент</th>
+                        <th>Станок</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
                 @foreach (var license in Model.Licenses)
                 {
