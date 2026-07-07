@@ -159,6 +159,10 @@ public class TicketModel : PageModel
             {
                 ok = createdMessage != null,
                 messageId = createdMessage?.Id,
+                text = createdMessage?.Text,
+                authorName = "Вы",
+                createdAt = createdMessage?.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                lastMessageId = createdMessage?.Id,
                 attachment = createdAttachment == null
                     ? null
                     : new
@@ -300,7 +304,12 @@ public class TicketModel : PageModel
         return new JsonResult(new
         {
             ok = true,
-            escalated = result.ShouldEscalate
+            escalated = result.ShouldEscalate,
+            messageId = botMessage.Id,
+            text = botMessage.Text,
+            authorName = "Бот",
+            createdAt = botMessage.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+            lastMessageId = botMessage.Id
         });
     }
 

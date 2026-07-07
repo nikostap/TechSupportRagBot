@@ -16,5 +16,14 @@ public class ChatHub : Hub
         return Groups.RemoveFromGroupAsync(Context.ConnectionId, TicketGroup(ticketId));
     }
 
+    public Task Typing(int ticketId, string displayName)
+    {
+        return Clients.OthersInGroup(TicketGroup(ticketId)).SendAsync("UserTyping", new
+        {
+            ticketId,
+            displayName
+        });
+    }
+
     public static string TicketGroup(int ticketId) => $"ticket:{ticketId}";
 }

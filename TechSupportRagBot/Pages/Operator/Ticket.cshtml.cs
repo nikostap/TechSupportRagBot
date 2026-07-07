@@ -189,6 +189,10 @@ public class TicketModel : PageModel
             {
                 ok = createdMessage != null,
                 messageId = createdMessage?.Id,
+                text = createdMessage?.Text,
+                authorName = "Вы",
+                createdAt = createdMessage?.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                lastMessageId = createdMessage?.Id,
                 attachment = createdAttachment == null
                     ? null
                     : new

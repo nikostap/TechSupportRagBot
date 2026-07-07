@@ -34,6 +34,7 @@
          data-message-count="@Model.Messages.Count"
          data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
+         data-current-user-name="@(User.Identity?.Name ?? "Клиент")"
          data-ask-bot="@Model.ShouldAskBot.ToString().ToLowerInvariant()"
          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping", "Бот печатает")">
         @foreach (var item in Model.Messages)

@@ -3,6 +3,7 @@
   const botForm = document.getElementById("botRequestForm");
   const translationForm = document.getElementById("translationRequestForm");
   const isEnglish = document.documentElement.lang === "en";
+  let chatConnection = null;
 
   function text(ru, en) {
     return isEnglish ? en : ru;
@@ -23,6 +24,45 @@
     return node;
   }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function updateKnownSnapshot(lastMessageId) {
+    if (!chatShell) {
+      return;
+    }
+
+    const currentCount = Number(chatShell.dataset.messageCount || "0");
+    chatShell.dataset.messageCount = String(currentCount + 1);
+    if (lastMessageId) {
+      chatShell.dataset.lastMessageId = String(lastMessageId);
+    }
+  }
+
+  function appendChatMessage(payload, className) {
+    if (!chatShell || !payload?.text) {
+      return;
+    }
+
+    const message = document.createElement("div");
+    message.className = `message ${className || "mine"}`;
+    message.innerHTML = `
+      <div class="message-meta">
+        <span>${escapeHtml(payload.authorName || text("Вы", "You"))}</span>
+        <span class="message-meta-actions"><span>${escapeHtml(payload.createdAt || "")}</span></span>
+      </div>
+      <p>${escapeHtml(payload.text)}</p>`;
+    chatShell.appendChild(message);
+    updateKnownSnapshot(payload.lastMessageId || payload.messageId);
+    scrollChatToBottom();
+  }
+
   async function requestBotAnswer() {
     if (!chatShell || !botForm || chatShell.dataset.askBot !== "true") {
       return;
@@ -36,14 +76,25 @@
     scrollChatToBottom();
 
     try {
-      await fetch(`?handler=Bot&id=${encodeURIComponent(ticketId)}`, {
+      const response = await fetch(`?handler=Bot&id=${encodeURIComponent(ticketId)}`, {
         method: "POST",
         headers: {
+          "Accept": "application/json",
           "RequestVerificationToken": token || ""
         }
       });
+      const payload = await response.json();
+      if (payload.ok) {
+        typing.remove();
+        appendChatMessage(payload, "bot");
+        if (payload.escalated) {
+          chatShell.dataset.ticketStatus = "WaitingForOperator";
+        } else {
+          chatShell.dataset.ticketStatus = "BotAnswered";
+        }
+      }
     } finally {
-      window.location.reload();
+      typing.remove();
     }
   }
 
@@ -59,21 +110,49 @@
     });
   }
 
-  function setupLocalTyping() {
-    const form = document.querySelector(".typing-form");
-    const indicator = document.querySelector(".operator-compose");
-    const textarea = form?.querySelector("textarea");
-    if (!form || !indicator || !textarea) {
+  function showRemoteTyping(displayName) {
+    if (!chatShell) {
       return;
     }
 
-    let timer = 0;
-    textarea.addEventListener("input", () => {
-      indicator.hidden = false;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        indicator.hidden = true;
-      }, 1200);
+    let indicator = document.querySelector(".remote-typing-indicator");
+    if (!indicator) {
+      indicator = document.querySelector(".operator-typing");
+    }
+    if (!indicator) {
+      indicator = document.createElement("div");
+      indicator.className = "typing-indicator remote-typing-indicator";
+      chatShell.insertAdjacentElement("afterend", indicator);
+    }
+
+    indicator.textContent = `${displayName || text("Собеседник", "Contact")} ${text("печатает", "is typing")}`;
+    indicator.hidden = false;
+    window.clearTimeout(Number(indicator.dataset.hideTimer || 0));
+    indicator.dataset.hideTimer = String(window.setTimeout(() => {
+      indicator.hidden = true;
+    }, 1600));
+  }
+
+  function setupTypingBroadcast(connection) {
+    const form = document.querySelector(".chat-form");
+    const textarea = form?.querySelector("textarea");
+    if (!chatShell || !form || !textarea || !connection) {
+      return;
+    }
+
+    let lastSentAt = 0;
+    textarea.addEventListener("input", async () => {
+      const now = Date.now();
+      if (now - lastSentAt < 1200 || connection.state !== signalR.HubConnectionState.Connected) {
+        return;
+      }
+
+      lastSentAt = now;
+      try {
+        await connection.invoke("Typing", Number(chatShell.dataset.ticketId), chatShell.dataset.currentUserName || "");
+      } catch {
+        // Индикатор печати не должен мешать набору сообщения.
+      }
     });
   }
 
@@ -296,6 +375,63 @@
     });
   }
 
+  function setupChatAjaxMessages() {
+    document.querySelectorAll("form.chat-form").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        const fileInput = form.querySelector("input[type='file']");
+        const file = fileInput?.files?.[0];
+        if (file) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (form.dataset.submitting === "true") {
+          return;
+        }
+
+        const textarea = form.querySelector("textarea");
+        if (!textarea || !textarea.value.trim()) {
+          return;
+        }
+
+        form.dataset.submitting = "true";
+        form.setAttribute("aria-busy", "true");
+        const submitButton = form.querySelector("button[type='submit']");
+        if (submitButton) {
+          submitButton.disabled = true;
+        }
+
+        try {
+          const response = await fetch(form.action || window.location.href, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+              "Accept": "application/json",
+              "X-Requested-With": "XMLHttpRequest"
+            },
+            cache: "no-store"
+          });
+          const payload = await response.json();
+          if (payload.ok) {
+            appendChatMessage(payload, "mine");
+            form.reset();
+            if (chatShell && botForm && !chatShell.dataset.operatorUserId && chatShell.dataset.ticketStatus !== "Closed") {
+              chatShell.dataset.askBot = "true";
+              requestBotAnswer();
+            }
+          }
+        } finally {
+          form.dataset.submitting = "false";
+          form.removeAttribute("aria-busy");
+          if (submitButton) {
+            submitButton.disabled = false;
+          }
+        }
+      }, true);
+    });
+  }
+
   function setupExistingVideoStatusPolling() {
     document.querySelectorAll("[data-video-attachment-id]").forEach((card) => {
       if (card.dataset.videoStatus === "Ready" || card.dataset.videoStatus === "Failed") {
@@ -412,10 +548,10 @@
           return;
         }
 
-        const changed = snapshot.status !== initial.status
+        const changed = snapshot.status !== (chatShell.dataset.ticketStatus || initial.status)
           || (snapshot.operatorUserId || "") !== initial.operatorUserId
-          || Number(snapshot.messageCount || 0) !== initial.messageCount
-          || Number(snapshot.lastMessageId || 0) !== initial.lastMessageId;
+          || Number(snapshot.messageCount || 0) !== Number(chatShell.dataset.messageCount || initial.messageCount)
+          || Number(snapshot.lastMessageId || 0) !== Number(chatShell.dataset.lastMessageId || initial.lastMessageId);
 
         if (changed) {
           window.location.reload();
@@ -576,7 +712,9 @@
       .withUrl("/hubs/chat")
       .withAutomaticReconnect()
       .build();
+    chatConnection = connection;
 
+    connection.on("UserTyping", (payload) => showRemoteTyping(payload?.displayName));
     connection.on("VideoProcessingStarted", (payload) => updateVideoCard(payload, false));
     connection.on("VideoProcessingProgress", updateVideoProgress);
     connection.on("VideoReady", (payload) => updateVideoCard(payload, false));
@@ -585,6 +723,7 @@
     try {
       await connection.start();
       await connection.invoke("JoinTicket", Number(ticketId));
+      setupTypingBroadcast(connection);
     } catch {
       // Если SignalR-клиент недоступен, существующий polling чата останется рабочим.
     }
@@ -625,8 +764,8 @@
   }
 
   setupFilePickers();
-  setupLocalTyping();
   setupCtrlEnterSubmit();
+  setupChatAjaxMessages();
   setupVideoAjaxUpload();
   setupExistingVideoStatusPolling();
   setupMessageDeleteConfirm();

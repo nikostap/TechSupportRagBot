@@ -41,6 +41,7 @@
          data-message-count="@Model.Messages.Count"
          data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
+         data-current-user-name="@(User.Identity?.Name ?? "Оператор")"
          data-track-operator-time="true">
         @foreach (var item in Model.Messages)
         {
@@ -146,10 +147,6 @@
     {
         @if (Model.CanWriteChat)
         {
-            <div class="typing-indicator operator-compose" hidden>
-                @(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")) @TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorTyping", "печатает")
-            </div>
-
             <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form typing-form">
                 <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>
                 <label class="file-picker">
