@@ -187,5 +187,26 @@ else
                 }
             </div>
         }
+
+        @if (Model.IsInternalUser)
+        {
+            <div class="panel dashboard-panel">
+                <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QuickActions", "Быстрые действия")</h2>
+                <div class="quick-action-list">
+                    @if (Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">Сотрудники</a> }
+                    @if (Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a> }
+                    @if (Model.Can("ManageMachines")) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</a> }
+                    @if (Model.Can("ManageLicenses")) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</a> }
+                    @if (Model.Can("ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</a> }
+                    @if (Model.Can("KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</a> }
+                    @if (Model.Can("QA")) { <a asp-page="/Admin/QA">QA</a> }
+                    @if (Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</a> }
+                    @if (Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">Учёт времени</a> }
+                    @if (Model.Can("Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</a> }
+                    @if (Model.Can("AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">Профили доступа</a> }
+                    @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea) { <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")</a> }
+                </div>
+            </div>
+        }
     </section>
 }
