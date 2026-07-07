@@ -33,7 +33,7 @@ public class UsersModel : PageModel
 
     public List<ApplicationUser> Users { get; private set; } = new();
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext)
         .Where(x => x.Key is AccessProfileService.Manager or AccessProfileService.Engineer or AccessProfileService.Observer)
         .ToList();
 

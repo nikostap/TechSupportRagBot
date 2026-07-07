@@ -25,7 +25,7 @@
                     <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Function")</th>
                     @foreach (var profile in Model.Profiles)
                     {
-                        <th>@profile.Name</th>
+                        <th>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, profile.Key)</th>
                     }
                 </tr>
             </thead>
@@ -33,7 +33,7 @@
             @foreach (var permission in Model.Permissions)
             {
                 <tr>
-                    <td>@permission.Name</td>
+                    <td>@TechSupportRagBot.Services.AccessProfileService.DisplayPermission(HttpContext, permission)</td>
                     @foreach (var profile in Model.Profiles)
                     {
                         var inputName = $"perm_{profile.Key}_{permission.Key}";

@@ -20,7 +20,7 @@ public class OperatorsModel : PageModel
 
     public IList<ApplicationUser> Operators { get; private set; } = new List<ApplicationUser>();
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext);
 
     public async Task OnGetAsync() => await LoadAsync();
 

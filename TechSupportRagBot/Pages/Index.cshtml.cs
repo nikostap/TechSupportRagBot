@@ -59,8 +59,8 @@ namespace TechSupportRagBot.Pages
             var user = await _userManager.GetUserAsync(User);
             DisplayName = user?.FullName ?? user?.UserName ?? User.Identity?.Name ?? string.Empty;
             ProfileName = user == null
-                ? AccessProfileService.DisplayProfile(null)
-                : AccessProfileService.DisplayProfile(await _access.ResolveProfileKeyAsync(user, HttpContext.RequestAborted));
+                ? AccessProfileService.DisplayProfile(HttpContext, null)
+                : AccessProfileService.DisplayProfile(HttpContext, await _access.ResolveProfileKeyAsync(user, HttpContext.RequestAborted));
             ShowOperatorArea = User.IsInRole("Operator");
             IsInternalUser = User.IsInRole("Admin");
 
@@ -78,15 +78,7 @@ namespace TechSupportRagBot.Pages
         public bool Can(string permission) =>
             Permissions.TryGetValue(permission, out var allowed) && allowed;
 
-        public string StatusName(string status) => status switch
-        {
-            TicketStatuses.New => "Новый",
-            TicketStatuses.BotAnswered => "Ответ бота",
-            TicketStatuses.WaitingForOperator => "Ждет оператора",
-            TicketStatuses.InProgress => "В работе",
-            TicketStatuses.Closed => "Закрыт",
-            _ => status
-        };
+        public string StatusName(string status) => UiText.Status(HttpContext, status);
 
         private async Task LoadAdminMetricsAsync()
         {

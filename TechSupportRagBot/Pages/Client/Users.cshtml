@@ -61,7 +61,7 @@
                         <td><code>@user.UserName</code></td>
                         <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
                         <td>@user.Position</td>
-                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(user.AccessProfile)</td>
+                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
                         <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
                         <td>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">

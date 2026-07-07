@@ -32,7 +32,7 @@ public class UserProfileModel : PageModel
     public IList<string> Roles { get; private set; } = new List<string>();
     public string Initials { get; private set; } = "CE";
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext);
 
     public async Task<IActionResult> OnGetAsync()
     {

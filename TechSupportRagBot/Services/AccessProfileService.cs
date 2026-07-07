@@ -16,36 +16,36 @@ public class AccessProfileService
     public const string Administrator = "Administrator";
     public const string Observer = "Observer";
 
-    public static readonly IReadOnlyList<(string Key, string Name)> ProfileOptions =
+    public static readonly IReadOnlyList<(string Key, string NameKey)> ProfileOptions =
     [
-        (Manager, "Менеджер"),
-        (Engineer, "Инженер"),
-        (Operator, "Оператор"),
-        (Programmer, "Программист"),
-        (Administrator, "Администратор"),
-        (Observer, "Наблюдатель")
+        (Manager, "ProfileManager"),
+        (Engineer, "ProfileEngineer"),
+        (Operator, "ProfileOperator"),
+        (Programmer, "ProfileProgrammer"),
+        (Administrator, "ProfileAdministrator"),
+        (Observer, "ProfileObserver")
     ];
 
     public static readonly IReadOnlyList<AccessPermissionDefinition> PermissionDefinitions =
     [
-        new("AdminDashboard", "Админ-панель"),
-        new("ManageAdmins", "Сотрудники"),
-        new("ManageClients", "Клиенты"),
-        new("ManageMachines", "Станки"),
-        new("ManageLicenses", "Лицензии"),
-        new("ManageOperators", "Операторы"),
-        new("KnowledgeBase", "База знаний"),
-        new("QA", "QA вопросы-ответы"),
-        new("Tickets", "Обращения"),
-        new("TimeTracking", "Учёт времени"),
-        new("Settings", "Настройки"),
-        new("AccessProfiles", "Профили доступа"),
-        new("ClientCabinet", "Кабинет клиента"),
-        new("CreateTickets", "Создание обращений"),
-        new("CompanyUsers", "Пользователи компании"),
-        new("OperatorQueue", "Кабинет оператора"),
-        new("ChatWrite", "Писать в чатах"),
-        new("CloseTickets", "Закрывать обращения")
+        new("AdminDashboard", "PermissionAdminDashboard"),
+        new("ManageAdmins", "PermissionManageAdmins"),
+        new("ManageClients", "PermissionManageClients"),
+        new("ManageMachines", "PermissionManageMachines"),
+        new("ManageLicenses", "PermissionManageLicenses"),
+        new("ManageOperators", "PermissionManageOperators"),
+        new("KnowledgeBase", "PermissionKnowledgeBase"),
+        new("QA", "PermissionQA"),
+        new("Tickets", "PermissionTickets"),
+        new("TimeTracking", "PermissionTimeTracking"),
+        new("Settings", "PermissionSettings"),
+        new("AccessProfiles", "PermissionAccessProfiles"),
+        new("ClientCabinet", "PermissionClientCabinet"),
+        new("CreateTickets", "PermissionCreateTickets"),
+        new("CompanyUsers", "PermissionCompanyUsers"),
+        new("OperatorQueue", "PermissionOperatorQueue"),
+        new("ChatWrite", "PermissionChatWrite"),
+        new("CloseTickets", "PermissionCloseTickets")
     ];
 
     private readonly ApplicationDbContext _db;
@@ -183,16 +183,25 @@ public class AccessProfileService
         var normalized = value.Trim();
         var option = ProfileOptions.FirstOrDefault(x =>
             x.Key.Equals(normalized, StringComparison.OrdinalIgnoreCase)
-            || x.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase));
+            || x.NameKey.Equals(normalized, StringComparison.OrdinalIgnoreCase));
 
         return string.IsNullOrWhiteSpace(option.Key) ? Observer : option.Key;
     }
 
-    public static string DisplayProfile(string? value)
+    public static IReadOnlyList<(string Key, string Name)> GetProfileOptions(HttpContext context) =>
+        ProfileOptions
+            .Select(x => (x.Key, UiText.T(context, x.NameKey)))
+            .ToList();
+
+    public static string DisplayProfile(HttpContext context, string? value)
     {
         var key = NormalizeProfileKey(value);
-        return ProfileOptions.FirstOrDefault(x => x.Key == key).Name ?? key;
+        var nameKey = ProfileOptions.FirstOrDefault(x => x.Key == key).NameKey;
+        return string.IsNullOrWhiteSpace(nameKey) ? key : UiText.T(context, nameKey);
     }
+
+    public static string DisplayPermission(HttpContext context, AccessPermissionDefinition permission) =>
+        UiText.T(context, permission.NameKey);
 
     public static string? PermissionForPath(PathString path)
     {
@@ -253,37 +262,37 @@ public class AccessProfileService
             new AccessProfileRule
             {
                 Key = Manager,
-                Name = "Менеджер",
+                Name = "ProfileManager",
                 Permissions = Only("ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite")
             },
             new AccessProfileRule
             {
                 Key = Engineer,
-                Name = "Инженер",
+                Name = "ProfileEngineer",
                 Permissions = Only("ClientCabinet", "CreateTickets", "ChatWrite")
             },
             new AccessProfileRule
             {
                 Key = Operator,
-                Name = "Оператор",
+                Name = "ProfileOperator",
                 Permissions = Only("OperatorQueue", "Tickets", "ChatWrite", "CloseTickets")
             },
             new AccessProfileRule
             {
                 Key = Programmer,
-                Name = "Программист",
+                Name = "ProfileProgrammer",
                 Permissions = Only("AdminDashboard", "ManageMachines", "KnowledgeBase", "QA", "Tickets", "Settings", "ChatWrite")
             },
             new AccessProfileRule
             {
                 Key = Administrator,
-                Name = "Администратор",
+                Name = "ProfileAdministrator",
                 Permissions = all
             },
             new AccessProfileRule
             {
                 Key = Observer,
-                Name = "Наблюдатель",
+                Name = "ProfileObserver",
                 Permissions = Only("AdminDashboard", "Tickets", "ClientCabinet", "OperatorQueue")
             }
         ];
@@ -311,4 +320,4 @@ public sealed class AccessProfileRule
     public Dictionary<string, bool> Permissions { get; set; } = new();
 }
 
-public sealed record AccessPermissionDefinition(string Key, string Name);
+public sealed record AccessPermissionDefinition(string Key, string NameKey);

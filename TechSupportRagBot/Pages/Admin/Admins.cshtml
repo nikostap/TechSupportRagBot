@@ -63,7 +63,7 @@
                         <td>@user.Email</td>
                         <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
                         <td>@user.Position</td>
-                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(user.AccessProfile)</td>
+                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
                         <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
                         <td class="table-actions">
                             <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</a>

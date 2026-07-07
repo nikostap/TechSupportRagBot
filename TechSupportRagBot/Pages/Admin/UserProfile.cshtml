@@ -33,7 +33,7 @@
         <dl class="profile-details">
             <div><dt>Email</dt><dd>@(Model.EditedUser?.Email ?? "—")</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</dt><dd>@(Model.EditedUser?.Position ?? "—")</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(Model.EditedUser?.AccessProfile)</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, Model.EditedUser?.AccessProfile)</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(Model.EditedUser?.Country)</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
