@@ -12,48 +12,87 @@
 </section>
 
 <div class="settings-layout">
-    <form method="post" class="panel">
-        <h2>Ollama</h2>
+    <form method="post" class="panel" id="rag-settings-form">
+        <h2>Модели и провайдеры</h2>
 
         @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
         {
             <div class="notice-success">@Model.StatusMessage</div>
         }
 
-        @if (Model.Models.Count == 0)
-        {
-            <div class="notice-error">Ollama не вернул список моделей. Проверьте, что Ollama запущен.</div>
-        }
+        <label>Провайдер LLM
+            <select asp-for="Input.ChatProvider" id="chat-provider">
+                <option value="Ollama">Ollama</option>
+                <option value="OpenAI">OpenAI</option>
+                <option value="DeepSeek">DeepSeek</option>
+            </select>
+        </label>
 
         <label>LLM модель
-            <select asp-for="Input.ChatModel">
-                @foreach (var item in Model.Models)
+            <input asp-for="Input.ChatModel" list="chat-models" autocomplete="off" placeholder="Например: llama3.1, gpt-4.1-mini, deepseek-chat" />
+            <datalist id="chat-models">
+                @foreach (var item in Model.Models.Where(x => !x.IsLikelyEmbedding))
                 {
-                    <option value="@item.Name">@item.Name</option>
+                    <option value="@item.Name"></option>
                 }
+                <option value="gpt-4.1-mini"></option>
+                <option value="gpt-4.1"></option>
+                <option value="deepseek-chat"></option>
+                <option value="deepseek-reasoner"></option>
+            </datalist>
+        </label>
+
+        <label>Провайдер embeddings
+            <select asp-for="Input.EmbeddingProvider" id="embedding-provider">
+                <option value="Ollama">Ollama</option>
+                <option value="OpenAI">OpenAI</option>
             </select>
         </label>
 
         <label>Embedding модель
-            <select asp-for="Input.EmbeddingModel">
-                @foreach (var item in Model.Models)
+            <input asp-for="Input.EmbeddingModel" list="embedding-models" autocomplete="off" placeholder="Например: embeddinggemma, text-embedding-3-small" />
+            <datalist id="embedding-models">
+                @foreach (var item in Model.Models.Where(x => x.IsLikelyEmbedding))
                 {
-                    <option value="@item.Name">@(item.IsLikelyEmbedding ? "• " : "")@item.Name</option>
+                    <option value="@item.Name"></option>
                 }
-            </select>
+                <option value="text-embedding-3-small"></option>
+                <option value="text-embedding-3-large"></option>
+            </datalist>
         </label>
+
+        @if (Model.Models.Count == 0)
+        {
+            <div class="notice-soft" data-provider-note="Ollama">
+                Ollama не вернул список моделей. Это нормально, если выбран OpenAI или DeepSeek. Для Ollama проверьте, что сервис запущен и доступен приложению.
+            </div>
+        }
+
+        @if (!Model.HasOpenAiKey)
+        {
+            <div class="notice-soft" data-provider-note="OpenAI">
+                OpenAI API key не задан. Укажите переменную окружения <code>OpenAI__ApiKey</code>.
+            </div>
+        }
+
+        @if (!Model.HasDeepSeekKey)
+        {
+            <div class="notice-soft" data-provider-note="DeepSeek">
+                DeepSeek API key не задан. Укажите переменную окружения <code>DeepSeek__ApiKey</code>.
+            </div>
+        }
 
         <h2>Почтовые уведомления</h2>
         <label>Отправлять письмо, если сообщение не прочитано, минут
             <input asp-for="Input.UnreadEmailDelayMinutes" type="number" min="5" max="1440" step="5" />
         </label>
 
-        <button class="btn-main" type="submit">Сохранить настройки</button>
+        <button class="btn-main" type="submit">Сохранить</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <section class="panel">
-        <h2>Установленные модели</h2>
+        <h2>Модели Ollama</h2>
         <div class="table-wrap">
             <table>
                 <thead>
@@ -65,6 +104,12 @@
                     </tr>
                 </thead>
                 <tbody>
+                @if (Model.Models.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4">Список моделей Ollama недоступен.</td>
+                    </tr>
+                }
                 @foreach (var item in Model.Models)
                 {
                     <tr>

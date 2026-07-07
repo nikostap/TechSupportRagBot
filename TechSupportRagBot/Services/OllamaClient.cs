@@ -53,12 +53,14 @@ public class OllamaClient
 
     public async Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default)
     {
-        if (_options.EmbeddingProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        var embeddingProvider = await _settings.GetEmbeddingProviderAsync(cancellationToken);
+
+        if (embeddingProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
         {
             return await EmbedOpenAiAsync(text, cancellationToken);
         }
 
-        if (_options.EmbeddingProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
+        if (embeddingProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -87,29 +89,31 @@ public class OllamaClient
 
     public async Task<string?> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
-        if (_options.ChatProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        var chatProvider = await _settings.GetChatProviderAsync(cancellationToken);
+        var chatModel = await _settings.GetChatModelAsync(cancellationToken);
+
+        if (chatProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
         {
             return await GenerateOpenAiCompatibleAsync(
                 _openAiOptions.BaseUrl,
                 _openAiOptions.ApiKey,
-                _openAiOptions.ChatModel,
+                chatModel,
                 prompt,
                 cancellationToken);
         }
 
-        if (_options.ChatProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
+        if (chatProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
         {
             return await GenerateOpenAiCompatibleAsync(
                 _deepSeekOptions.BaseUrl,
                 _deepSeekOptions.ApiKey,
-                _deepSeekOptions.ChatModel,
+                chatModel,
                 prompt,
                 cancellationToken);
         }
 
         try
         {
-            var chatModel = await _settings.GetChatModelAsync(cancellationToken);
             var response = await _httpClient.PostAsJsonAsync(
                 $"{_options.OllamaBaseUrl.TrimEnd('/')}/api/generate",
                 new { model = chatModel, prompt, stream = false },
@@ -179,11 +183,12 @@ public class OllamaClient
 
         try
         {
+            var embeddingModel = await _settings.GetEmbeddingModelAsync(cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiOptions.BaseUrl.TrimEnd('/')}/embeddings");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _openAiOptions.ApiKey);
             request.Content = JsonContent.Create(new
             {
-                model = _openAiOptions.EmbeddingModel,
+                model = embeddingModel,
                 input = text
             });
 

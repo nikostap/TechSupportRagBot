@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
@@ -11,17 +12,29 @@ public class SettingsModel : PageModel
 {
     private readonly OllamaClient _ollama;
     private readonly SystemSettingsService _settings;
+    private readonly OpenAiOptions _openAiOptions;
+    private readonly DeepSeekOptions _deepSeekOptions;
 
-    public SettingsModel(OllamaClient ollama, SystemSettingsService settings)
+    public SettingsModel(
+        OllamaClient ollama,
+        SystemSettingsService settings,
+        IOptions<OpenAiOptions> openAiOptions,
+        IOptions<DeepSeekOptions> deepSeekOptions)
     {
         _ollama = ollama;
         _settings = settings;
+        _openAiOptions = openAiOptions.Value;
+        _deepSeekOptions = deepSeekOptions.Value;
     }
 
     [BindProperty]
     public SettingsInput Input { get; set; } = new();
 
     public IReadOnlyList<OllamaClient.OllamaModelInfo> Models { get; private set; } = Array.Empty<OllamaClient.OllamaModelInfo>();
+
+    public bool HasOpenAiKey => !string.IsNullOrWhiteSpace(_openAiOptions.ApiKey);
+
+    public bool HasDeepSeekKey => !string.IsNullOrWhiteSpace(_deepSeekOptions.ApiKey);
 
     public string? StatusMessage { get; private set; }
 
@@ -39,7 +52,13 @@ public class SettingsModel : PageModel
             return Page();
         }
 
-        await _settings.SaveModelsAsync(Input.ChatModel, Input.EmbeddingModel, HttpContext.RequestAborted);
+        await _settings.SaveModelsAsync(
+            Input.ChatProvider,
+            Input.EmbeddingProvider,
+            Input.ChatModel,
+            Input.EmbeddingModel,
+            HttpContext.RequestAborted);
+
         await _settings.SaveNotificationsAsync(Input.UnreadEmailDelayMinutes, HttpContext.RequestAborted);
         StatusMessage = "Настройки сохранены.";
         await LoadAsync();
@@ -52,6 +71,8 @@ public class SettingsModel : PageModel
 
         if (fillInput)
         {
+            Input.ChatProvider = await _settings.GetChatProviderAsync(HttpContext.RequestAborted);
+            Input.EmbeddingProvider = await _settings.GetEmbeddingProviderAsync(HttpContext.RequestAborted);
             Input.ChatModel = await _settings.GetChatModelAsync(HttpContext.RequestAborted);
             Input.EmbeddingModel = await _settings.GetEmbeddingModelAsync(HttpContext.RequestAborted);
             Input.UnreadEmailDelayMinutes = await _settings.GetUnreadEmailDelayMinutesAsync(HttpContext.RequestAborted);
@@ -79,6 +100,12 @@ public class SettingsModel : PageModel
 
     public class SettingsInput
     {
+        [Required]
+        public string ChatProvider { get; set; } = "Ollama";
+
+        [Required]
+        public string EmbeddingProvider { get; set; } = "Ollama";
+
         [Required]
         public string ChatModel { get; set; } = string.Empty;
 

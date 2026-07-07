@@ -21,13 +21,25 @@ public class SystemSettingsService
         return await GetValueAsync(SystemSettingKeys.OllamaChatModel, _ragOptions.ChatModel, cancellationToken);
     }
 
+    public async Task<string> GetChatProviderAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetValueAsync(SystemSettingKeys.RagChatProvider, _ragOptions.ChatProvider, cancellationToken);
+    }
+
+    public async Task<string> GetEmbeddingProviderAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetValueAsync(SystemSettingKeys.RagEmbeddingProvider, _ragOptions.EmbeddingProvider, cancellationToken);
+    }
+
     public async Task<string> GetEmbeddingModelAsync(CancellationToken cancellationToken = default)
     {
         return await GetValueAsync(SystemSettingKeys.OllamaEmbeddingModel, _ragOptions.EmbeddingModel, cancellationToken);
     }
 
-    public async Task SaveModelsAsync(string chatModel, string embeddingModel, CancellationToken cancellationToken = default)
+    public async Task SaveModelsAsync(string chatProvider, string embeddingProvider, string chatModel, string embeddingModel, CancellationToken cancellationToken = default)
     {
+        await SetValueAsync(SystemSettingKeys.RagChatProvider, NormalizeProvider(chatProvider), cancellationToken);
+        await SetValueAsync(SystemSettingKeys.RagEmbeddingProvider, NormalizeProvider(embeddingProvider), cancellationToken);
         await SetValueAsync(SystemSettingKeys.OllamaChatModel, chatModel, cancellationToken);
         await SetValueAsync(SystemSettingKeys.OllamaEmbeddingModel, embeddingModel, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
@@ -47,6 +59,16 @@ public class SystemSettingsService
 
     public async Task SeedDefaultsAsync(CancellationToken cancellationToken = default)
     {
+        if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.RagChatProvider, cancellationToken))
+        {
+            _db.SystemSettings.Add(new SystemSetting { Key = SystemSettingKeys.RagChatProvider, Value = NormalizeProvider(_ragOptions.ChatProvider) });
+        }
+
+        if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.RagEmbeddingProvider, cancellationToken))
+        {
+            _db.SystemSettings.Add(new SystemSetting { Key = SystemSettingKeys.RagEmbeddingProvider, Value = NormalizeProvider(_ragOptions.EmbeddingProvider) });
+        }
+
         if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.OllamaChatModel, cancellationToken))
         {
             _db.SystemSettings.Add(new SystemSetting { Key = SystemSettingKeys.OllamaChatModel, Value = _ragOptions.ChatModel });
@@ -63,6 +85,21 @@ public class SystemSettingsService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string NormalizeProvider(string provider)
+    {
+        if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        {
+            return "OpenAI";
+        }
+
+        if (provider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
+        {
+            return "DeepSeek";
+        }
+
+        return "Ollama";
     }
 
     private async Task<string> GetValueAsync(string key, string fallback, CancellationToken cancellationToken)
