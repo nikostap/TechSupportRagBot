@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
@@ -295,6 +296,7 @@ public class RagSearchService : IRagSearchService
     {
         var isPostgres = IsPostgres();
         var query = isPostgres ? request.Question : BuildFtsQuery(request.Question);
+        var fallbackQuery = isPostgres ? BuildPostgresOrQuery(request.Question) : null;
         if (string.IsNullOrWhiteSpace(query))
         {
             return Array.Empty<SearchHit>();
@@ -306,6 +308,7 @@ public class RagSearchService : IRagSearchService
             await connection.OpenAsync(cancellationToken);
         }
 
+        var result = new List<SearchHit>();
         await using var command = connection.CreateCommand();
         if (isPostgres)
         {
@@ -343,6 +346,59 @@ public class RagSearchService : IRagSearchService
             AddParameter(command, "@machineModel", request.MachineModel);
             AddParameter(command, "@serialNumber", request.SerialNumber);
             AddParameter(command, "@limit", Math.Max(50, request.KeywordTopK));
+
+            await ReadKeywordHitsAsync(command, result, isPostgres, cancellationToken);
+
+            // websearch_to_tsquery требует совпадения всех значимых слов.
+            // Для технических вопросов это слишком строго: "установить датчик S03"
+            // должно находить "настроить датчик S03" по точным терминам датчик/S03.
+            if (result.Count == 0 && !string.IsNullOrWhiteSpace(fallbackQuery))
+            {
+                await using var fallbackCommand = connection.CreateCommand();
+                fallbackCommand.CommandText = """
+                    SELECT f."ChunkId",
+                           ts_rank_cd(to_tsvector('simple', coalesce(f."SearchText", '')), to_tsquery('simple', @query)) AS "RankScore"
+                    FROM "KnowledgeChunksFts" f
+                    LEFT JOIN "KnowledgeChunks" c ON c."Id" = f."ChunkId"
+                    LEFT JOIN "KnowledgeDocuments" d ON d."Id" = c."KnowledgeDocumentId"
+                    WHERE to_tsvector('simple', coalesce(f."SearchText", '')) @@ to_tsquery('simple', @query)
+                      AND (
+                            @machineId IS NULL
+                            OR c."MachineId" = @machineId
+                            OR d."AppliesToAllMachines" = TRUE
+                            OR (c."DocumentType" = 'QA' AND COALESCE(c."MachineModel", '') = '' AND COALESCE(c."SerialNumber", '') = '')
+                            OR (@serialNumber IS NOT NULL AND COALESCE(c."SerialNumber", d."SerialNumber") <> '')
+                            OR (
+                                @machineModel IS NOT NULL
+                                AND COALESCE(c."MachineModel", '') <> ''
+                                AND (
+                                    @machineModel = c."MachineModel"
+                                    OR @machineModel LIKE c."MachineModel" || '-%'
+                                    OR @machineModel LIKE c."MachineModel" || ' %'
+                                    OR c."MachineModel" LIKE @machineModel || '-%'
+                                    OR c."MachineModel" LIKE @machineModel || ' %'
+                                )
+                            )
+                            OR (@machineModel IS NOT NULL AND COALESCE(c."MachineModel", d."MachineModel") = @machineModel)
+                          )
+                    ORDER BY "RankScore" DESC
+                    LIMIT @limit
+                    """;
+                AddParameter(fallbackCommand, "@query", fallbackQuery);
+                AddParameter(fallbackCommand, "@machineId", request.MachineId);
+                AddParameter(fallbackCommand, "@machineModel", request.MachineModel);
+                AddParameter(fallbackCommand, "@serialNumber", request.SerialNumber);
+                AddParameter(fallbackCommand, "@limit", Math.Max(50, request.KeywordTopK));
+                await ReadKeywordHitsAsync(fallbackCommand, result, isPostgres, cancellationToken);
+
+                await _audit.WriteAsync("Rag.KeywordFallback.Used", new
+                {
+                    request.MachineId,
+                    request.Question,
+                    fallbackQuery,
+                    hits = result.Select((hit, rank) => new { rank = rank + 1, hit.ChunkId, hit.KeywordScore })
+                }, request.TraceId, cancellationToken);
+            }
         }
         else
         {
@@ -379,18 +435,31 @@ public class RagSearchService : IRagSearchService
             AddParameter(command, "$machineModel", request.MachineModel);
             AddParameter(command, "$serialNumber", request.SerialNumber);
             AddParameter(command, "$limit", Math.Max(50, request.KeywordTopK));
+
+            await ReadKeywordHitsAsync(command, result, isPostgres, cancellationToken);
         }
 
-        var result = new List<SearchHit>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return result;
+    }
+
+    private static async Task ReadKeywordHitsAsync(
+        IDbCommand command,
+        List<SearchHit> result,
+        bool isPostgres,
+        CancellationToken cancellationToken)
+    {
+        if (command is not DbCommand dbCommand)
+        {
+            return;
+        }
+
+        await using var reader = await dbCommand.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             var rawScore = reader.GetDouble(1);
             var keywordScore = isPostgres ? Math.Max(0, rawScore) : Math.Max(0, -rawScore);
             result.Add(new SearchHit(reader.GetInt32(0), 0, keywordScore, 0, 0));
         }
-
-        return result;
     }
 
     private async Task CompleteMachineDataAsync(RagSearchRequest request, CancellationToken cancellationToken)
@@ -894,7 +963,7 @@ public class RagSearchService : IRagSearchService
         }
 
         // Настройка и регулировка чаще всего находятся в инструкциях и QA, даже если в вопросе есть слово "датчик".
-        if (ContainsAny(text, "настрой", "как настроить", "регулиров", "центрирован", "калибров", "setup", "setting", "adjust", "calibrat", "center"))
+        if (ContainsAny(text, "настрой", "как настроить", "установ", "регулиров", "центрирован", "калибров", "setup", "setting", "adjust", "calibrat", "center"))
         {
             return QueryIntent.Setup;
         }
@@ -1106,6 +1175,26 @@ public class RagSearchService : IRagSearchService
             .Select(x => $"\"{x.Replace("\"", "\"\"")}\"");
 
         return string.Join(" OR ", terms);
+    }
+
+    private static string BuildPostgresOrQuery(string question)
+    {
+        var terms = ExtractTerms(question)
+            .SelectMany(term => Regex.Split(term, @"[^\p{L}\p{N}]+"))
+            .Select(term => term.Trim().ToLowerInvariant())
+            .Where(term => term.Length >= 3)
+            .Distinct()
+            .Take(20)
+            .ToList();
+
+        if (terms.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        // to_tsquery принимает операторы, поэтому оставляем только буквы/цифры.
+        // Это сохраняет технические обозначения S03, SQ3, YV2, M12 и не ломает SQL.
+        return string.Join(" | ", terms.Select(term => term.Replace("'", "''")));
     }
 
     private static IEnumerable<string> ExtractTerms(string text)

@@ -9,11 +9,16 @@ public class QdrantKnowledgeClient
 {
     private readonly HttpClient _httpClient;
     private readonly RagOptions _options;
+    private readonly ILogger<QdrantKnowledgeClient> _logger;
 
-    public QdrantKnowledgeClient(HttpClient httpClient, Microsoft.Extensions.Options.IOptions<RagOptions> options)
+    public QdrantKnowledgeClient(
+        HttpClient httpClient,
+        Microsoft.Extensions.Options.IOptions<RagOptions> options,
+        ILogger<QdrantKnowledgeClient> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<bool> UpsertAsync(KnowledgeChunk chunk, float[] vector, string source, CancellationToken cancellationToken = default)
@@ -103,7 +108,7 @@ public class QdrantKnowledgeClient
                     should = new object[]
                     {
                         new { key = "machineId", match = new { value = machineId } },
-                        new { key = "machineId", is_empty = true }
+                        new { is_empty = new { key = "machineId" } }
                     }
                 }
             };
@@ -151,7 +156,7 @@ public class QdrantKnowledgeClient
             if (request.MachineId.HasValue)
             {
                 filterItems.Add(new { key = "machineId", match = new { value = request.MachineId.Value } });
-                filterItems.Add(new { key = "machineId", is_empty = true });
+                filterItems.Add(new { is_empty = new { key = "machineId" } });
             }
 
             if (!string.IsNullOrWhiteSpace(request.MachineModel))
@@ -179,6 +184,11 @@ public class QdrantKnowledgeClient
 
             if (!response.IsSuccessStatusCode)
             {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Qdrant dense search failed. Status={StatusCode}, Body={Body}",
+                    (int)response.StatusCode,
+                    error);
                 return Array.Empty<QdrantDenseSearchHit>();
             }
 

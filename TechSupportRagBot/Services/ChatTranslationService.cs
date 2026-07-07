@@ -61,7 +61,13 @@ public class ChatTranslationService
             return string.Empty;
         }
 
-        var normalizedSource = NormalizeLanguage(sourceLanguage);
+        var detectedSource = DetectMessageLanguage(text, sourceLanguage);
+        if (NormalizeLanguage(detectedSource) == "Russian")
+        {
+            return text;
+        }
+
+        var normalizedSource = NormalizeLanguage(detectedSource);
         var sourceCode = LanguageToLibreTranslateCode(normalizedSource);
         if (sourceCode == "ru")
         {
