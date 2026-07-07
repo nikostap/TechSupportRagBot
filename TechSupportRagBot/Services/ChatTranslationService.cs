@@ -1,10 +1,19 @@
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
+
 namespace TechSupportRagBot.Services;
 
 public class ChatTranslationService
 {
-    private readonly OllamaClient _ollama;
+    private readonly HttpClient _httpClient;
+    private readonly LibreTranslateOptions _options;
 
-    public ChatTranslationService(OllamaClient ollama) => _ollama = ollama;
+    public ChatTranslationService(HttpClient httpClient, IOptions<LibreTranslateOptions> options)
+    {
+        _httpClient = httpClient;
+        _options = options.Value;
+    }
 
     public async Task<string?> TranslateAsync(
         string text,
@@ -16,18 +25,47 @@ public class ChatTranslationService
             return null;
         }
 
-        var viewerLanguage = CountryToLanguage(viewerCountry);
-        var prompt = $"""
-        Translate the message into {viewerLanguage}.
-        Keep technical terms, error codes, sensor names, valve names and machine parts clear.
-        Return only the translation without explanations.
+        var targetLanguage = CountryToLanguage(viewerCountry);
+        var targetCode = LanguageToLibreTranslateCode(targetLanguage);
+        var sourceCode = LanguageToLibreTranslateCode(DetectMessageLanguage(text));
+        if (string.IsNullOrWhiteSpace(targetCode))
+        {
+            return null;
+        }
 
-        Message:
-        {text}
-        """;
+        if (sourceCode == targetCode)
+        {
+            return null;
+        }
 
-        var translation = await _ollama.GenerateAsync(prompt, cancellationToken);
-        return string.IsNullOrWhiteSpace(translation) ? null : translation.Trim();
+        try
+        {
+            var request = new LibreTranslateRequest
+            {
+                Query = text,
+                Source = sourceCode ?? "auto",
+                Target = targetCode,
+                Format = "text",
+                ApiKey = string.IsNullOrWhiteSpace(_options.ApiKey) ? null : _options.ApiKey
+            };
+
+            var response = await _httpClient.PostAsJsonAsync(
+                $"{_options.BaseUrl.TrimEnd('/')}/translate",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<LibreTranslateResponse>(cancellationToken);
+            return string.IsNullOrWhiteSpace(payload?.TranslatedText) ? null : payload.TranslatedText.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static bool NeedsTranslation(string? senderCountry, string? viewerCountry, string? text)
@@ -86,5 +124,51 @@ public class ChatTranslationService
             "belarus" or "by" or "беларусь" => "Russian",
             _ => country
         };
+    }
+
+    private static string? LanguageToLibreTranslateCode(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return null;
+        }
+
+        var value = language.Trim().ToLowerInvariant();
+        return value switch
+        {
+            "russian" or "русский" or "ru" => "ru",
+            "english" or "английский" or "en" => "en",
+            "german" or "немецкий" or "de" => "de",
+            "french" or "французский" or "fr" => "fr",
+            "italian" or "итальянский" or "it" => "it",
+            "spanish" or "испанский" or "es" => "es",
+            "chinese" or "китайский" or "zh" or "cn" => "zh",
+            "turkish" or "турецкий" or "tr" => "tr",
+            _ => value.Length == 2 ? value : null
+        };
+    }
+
+    private sealed class LibreTranslateRequest
+    {
+        [JsonPropertyName("q")]
+        public string Query { get; set; } = string.Empty;
+
+        [JsonPropertyName("source")]
+        public string Source { get; set; } = "auto";
+
+        [JsonPropertyName("target")]
+        public string Target { get; set; } = "en";
+
+        [JsonPropertyName("format")]
+        public string Format { get; set; } = "text";
+
+        [JsonPropertyName("api_key")]
+        public string? ApiKey { get; set; }
+    }
+
+    private sealed class LibreTranslateResponse
+    {
+        [JsonPropertyName("translatedText")]
+        public string? TranslatedText { get; set; }
     }
 }

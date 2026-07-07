@@ -36,3 +36,10 @@ public class DeepSeekOptions
 
     public string ChatModel { get; set; } = "deepseek-chat";
 }
+
+public class LibreTranslateOptions
+{
+    public string BaseUrl { get; set; } = "http://localhost:5000";
+
+    public string ApiKey { get; set; } = string.Empty;
+}
