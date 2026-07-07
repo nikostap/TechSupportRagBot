@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages;
 
@@ -22,7 +23,7 @@ public class ProfileModel : PageModel
     public string? Email { get; private set; }
     public string? Position { get; private set; }
     public string? Gender { get; private set; }
-    public string? Country { get; private set; }
+    public string? Language { get; private set; }
     public bool AutoTranslateMessages { get; private set; }
     public string Initials { get; private set; } = "CE";
 
@@ -46,7 +47,7 @@ public class ProfileModel : PageModel
         Email = user.Email;
         Position = user.Position;
         Gender = user.Gender;
-        Country = user.Country;
+        Language = ChatTranslationService.NormalizeLanguage(user.Country);
         AutoTranslateMessages = user.AutoTranslateMessages;
         Initials = string.Join("", (user.FullName ?? user.UserName ?? "CE")
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)

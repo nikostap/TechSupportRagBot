@@ -30,7 +30,14 @@
 
     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+        <select asp-for="Input.Language">
+            @foreach (var language in Model.LanguageOptions)
+            {
+                <option value="@language.Code">@language.Name</option>
+            }
+        </select>
+    </label>
     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
         <select asp-for="Input.Gender">
             <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>

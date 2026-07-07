@@ -29,19 +29,22 @@ public class SupportBotService
     private readonly ILogger<SupportBotService> _logger;
     private readonly RagAuditLogger _audit;
     private readonly ApplicationDbContext _db;
+    private readonly ChatTranslationService _translation;
 
     public SupportBotService(
         OllamaClient ollama,
         IRagSearchService ragSearch,
         ILogger<SupportBotService> logger,
         RagAuditLogger audit,
-        ApplicationDbContext db)
+        ApplicationDbContext db,
+        ChatTranslationService translation)
     {
         _ollama = ollama;
         _ragSearch = ragSearch;
         _logger = logger;
         _audit = audit;
         _db = db;
+        _translation = translation;
     }
 
     public async Task<BotAnswerResult> AnswerAsync(
@@ -53,14 +56,14 @@ public class SupportBotService
     {
         question = TextEncodingRepairService.RepairIfNeeded(question).Trim();
         conversationContext = TextEncodingRepairService.RepairIfNeeded(conversationContext);
-        var language = ChatTranslationService.DetectMessageLanguage(question, userCountry);
+        var language = ChatTranslationService.NormalizeLanguage(userCountry);
         var isEnglish = language.Equals("English", StringComparison.OrdinalIgnoreCase);
         var traceId = Guid.NewGuid().ToString("N");
 
         await _audit.WriteAsync("Bot.Request.Started", new
         {
             machineId,
-            userCountry,
+            userLanguage = userCountry,
             language,
             question,
             conversationContext
@@ -243,15 +246,7 @@ public class SupportBotService
             return question;
         }
 
-        var prompt = $"""
-        Translate this technical support question to Russian for search in a Russian machine documentation knowledge base.
-        Return only the translated question, no explanations.
-
-        Question:
-        {question}
-        """;
-        var translated = await _ollama.GenerateAsync(prompt, cancellationToken);
-        var retrievalQuestion = string.IsNullOrWhiteSpace(translated) ? question : translated.Trim().Trim('"');
+        var retrievalQuestion = await _translation.TranslateToRussianForSearchAsync(question, language, cancellationToken);
         await _audit.WriteAsync("Bot.RetrievalQuestion.Built", new
         {
             originalQuestion = question,

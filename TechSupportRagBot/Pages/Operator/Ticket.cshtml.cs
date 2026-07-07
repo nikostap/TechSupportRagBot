@@ -320,7 +320,7 @@ if (string.IsNullOrWhiteSpace(CurrentUserId))
             return new JsonResult(new { ok = false });
         }
 
-        var targetLanguage = ChatTranslationService.CountryToLanguage(currentUser.Country);
+        var targetLanguage = ChatTranslationService.NormalizeLanguage(currentUser.Country);
         var savedTranslation = await _db.ChatMessageTranslations
             .FirstOrDefaultAsync(x => x.ChatMessageId == messageId && x.TargetLanguage == targetLanguage);
         if (savedTranslation != null && savedTranslation.SourceText == rawMessage.Text)
@@ -332,7 +332,7 @@ if (string.IsNullOrWhiteSpace(CurrentUserId))
             });
         }
 
-        var translation = await _translation.TranslateAsync(rawMessage.Text, currentUser.Country);
+        var translation = await _translation.TranslateAsync(rawMessage.Text, rawMessage.AuthorUser?.Country, currentUser.Country);
         if (!string.IsNullOrWhiteSpace(translation))
         {
             if (savedTranslation == null)
@@ -438,7 +438,7 @@ if (string.IsNullOrWhiteSpace(CurrentUserId))
         {
             var viewerCountry = currentUser?.Country;
             var targetLanguage = currentUser?.AutoTranslateMessages == true
-                ? ChatTranslationService.CountryToLanguage(viewerCountry)
+                ? ChatTranslationService.NormalizeLanguage(viewerCountry)
                 : null;
             var needsTranslation = targetLanguage != null
                 && message.AuthorUserId != CurrentUserId

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages;
 
@@ -26,6 +27,7 @@ public class ProfileEditModel : PageModel
     public string? FullName { get; private set; }
     public string? UserName { get; private set; }
     public string Initials { get; private set; } = "CE";
+    public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -39,7 +41,7 @@ public class ProfileEditModel : PageModel
         Input.FullName = user.FullName;
         Input.Position = user.Position;
         Input.Gender = user.Gender;
-        Input.Country = user.Country;
+        Input.Language = ChatTranslationService.LanguageToLibreTranslateCode(user.Country) ?? "ru";
         Input.AutoTranslateMessages = user.AutoTranslateMessages;
         Input.WorkdayStart = MinutesToTime(user.WorkdayStartMinutes);
         Input.WorkdayEnd = MinutesToTime(user.WorkdayEndMinutes);
@@ -57,7 +59,7 @@ public class ProfileEditModel : PageModel
         user.FullName = Input.FullName;
         user.Position = Input.Position;
         user.Gender = Input.Gender;
-        user.Country = Input.Country;
+        user.Country = ChatTranslationService.NormalizeLanguage(Input.Language);
         user.AutoTranslateMessages = Input.AutoTranslateMessages;
         user.WorkdayStartMinutes = TimeToMinutes(Input.WorkdayStart, 8 * 60);
         user.WorkdayEndMinutes = TimeToMinutes(Input.WorkdayEnd, 17 * 60);
@@ -122,7 +124,7 @@ public class ProfileEditModel : PageModel
 
         public string? Gender { get; set; }
 
-        public string? Country { get; set; }
+        public string? Language { get; set; } = "ru";
 
         public bool AutoTranslateMessages { get; set; } = true;
 
