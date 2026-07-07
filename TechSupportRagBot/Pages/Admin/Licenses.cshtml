@@ -1,0 +1,52 @@
+@page
+@model TechSupportRagBot.Pages.Admin.LicensesModel
+@{
+    ViewData["Title"] = "Лицензии";
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Доступ</p>
+        <h1>Лицензии</h1>
+    </div>
+</section>
+
+<div class="split-layout">
+    <form method="post" class="panel">
+        <h2>Выдать ключ</h2>
+        <label>Клиент
+            <select asp-for="Input.ClientId" asp-items="Model.ClientOptions"></select>
+        </label>
+        <label>Станок
+            <select asp-for="Input.MachineId" asp-items="Model.MachineOptions"></select>
+        </label>
+        <label>Действует до<input asp-for="Input.ExpiresAt" type="date" /></label>
+        <button class="btn-main" type="submit">Создать лицензию</button>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <div class="panel">
+        <h2>Ключи доступа</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Ключ</th><th>Клиент</th><th>Станок</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var license in Model.Licenses)
+                {
+                    <tr>
+                        <td><code>@license.Key</code></td>
+                        <td>@license.Client?.Name</td>
+                        <td>@license.Machine?.Name</td>
+                        <td>@(license.IsActivated ? "Активирована" : "Выдана")</td>
+                        <td>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@license.Id" class="row-action">
+                                <button class="btn-danger" type="submit">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="@(Context.Request.Cookies["lang"] == "en" ? "en" : "ru")">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Class-Engineering Suport</title>
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="top-nav">
+            <div class="nav-inner">
+                <a class="brand" asp-area="" asp-page="/Index">Class-Engineering Suport</a>
+                <div class="nav-content">
+                    <ul class="nav-links">
+                        <li><a asp-area="" asp-page="/Index">@TechSupportRagBot.Services.UiText.T(Context, "Home", "Главная")</a></li>
+                    </ul>
+                    <partial name="_LoginPartial" />
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="app-container">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="app-footer">
+        <div class="app-container">
+            &copy; 2026 - Class-Engineering Suport
+        </div>
+    </footer>
+
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

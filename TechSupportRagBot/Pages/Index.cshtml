@@ -1,0 +1,15 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle", "Class-Engineering Suport");
+}
+
+<section class="home-hero">
+    <div class="hero-panel">
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow", "Локальная линия поддержки")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle", "Class-Engineering Suport")</h1>
+        <div class="hero-actions">
+            <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login", "Войти")</a>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,70 @@
+@page
+@model TechSupportRagBot.Pages.Admin.MachinesModel
+@{
+    ViewData["Title"] = "Станки";
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Администрирование</p>
+        <h1>Станки</h1>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.AlertMessage))
+{
+    <div class="notice-error">@Model.AlertMessage</div>
+}
+
+<div class="machines-admin-page">
+    <form method="post" class="panel machine-create-panel">
+        <h2>Новый станок</h2>
+        <div class="machine-create-grid">
+            <label>Название<input asp-for="Input.Name" /></label>
+            <label>Модель<input asp-for="Input.Model" /></label>
+            <label>Серийный номер<input asp-for="Input.SerialNumber" /></label>
+            <label>Описание<input asp-for="Input.Description" /></label>
+            <button class="btn-main" type="submit">Добавить</button>
+        </div>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <div class="panel machine-list-panel">
+        <h2>Парк станков</h2>
+        <div class="machine-admin-scroll">
+            <div class="machine-admin-list">
+                @foreach (var machine in Model.Machines)
+                {
+                    <div class="machine-admin-row">
+                        <form method="post" asp-page-handler="Update" asp-route-id="@machine.Id" class="machine-admin-form">
+                            <label>
+                                <span>Название</span>
+                                <input name="input.Name" value="@machine.Name" />
+                            </label>
+                            <label>
+                                <span>Модель</span>
+                                <input name="input.Model" value="@machine.Model" />
+                            </label>
+                            <label>
+                                <span>Серийный номер</span>
+                                <input name="input.SerialNumber" value="@machine.SerialNumber" />
+                            </label>
+                            <label>
+                                <span>Описание</span>
+                                <input name="input.Description" value="@machine.Description" placeholder="Описание" />
+                            </label>
+                            <div class="machine-admin-status">
+                                <span>Лицензия</span>
+                                <strong>@(machine.IsLicenseActivated ? "Активирована" : "Не активирована")</strong>
+                            </div>
+                            <button class="btn-secondary machine-row-button" type="submit">Сохранить</button>
+                        </form>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@machine.Id" class="machine-delete-form">
+                            <button class="btn-danger machine-row-button" type="submit">Удалить</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,81 @@
+@page
+@model TechSupportRagBot.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "System", "Система")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</h1>
+    </div>
+</section>
+
+<div class="settings-layout">
+    <form method="post" class="panel">
+        <h2>Ollama</h2>
+
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+            <div class="notice-success">@Model.StatusMessage</div>
+        }
+
+        @if (Model.Models.Count == 0)
+        {
+            <div class="notice-error">Ollama не вернул список моделей. Проверьте, что Ollama запущен.</div>
+        }
+
+        <label>LLM модель
+            <select asp-for="Input.ChatModel">
+                @foreach (var item in Model.Models)
+                {
+                    <option value="@item.Name">@item.Name</option>
+                }
+            </select>
+        </label>
+
+        <label>Embedding модель
+            <select asp-for="Input.EmbeddingModel">
+                @foreach (var item in Model.Models)
+                {
+                    <option value="@item.Name">@(item.IsLikelyEmbedding ? "• " : "")@item.Name</option>
+                }
+            </select>
+        </label>
+
+        <h2>Почтовые уведомления</h2>
+        <label>Отправлять письмо, если сообщение не прочитано, минут
+            <input asp-for="Input.UnreadEmailDelayMinutes" type="number" min="5" max="1440" step="5" />
+        </label>
+
+        <button class="btn-main" type="submit">Сохранить настройки</button>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <section class="panel">
+        <h2>Установленные модели</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Модель</th>
+                        <th>Тип</th>
+                        <th>Размер</th>
+                        <th>Обновлена</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Models)
+                {
+                    <tr>
+                        <td><code>@item.Name</code></td>
+                        <td>@(item.IsLikelyEmbedding ? "Embedding" : "LLM")</td>
+                        <td>@TechSupportRagBot.Pages.Admin.SettingsModel.FormatSize(item.Size)</td>
+                        <td>@(item.ModifiedAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

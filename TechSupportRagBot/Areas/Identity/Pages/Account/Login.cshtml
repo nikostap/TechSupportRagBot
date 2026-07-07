@@ -1,0 +1,28 @@
+@page
+@model TechSupportRagBot.Areas.Identity.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Вход";
+}
+
+<div class="auth-layout">
+    <form method="post" class="auth-card">
+        <p class="eyebrow">Class-Engineering Support</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Login", "Вход")</h1>
+        <input type="hidden" asp-for="ReturnUrl" />
+        <label>
+            @TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")
+            <input asp-for="Input.UserName" autocomplete="username" />
+        </label>
+        <label>
+            @TechSupportRagBot.Services.UiText.T(HttpContext, "Password", "Пароль")
+            <input asp-for="Input.Password" type="password" autocomplete="current-password" />
+        </label>
+        <label class="check-line">
+            <input asp-for="Input.RememberMe" />
+            @TechSupportRagBot.Services.UiText.T(HttpContext, "RememberMe", "Запомнить меня")
+        </label>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login", "Войти")</button>
+        <a class="muted-link" asp-page="./ForgotPassword">@TechSupportRagBot.Services.UiText.T(HttpContext, "Forgot password?", "Забыли пароль?")</a>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+</div>

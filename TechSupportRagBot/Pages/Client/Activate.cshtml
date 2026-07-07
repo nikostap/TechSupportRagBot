@@ -1,0 +1,23 @@
+@page
+@model TechSupportRagBot.Pages.Client.ActivateModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Activate", "Активация");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Access", "Доступ")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseActivation", "Активация лицензии")</h1>
+    </div>
+</section>
+
+<form method="post" class="panel narrow">
+    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseKey", "Лицензионный ключ")</h2>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Key", "Ключ")<input asp-for="Input.Key" autocomplete="off" /></label>
+    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Activate", "Активировать")</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <p class="notice">@Model.Message</p>
+    }
+    <div asp-validation-summary="All" class="text-danger"></div>
+</form>

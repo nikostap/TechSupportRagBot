@@ -1,0 +1,44 @@
+@page
+@model TechSupportRagBot.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Admin", "Администратор");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Dashboard", "Панель управления")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Admin", "Администратор")</h1>
+    </div>
+</section>
+
+<div class="metric-grid">
+    <a class="metric-card" asp-page="/Admin/Clients">
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</span>
+        <strong>@Model.ClientCount</strong>
+    </a>
+    <a class="metric-card blue" asp-page="/Admin/Machines">
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</span>
+        <strong>@Model.MachineCount</strong>
+    </a>
+    <a class="metric-card cyan" asp-page="/Admin/Licenses">
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</span>
+        <strong>@Model.LicenseCount</strong>
+    </a>
+    <a class="metric-card attention" asp-page="/Admin/Tickets">
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenTickets", "Открытые обращения")</span>
+        <strong>@Model.OpenTicketCount</strong>
+    </a>
+</div>
+
+<div class="control-grid">
+    <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Admins", "Администраторы")</a>
+    <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a>
+    <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</a>
+    <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</a>
+    <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</a>
+    <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</a>
+    <a asp-page="/Admin/QA">QA</a>
+    <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</a>
+    <a asp-page="/Admin/TimeTracking">Учёт времени</a>
+    <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</a>
+</div>

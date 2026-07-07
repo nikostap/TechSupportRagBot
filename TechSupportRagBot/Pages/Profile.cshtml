@@ -1,0 +1,38 @@
+@page
+@model TechSupportRagBot.Pages.ProfileModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Account", "Аккаунт")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</h1>
+    </div>
+    <a class="btn-main as-link" asp-page="/ProfileEdit">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль")</a>
+</section>
+
+<section class="panel narrow profile-card">
+    <div class="profile-head">
+        @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))
+        {
+            <img class="avatar avatar-large" src="/@Model.CurrentAvatarPath.Replace("\\", "/")" alt="avatar" />
+        }
+        else
+        {
+            <div class="avatar avatar-large">@Model.Initials</div>
+        }
+        <div>
+            <h2>@Model.FullName</h2>
+            <p>@Model.UserName</p>
+        </div>
+    </div>
+
+    <dl class="profile-details">
+        <div><dt>Email</dt><dd>@(Model.Email ?? "—")</dd></div>
+        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</dt><dd>@(Model.Position ?? "—")</dd></div>
+        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")</dt><dd>@(Model.Country ?? "—")</dd></div>
+        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</dt><dd>@(Model.Gender ?? "—")</dd></div>
+        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoTranslate", "Автоперевод")</dt><dd>@(Model.AutoTranslateMessages ? "Включен" : "Отключен")</dd></div>
+    </dl>
+</section>

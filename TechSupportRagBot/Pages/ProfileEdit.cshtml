@@ -1,0 +1,67 @@
+@page
+@model TechSupportRagBot.Pages.ProfileEditModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Account", "Аккаунт")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль")</h1>
+    </div>
+    <a class="btn-secondary as-link" asp-page="/Profile">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back", "Назад")</a>
+</section>
+
+<form method="post" enctype="multipart/form-data" class="panel narrow">
+    <div class="profile-head">
+        @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))
+        {
+            <img class="avatar avatar-large" src="/@Model.CurrentAvatarPath.Replace("\\", "/")" alt="avatar" />
+        }
+        else
+        {
+            <div class="avatar avatar-large">@Model.Initials</div>
+        }
+        <div>
+            <h2>@Model.FullName</h2>
+            <p>@Model.UserName</p>
+        </div>
+    </div>
+
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
+        <select asp-for="Input.Gender">
+            <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
+            <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male", "Мужской")</option>
+            <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female", "Женский")</option>
+        </select>
+    </label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Avatar", "Аватар")
+        <span class="file-picker">
+            <input asp-for="Input.Avatar" type="file" accept="image/*" />
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
+        </span>
+    </label>
+
+    <label class="check-line profile-toggle">
+        <input asp-for="Input.AutoTranslateMessages" type="checkbox" />
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoTranslate", "Автоперевод сообщений")</span>
+    </label>
+
+    @if (User.IsInRole("Operator") || User.IsInRole("Admin"))
+    {
+        <div class="inline-grid">
+            <label>Рабочий день с
+                <input asp-for="Input.WorkdayStart" type="time" />
+            </label>
+            <label>Рабочий день до
+                <input asp-for="Input.WorkdayEnd" type="time" />
+            </label>
+        </div>
+    }
+
+    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save", "Сохранить")</button>
+    <div asp-validation-summary="All" class="text-danger"></div>
+</form>

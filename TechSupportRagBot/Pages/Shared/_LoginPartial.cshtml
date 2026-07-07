@@ -1,0 +1,37 @@
+@using Microsoft.AspNetCore.Identity
+@using TechSupportRagBot.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+<ul class="login-links">
+    <li><a asp-page="/Language" asp-route-lang="ru" asp-route-returnUrl="@Context.Request.Path">RU</a></li>
+    <li><a asp-page="/Language" asp-route-lang="en" asp-route-returnUrl="@Context.Request.Path">EN</a></li>
+@if (SignInManager.IsSignedIn(User))
+{
+    var currentUser = await UserManager.GetUserAsync(User);
+    <li>
+        <a class="profile-link" asp-area="" asp-page="/Profile" title="@TechSupportRagBot.Services.UiText.T(Context, "Profile", "Профиль")">
+            @if (!string.IsNullOrWhiteSpace(currentUser?.AvatarPath))
+            {
+                <img class="avatar" src="/@currentUser.AvatarPath.Replace("\\", "/")" alt="avatar" />
+            }
+            else
+            {
+                <span class="avatar">@((currentUser?.FullName ?? currentUser?.UserName ?? "CE").Substring(0, 1).ToUpperInvariant())</span>
+            }
+            <span>@User.Identity?.Name</span>
+        </a>
+    </li>
+    <li>
+        <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })">
+            <button type="submit">@TechSupportRagBot.Services.UiText.T(Context, "Logout", "Выйти")</button>
+        </form>
+    </li>
+}
+else
+{
+    <li>
+        <a asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(Context, "Login", "Вход")</a>
+    </li>
+}
+</ul>

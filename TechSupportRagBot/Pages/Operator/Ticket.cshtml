@@ -1,0 +1,174 @@
+﻿@page "{id:int}"
+@model TechSupportRagBot.Pages.Operator.TicketModel
+@{
+    ViewData["Title"] = Model.Ticket?.Title ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращение");
+    bool IsImage(TechSupportRagBot.Models.Attachment attachment)
+    {
+        var ext = System.IO.Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
+        return attachment.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            || ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp";
+    }
+    bool IsVideo(TechSupportRagBot.Models.Attachment attachment)
+    {
+        var ext = System.IO.Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
+        return attachment.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+            || ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm";
+    }
+    string FileUrl(string? path) => string.IsNullOrWhiteSpace(path) ? "" : "/" + path.Replace("\\", "/").TrimStart('/');
+}
+
+@if (Model.Ticket != null)
+{
+    <section class="page-head">
+        <div>
+            <p class="eyebrow">@Model.Ticket.Machine?.Name</p>
+            <h1>@Model.Ticket.Title</h1>
+        </div>
+        <span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, Model.Ticket.Status)</span>
+    </section>
+
+    @if (Model.Ticket.OperatorUserId == null && Model.Ticket.Status != TicketStatuses.Closed)
+    {
+        <form method="post" asp-page-handler="Assign" class="inline-form">
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "TakeToWork", "Взять в работу")</button>
+        </form>
+    }
+
+    <div class="chat-shell"
+         id="chatShell"
+         data-ticket-id="@Model.Ticket.Id"
+         data-ticket-status="@Model.Ticket.Status"
+         data-message-count="@Model.Messages.Count"
+         data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
+         data-operator-user-id="@Model.Ticket.OperatorUserId"
+         data-track-operator-time="true">
+        @foreach (var item in Model.Messages)
+        {
+            var message = item.Message;
+            var authorName = message.IsBotMessage
+                ? TechSupportRagBot.Services.UiText.T(HttpContext, "Bot", "Бот")
+                : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName;
+            var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            <div class="message @(message.IsBotMessage ? "bot" : message.AuthorUserId == Model.CurrentUserId ? "mine" : "operator")">
+                <div class="message-meta">
+                    <span>
+                        @authorName
+                        @if (!string.IsNullOrWhiteSpace(authorDetails))
+                        {
+                            <small>@authorDetails</small>
+                        }
+                    </span>
+                    <span class="message-meta-actions">
+                        <span>@message.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                        @if (!message.IsBotMessage && message.AuthorUserId == Model.CurrentUserId)
+                        {
+                            <form method="post" asp-page-handler="DeleteMessage" asp-route-messageId="@message.Id" class="message-delete-form">
+                                <button type="submit" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")">×</button>
+                            </form>
+                        }
+                    </span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message.Text))
+                {
+                    <p>@message.Text</p>
+                }
+                @if (item.NeedsTranslation)
+                {
+                    if (string.IsNullOrWhiteSpace(item.Translation))
+                    {
+                        <div class="message-translation pending-translation" data-translation-message-id="@message.Id">
+                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation", "Перевод")</span>
+                            <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "TranslationLoading", "Перевод загружается...")</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="message-translation">
+                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation", "Перевод")</span>
+                            <p>@item.Translation</p>
+                        </div>
+                    }
+                }
+                @if (message.Attachments.Count > 0)
+                {
+                    <div class="attachments">
+                    @foreach (var attachment in message.Attachments)
+                    {
+                        var fileUrl = FileUrl(attachment.FinalFilePath ?? attachment.FilePath);
+                        var previewUrl = FileUrl(attachment.PreviewFilePath);
+                        if (IsVideo(attachment))
+                        {
+                            <div class="video-card" data-video-attachment-id="@attachment.Id" data-video-status="@attachment.Status">
+                                @if (attachment.Status == AttachmentStatuses.Ready && !string.IsNullOrWhiteSpace(fileUrl))
+                                {
+                                    <video controls poster="@previewUrl">
+                                        <source src="@fileUrl" type="video/mp4" />
+                                    </video>
+                                }
+                                else if (attachment.Status == AttachmentStatuses.Failed)
+                                {
+                                    <div class="video-state failed">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoFailed", "Видео не обработано"): @attachment.ErrorMessage</div>
+                                }
+                                else
+                                {
+                                    <div class="video-state">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoProcessing", "Видео обрабатывается...")</div>
+                                }
+                                <span>@attachment.OriginalFileName</span>
+                            </div>
+                        }
+                        else if (IsImage(attachment))
+                        {
+                            <button class="chat-image-button" type="button" data-full-image="@fileUrl" aria-label="@attachment.OriginalFileName">
+                                <img src="@fileUrl" alt="@attachment.OriginalFileName" />
+                            </button>
+                        }
+                        else
+                        {
+                            <a href="@fileUrl" target="_blank">@attachment.OriginalFileName</a>
+                        }
+                    }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <form method="post" id="translationRequestForm" asp-page-handler="Translate">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <form method="post" id="operatorActivityForm" asp-page-handler="Activity">
+        @Html.AntiForgeryToken()
+    </form>
+
+    @if (Model.Ticket.Status != TicketStatuses.Closed)
+    {
+        <div class="typing-indicator operator-compose" hidden>
+            @(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")) @TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorTyping", "печатает")
+        </div>
+
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form typing-form">
+            <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>
+            <label class="file-picker">
+                <input asp-for="AttachmentFile" type="file" />
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
+            </label>
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Send", "Отправить")</button>
+        </form>        <form method="post" asp-page-handler="Close" class="panel narrow close-form">
+            <h2>Закрыть чат</h2>
+            <label class="check-line">
+                <input asp-for="QuestionResolved" />
+                <span>Вопрос решён. Добавить очищенную пару вопрос-ответ в базу знаний.</span>
+            </label>
+            <button class="btn-secondary" type="submit">Закрыть чат</button>
+        </form>
+    }
+}
+
+<div class="image-lightbox" id="imageLightbox" hidden>
+    <button class="image-lightbox-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+</div>
+
+

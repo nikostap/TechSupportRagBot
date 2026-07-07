@@ -1,0 +1,70 @@
+@page "{id}"
+@model TechSupportRagBot.Pages.Admin.UserProfileModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль");
+    var isClient = Model.EditedUser?.ClientId != null;
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@string.Join(", ", Model.Roles)</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</h1>
+    </div>
+    <a class="btn-secondary as-link" href="javascript:history.back()">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back", "Назад")</a>
+</section>
+
+<div class="profile-admin-layout">
+    <section class="panel profile-card">
+        <div class="profile-head">
+            @if (!string.IsNullOrWhiteSpace(Model.EditedUser?.AvatarPath))
+            {
+                <img class="avatar avatar-large" src="/@Model.EditedUser.AvatarPath.Replace("\\", "/")" alt="avatar" />
+            }
+            else
+            {
+                <div class="avatar avatar-large">@Model.Initials</div>
+            }
+            <div>
+                <h2>@Model.EditedUser?.FullName</h2>
+                <p>@Model.EditedUser?.UserName</p>
+            </div>
+        </div>
+
+        <dl class="profile-details">
+            <div><dt>Email</dt><dd>@(Model.EditedUser?.Email ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</dt><dd>@(Model.EditedUser?.Position ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")</dt><dd>@(Model.EditedUser?.Country ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword", "Выданный пароль")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? "изменен")</code></dd></div>
+        </dl>
+    </section>
+
+    <form method="post" asp-page-handler="Save" class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" /></label>
+        <label>Email<input asp-for="Input.Email" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
+            <select asp-for="Input.Gender">
+                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
+                <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male", "Мужской")</option>
+                <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female", "Женский")</option>
+            </select>
+        </label>
+        @if (isClient)
+        {
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Company", "Компания")<input asp-for="Input.CompanyName" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone", "Телефон")<input asp-for="Input.Phone" /></label>
+        }
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save", "Сохранить")</button>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <form method="post" asp-page-handler="ResetPassword" class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Password", "Пароль")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewPassword", "Новый пароль")<input name="password" autocomplete="new-password" /></label>
+        <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SetPassword", "Задать пароль")</button>
+    </form>
+</div>

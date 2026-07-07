@@ -1,0 +1,66 @@
+@page
+@model TechSupportRagBot.Pages.Admin.ClientsModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Administration", "Администрирование")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</h1>
+    </div>
+</section>
+
+<div class="split-layout">
+    <form method="post" class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewClient", "Новый клиент")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Company", "Компания")<input asp-for="Input.CompanyName" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО пользователя")<input asp-for="Input.FullName" /></label>
+        <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientLoginAuto", "Логин будет создан автоматически из названия компании и ФИО.")</p>
+        <label>Email<input asp-for="Input.ContactEmail" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone", "Телефон")<input asp-for="Input.ContactPhone" /></label>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateClient", "Создать клиента")</button>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <div class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientAccounts", "Клиентские аккаунты")</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Company", "Компания")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "User", "Пользователь")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")</th>
+                        <th>Email</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword", "Выданный пароль")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone", "Телефон")</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var client in Model.Clients)
+                {
+                    foreach (var user in client.Users)
+                    {
+                        <tr>
+                            <td>@client.Name</td>
+                            <td>@user.FullName</td>
+                            <td><code>@user.UserName</code></td>
+                            <td>@user.Email</td>
+                            <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed", "изменен"))</code></td>
+                            <td>@client.ContactPhone</td>
+                            <td class="table-actions">
+                                <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@client.Id" class="row-action">
+                                    <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,24 @@
+@page
+@model TechSupportRagBot.Pages.Client.MachinesModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "MyMachines", "Мои станки");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Equipment", "Оборудование")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyMachines", "Мои станки")</h1>
+    </div>
+    <a class="btn-main" asp-page="/Client/Activate">@TechSupportRagBot.Services.UiText.T(HttpContext, "ActivateKey", "Активировать ключ")</a>
+</section>
+
+<div class="card-grid">
+@foreach (var item in Model.Machines)
+{
+    <article class="machine-card">
+        <h2>@item.Machine?.Name</h2>
+        <p>@item.Machine?.Model</p>
+        <span>@item.Machine?.SerialNumber</span>
+    </article>
+}
+</div>

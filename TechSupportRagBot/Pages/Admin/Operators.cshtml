@@ -1,0 +1,72 @@
+@page
+@model TechSupportRagBot.Pages.Admin.OperatorsModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Team", "Команда")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</h1>
+    </div>
+</section>
+
+<div class="split-layout">
+    <form method="post" class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorCard", "Карточка оператора")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" autocomplete="off" /></label>
+        <label>Email<input asp-for="Input.Email" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
+            <select asp-for="Input.Gender">
+                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
+                <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male", "Мужской")</option>
+                <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female", "Женский")</option>
+            </select>
+        </label>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateOperator", "Создать оператора")</button>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <div class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")</th>
+                        <th>Email</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword", "Временный пароль")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var user in Model.Operators)
+                {
+                    <tr>
+                        <td>@user.FullName</td>
+                        <td><code>@user.UserName</code></td>
+                        <td>@user.Email</td>
+                        <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed", "изменен"))</code></td>
+                        <td>@user.Position</td>
+                        <td>@user.Gender</td>
+                        <td>@user.Country</td>
+                        <td class="table-actions">
+                            <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
+                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,137 @@
+@page
+@model TechSupportRagBot.Pages.Admin.TimeTrackingModel
+@{
+    ViewData["Title"] = "Учёт времени";
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Операторы</p>
+        <h1>Учёт времени</h1>
+    </div>
+</section>
+
+<form method="get" class="panel time-filter">
+    <label>С
+        <input asp-for="DateFrom" type="date" />
+    </label>
+    <label>По
+        <input asp-for="DateTo" type="date" />
+    </label>
+    <label>Период
+        <select asp-for="Period">
+            <option value="day">По дням</option>
+            <option value="month">По месяцам</option>
+            <option value="year">По годам</option>
+        </select>
+    </label>
+    <label>Оператор
+        <select asp-for="OperatorId" asp-items="Model.OperatorOptions">
+            <option value="">Все операторы</option>
+        </select>
+    </label>
+    <label>Модель
+        <select asp-for="MachineModel" asp-items="Model.MachineModelOptions">
+            <option value="">Все модели</option>
+        </select>
+    </label>
+    <button class="btn-secondary small" type="submit">Показать</button>
+</form>
+
+<div class="metric-grid">
+    <div class="metric-card blue">
+        <span>Рабочее время</span>
+        <strong>@TimeTrackingModel.FormatDuration(Model.TotalWorkSeconds)</strong>
+    </div>
+    <div class="metric-card attention">
+        <span>Внеурочные часы</span>
+        <strong>@TimeTrackingModel.FormatDuration(Model.TotalOvertimeSeconds)</strong>
+    </div>
+    <div class="metric-card cyan">
+        <span>Всего</span>
+        <strong>@TimeTrackingModel.FormatDuration(Model.TotalWorkSeconds + Model.TotalOvertimeSeconds)</strong>
+    </div>
+</div>
+
+<div class="split-layout">
+    <section class="panel">
+        <h2>Сравнение сотрудников</h2>
+        <div class="bar-list">
+            @foreach (var row in Model.OperatorChart)
+            {
+                <div class="bar-row">
+                    <div class="bar-label">
+                        <strong>@row.Name</strong>
+                        <span>@TimeTrackingModel.FormatDuration(row.TotalSeconds)</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: @Model.Percent(row.TotalSeconds, Model.MaxOperatorSeconds)%"></div>
+                        @if (row.OvertimeSeconds > 0)
+                        {
+                            <div class="bar-fill overtime" style="width: @Model.Percent(row.OvertimeSeconds, Model.MaxOperatorSeconds)%"></div>
+                        }
+                    </div>
+                </div>
+            }
+            @if (Model.OperatorChart.Count == 0)
+            {
+                <p class="muted-text">За выбранный период активности нет.</p>
+            }
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Модели станков</h2>
+        <div class="bar-list">
+            @foreach (var row in Model.MachineChart)
+            {
+                <div class="bar-row">
+                    <div class="bar-label">
+                        <strong>@row.Name</strong>
+                        <span>@TimeTrackingModel.FormatDuration(row.TotalSeconds)</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill cyan" style="width: @Model.Percent(row.TotalSeconds, Model.MaxMachineSeconds)%"></div>
+                    </div>
+                </div>
+            }
+            @if (Model.MachineChart.Count == 0)
+            {
+                <p class="muted-text">За выбранный период активности нет.</p>
+            }
+        </div>
+    </section>
+</div>
+
+<section class="panel">
+    <h2>Детальный отчёт</h2>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Период</th>
+                    <th>Оператор</th>
+                    <th>Модель</th>
+                    <th>Обращений</th>
+                    <th>Рабочее время</th>
+                    <th>Внеурочно</th>
+                    <th>Всего</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr class="@(row.OvertimeSeconds > 0 ? "overtime-row" : "")">
+                    <td>@row.Period</td>
+                    <td>@row.OperatorName</td>
+                    <td>@row.MachineModel</td>
+                    <td>@row.TicketCount</td>
+                    <td>@TimeTrackingModel.FormatDuration(row.WorkSeconds)</td>
+                    <td>@TimeTrackingModel.FormatDuration(row.OvertimeSeconds)</td>
+                    <td>@TimeTrackingModel.FormatDuration(row.TotalSeconds)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

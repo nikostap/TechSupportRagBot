@@ -1,0 +1,40 @@
+@page
+@model TechSupportRagBot.Pages.Operator.IndexModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "LineSupport", "Линия поддержки")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets", "Назначенные обращения")</h1>
+    </div>
+</section>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Subject", "Тема")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine", "Станок")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client", "Клиент")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status", "Статус")</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.AssignedTickets)
+            {
+                <tr class="@(row.IsNewAssigned ? "new-assigned-ticket" : null)">
+                    <td>@row.Ticket.Title</td>
+                    <td>@row.Ticket.Machine?.Name</td>
+                    <td>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName)</td>
+                    <td><span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, row.Ticket.Status)</span></td>
+                    <td><a asp-page="/Operator/Ticket" asp-route-id="@row.Ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

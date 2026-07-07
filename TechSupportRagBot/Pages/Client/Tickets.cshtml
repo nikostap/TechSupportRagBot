@@ -1,0 +1,41 @@
+@page
+@model TechSupportRagBot.Pages.Client.TicketsModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Support", "Поддержка")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets", "Мои обращения")</h1>
+    </div>
+    <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+</section>
+
+<div class="panel">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Subject", "Тема")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine", "Станок")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status", "Статус")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Created", "Создано")</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var ticket in Model.Tickets)
+            {
+                <tr>
+                    <td>@ticket.Title</td>
+                    <td>@ticket.Machine?.Name</td>
+                    <td>@TechSupportRagBot.Services.UiText.Status(HttpContext, ticket.Status)</td>
+                    <td>@ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td><a asp-page="/Client/Ticket" asp-route-id="@ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,431 @@
+﻿@page
+@model TechSupportRagBot.Pages.Admin.QAModel
+@{
+    ViewData["Title"] = "QA";
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">RAG</p>
+        <h1>Вопросы и ответы</h1>
+    </div>
+    <div class="page-actions">
+        <a class="btn-secondary" asp-page-handler="TemplateTxt">Скачать TXT</a>
+        <a class="btn-secondary" asp-page-handler="TemplateDocx">Скачать DOCX</a>
+    </div>
+</section>
+
+@if (Model.EditId.HasValue)
+{
+    <form method="post" enctype="multipart/form-data" class="panel qa-editor">
+        <h2>Редактировать QA</h2>
+        <label>Вопрос
+            <textarea asp-for="EditInput.Question" rows="3"></textarea>
+        </label>
+        <label>Ответ
+            <textarea asp-for="EditInput.Answer" rows="7"></textarea>
+        </label>
+        <label>Альтернативные вопросы
+            <textarea asp-for="EditInput.AlternativeQuestions" rows="3"></textarea>
+        </label>
+        <label>Ключевые слова
+            <input asp-for="EditInput.Keywords" />
+        </label>
+        <div class="inline-grid">
+            <label>Категория
+                <input asp-for="EditInput.Category" list="qa-categories" />
+            </label>
+            <label>Модель
+                <input asp-for="EditInput.MachineModel" list="qa-models" placeholder="Модель" />
+            </label>
+            <label>Серийный номер или диапазон
+                <input asp-for="EditInput.SerialNumber" list="qa-serials-edit" placeholder="Например 5-30 или выберите номер модели" />
+                <small class="muted-text">5-30 относится ко всем серийным номерам в этом диапазоне.</small>
+            </label>
+            <label>Узел
+                <input asp-for="EditInput.NodeName" />
+            </label>
+            <label>Тип проблемы
+                <input asp-for="EditInput.ProblemType" />
+            </label>
+            <label>Статус
+                <select asp-for="EditInput.Status">
+                    @foreach (var status in Model.Statuses)
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <input type="hidden" asp-for="EditInput.Source" />
+        <label>Медиа к ответу
+            <span class="file-picker">
+                <input asp-for="EditMediaFiles" type="file" multiple accept="image/*,video/*" />
+                <span>Выбрать картинки или видео</span>
+            </span>
+            <small class="muted-text">Если сначала заполняете метаданные через LLM, выберите файлы заново перед сохранением.</small>
+        </label>
+        @if (Model.EditAttachments.Count > 0)
+        {
+            <div class="qa-media-grid">
+                @foreach (var media in Model.EditAttachments)
+                {
+                    <article class="qa-media-item">
+                        @if (IsVideo(media))
+                        {
+                            <video controls src="@FileUrl(media.FilePath)"></video>
+                        }
+                        else
+                        {
+                            <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
+                        }
+                        <span>@media.OriginalFileName</span>
+                        <button class="btn-danger small" type="submit" asp-page-handler="DeleteAttachment" asp-route-id="@Model.EditId" asp-route-attachmentId="@media.Id">Удалить файл</button>
+                    </article>
+                }
+            </div>
+        }
+        <div class="form-actions">
+            <button class="btn-secondary" type="submit" asp-page-handler="PreviewEditMetadata" asp-route-id="@Model.EditId">Заполнить метаданные через LLM</button>
+            <button class="btn-main" type="submit" asp-page-handler="Update" asp-route-id="@Model.EditId">Сохранить и переиндексировать</button>
+            <a class="btn-secondary" asp-page="/Admin/QA">Отмена</a>
+        </div>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+}
+
+<div class="knowledge-layout">
+    <form method="post" enctype="multipart/form-data" class="panel qa-editor">
+        <h2>Создать QA</h2>
+        <label>Вопрос
+            <textarea asp-for="Input.Question" rows="3"></textarea>
+        </label>
+        <label>Ответ
+            <textarea asp-for="Input.Answer" rows="7"></textarea>
+        </label>
+        <label>Альтернативные вопросы
+            <textarea asp-for="Input.AlternativeQuestions" rows="3"></textarea>
+        </label>
+        <label>Ключевые слова
+            <input asp-for="Input.Keywords" />
+        </label>
+        <div class="inline-grid">
+            <label>Категория
+                <input asp-for="Input.Category" list="qa-categories" />
+            </label>
+            <label>Модель
+                <input asp-for="Input.MachineModel" list="qa-models" placeholder="Модель" />
+            </label>
+            <label>Серийный номер или диапазон
+                <input asp-for="Input.SerialNumber" list="qa-serials-create" placeholder="Например 5-30 или выберите номер модели" />
+                <small class="muted-text">5-30 относится ко всем серийным номерам в этом диапазоне.</small>
+            </label>
+            <label>Узел
+                <input asp-for="Input.NodeName" />
+            </label>
+            <label>Тип проблемы
+                <input asp-for="Input.ProblemType" />
+            </label>
+            <label>Статус
+                <select asp-for="Input.Status">
+                    @foreach (var status in Model.Statuses)
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <label>Медиа к ответу
+            <span class="file-picker">
+                <input asp-for="MediaFiles" type="file" multiple accept="image/*,video/*" />
+                <span>Выбрать картинки или видео</span>
+            </span>
+            <small class="muted-text">Прикрепляйте медиа на шаге сохранения. После генерации метаданных выбор файлов очищается браузером.</small>
+        </label>
+        <div class="form-actions">
+            <button class="btn-secondary" type="submit" asp-page-handler="PreviewMetadata">Заполнить метаданные через LLM</button>
+            <button class="btn-main" type="submit" asp-page-handler="Create">Сохранить и индексировать</button>
+            <button class="btn-secondary" type="reset">Очистить форму</button>
+        </div>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+
+    <div class="panel">
+        <h2>Импорт QA</h2>
+        <form method="post" asp-page-handler="PreviewImport" enctype="multipart/form-data">
+            <label>Файл
+                <span class="file-picker">
+                    <input asp-for="Import.File" type="file" accept=".docx,.txt,.md" />
+                    <span>Выбрать файл</span>
+                </span>
+            </label>
+            <label class="check-row">
+                <input asp-for="Import.AutoParse" type="checkbox" />
+                <span>Автоматически преобразовать документ в QA через LLM</span>
+            </label>
+            <button class="btn-secondary" type="submit">Показать перед импортом</button>
+        </form>
+
+        <div class="qa-template">
+            <h3>Шаблон оформления</h3>
+            <pre>Вопрос:
+Почему не подается ремешок на АЛФ-033?
+
+Альтернативные вопросы:
+Почему нет подачи ремешка?
+Ремешковый узел не работает
+
+Категория:
+Механика
+
+Модель:
+АЛФ-033
+
+Узел:
+Ремешковый узел
+
+Ключевые слова:
+ремешок, ремень, подача
+
+Ответ:
+Проверить натяжение ремней.
+Проверить положение ремешкового узла.</pre>
+        </div>
+    </div>
+</div>
+
+@if (Model.PreviewEntries.Count > 0)
+{
+    <form method="post" asp-page-handler="ConfirmImport" class="panel">
+        <h2>Подтвердить импорт</h2>
+        <div class="qa-list">
+            @for (var i = 0; i < Model.PreviewEntries.Count; i++)
+            {
+                <article class="qa-card">
+                    <label class="check-row">
+                        <input name="ConfirmEntries[@i].ImportSelected" type="checkbox" value="true" checked />
+                        <span>Импортировать</span>
+                    </label>
+                    <label>Вопрос
+                        <input name="ConfirmEntries[@i].Question" value="@Model.PreviewEntries[i].Question" />
+                    </label>
+                    <label>Ответ
+                        <textarea name="ConfirmEntries[@i].Answer" rows="4">@Model.PreviewEntries[i].Answer</textarea>
+                    </label>
+                    <div class="inline-grid">
+                        <label>Категория
+                            <input name="ConfirmEntries[@i].Category" value="@Model.PreviewEntries[i].Category" />
+                        </label>
+                        <label>Модель
+                            <input class="qa-import-model" name="ConfirmEntries[@i].MachineModel" value="@Model.PreviewEntries[i].MachineModel" list="qa-models" data-serial-list="qa-serials-import-@i" />
+                        </label>
+                        <label>Серийный номер или диапазон
+                            <input name="ConfirmEntries[@i].SerialNumber" value="@Model.PreviewEntries[i].SerialNumber" list="qa-serials-import-@i" placeholder="Например 5-30" />
+                            <datalist id="qa-serials-import-@i"></datalist>
+                        </label>
+                        <label>Узел
+                            <input name="ConfirmEntries[@i].NodeName" value="@Model.PreviewEntries[i].NodeName" />
+                        </label>
+                        <label>Статус
+                            <select name="ConfirmEntries[@i].Status">
+                                @foreach (var status in Model.Statuses)
+                                {
+                                    <option value="@status" selected="@(status == Model.PreviewEntries[i].Status)">@status</option>
+                                }
+                            </select>
+                        </label>
+                    </div>
+                    <input type="hidden" name="ConfirmEntries[@i].AlternativeQuestions" value="@Model.PreviewEntries[i].AlternativeQuestions" />
+                    <input type="hidden" name="ConfirmEntries[@i].Keywords" value="@Model.PreviewEntries[i].Keywords" />
+                    <input type="hidden" name="ConfirmEntries[@i].ProblemType" value="@Model.PreviewEntries[i].ProblemType" />
+                    <input type="hidden" name="ConfirmEntries[@i].Source" value="@Model.PreviewEntries[i].Source" />
+                </article>
+            }
+        </div>
+        <button class="btn-main" type="submit">Импортировать выбранные</button>
+    </form>
+}
+
+<section class="panel">
+    <div class="section-bar">
+        <h2>QA записи</h2>
+        <form method="get" class="inline-add">
+            <select asp-for="StatusFilter">
+                <option value="">Все статусы</option>
+                @foreach (var status in Model.Statuses)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+            <button class="btn-secondary" type="submit">Показать</button>
+        </form>
+    </div>
+
+    <div class="qa-list">
+        @foreach (var entry in Model.Entries)
+        {
+            <article class="qa-card">
+                <div class="qa-card-head">
+                    <div>
+                        <span class="status-pill">@entry.Status</span>
+                        <h3>@entry.Question</h3>
+                    </div>
+                    <small>@entry.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                </div>
+                <div class="qa-answer">@entry.Answer</div>
+                <dl class="qa-meta">
+                    <div><dt>Категория</dt><dd>@Display(entry.Category)</dd></div>
+                    <div><dt>Модель</dt><dd>@Display(entry.MachineModel)</dd></div>
+                    <div><dt>Серийный номер / диапазон</dt><dd>@Display(entry.SerialNumber)</dd></div>
+                    <div><dt>Узел</dt><dd>@Display(entry.NodeName)</dd></div>
+                    <div><dt>Тип проблемы</dt><dd>@Display(entry.ProblemType)</dd></div>
+                    <div><dt>Ключевые слова</dt><dd>@Display(entry.Keywords)</dd></div>
+                    <div><dt>Источник</dt><dd>@entry.Source</dd></div>
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(entry.AlternativeQuestions))
+                {
+                    <details class="qa-details">
+                        <summary>Альтернативные вопросы</summary>
+                        <p>@entry.AlternativeQuestions</p>
+                    </details>
+                }
+                @if (entry.Attachments.Count > 0)
+                {
+                    <div class="qa-media-grid compact">
+                        @foreach (var media in entry.Attachments)
+                        {
+                            <article class="qa-media-item">
+                                @if (IsVideo(media))
+                                {
+                                    <video controls src="@FileUrl(media.FilePath)"></video>
+                                }
+                                else
+                                {
+                                    <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
+                                }
+                                <span>@media.OriginalFileName</span>
+                            </article>
+                        }
+                    </div>
+                }                <div class="form-actions">
+                    <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id">Редактировать</a>
+                    <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
+                        <button class="btn-secondary" type="submit">Пометить Verified</button>
+                    </form>
+                    <form method="post" asp-page-handler="Reindex" asp-route-id="@entry.Id" class="row-action">
+                        <button class="btn-secondary" type="submit">Переиндексировать</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@entry.Id" class="row-action">
+                        <button class="btn-danger" type="submit">Удалить</button>
+                    </form>
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="pagination">
+        @if (Model.PageNumber > 1)
+        {
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-StatusFilter="@Model.StatusFilter">Назад</a>
+        }
+        <span>@Model.PageNumber / @Model.TotalPages</span>
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-StatusFilter="@Model.StatusFilter">Вперед</a>
+        }
+    </div>
+</section>
+
+<datalist id="qa-categories">
+    @foreach (var category in Model.Categories)
+    {
+        <option value="@category.Name"></option>
+    }
+</datalist>
+
+<datalist id="qa-models">
+    @foreach (var machine in Model.Machines)
+    {
+        <option value="@machine.Model"></option>
+    }
+</datalist>
+
+<datalist id="qa-serials-create"></datalist>
+<datalist id="qa-serials-edit"></datalist>
+@functions {
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Не указано" : value;
+    private static string FileUrl(string? path) => string.IsNullOrWhiteSpace(path) ? "" : "/" + path.Replace("\\", "/").TrimStart('/');
+    private static bool IsVideo(TechSupportRagBot.Models.QAAttachment attachment)
+    {
+        var extension = System.IO.Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
+        return attachment.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+            || extension is ".mp4" or ".mov" or ".webm" or ".mkv";
+    }
+}
+
+<script>
+(() => {
+    const machines = @Html.Raw(Model.MachineHintsJson);
+
+    function normalize(value) {
+        return (value || "").trim().toLowerCase();
+    }
+
+    function refreshSerialHints(modelInputId, datalistId) {
+        const modelInput = document.getElementById(modelInputId);
+        const list = document.getElementById(datalistId);
+        if (!modelInput || !list) {
+            return;
+        }
+
+        const model = normalize(modelInput.value);
+        list.innerHTML = "";
+        if (!model) {
+            return;
+        }
+
+        const serials = machines
+            .filter(x => x.serialNumber && normalize(x.model) === model)
+            .filter((x, index, all) => all.findIndex(y => y.serialNumber === x.serialNumber) === index);
+
+        for (const machine of serials) {
+            const option = document.createElement("option");
+            option.value = machine.serialNumber;
+            option.label = `${machine.model || ""} · ${machine.name || ""}`.trim();
+            list.appendChild(option);
+        }
+    }
+
+    function bind(modelInputId, datalistId) {
+        const modelInput = document.getElementById(modelInputId);
+        if (!modelInput) {
+            return;
+        }
+
+        const update = () => refreshSerialHints(modelInputId, datalistId);
+        modelInput.addEventListener("input", update);
+        modelInput.addEventListener("change", update);
+        update();
+    }
+
+    bind("Input_MachineModel", "qa-serials-create");
+    bind("EditInput_MachineModel", "qa-serials-edit");
+
+    document.querySelectorAll(".qa-import-model[data-serial-list]").forEach(modelInput => {
+        const listId = modelInput.dataset.serialList;
+        const update = () => refreshSerialHints(modelInput.id || assignId(modelInput), listId);
+        if (!modelInput.id) {
+            assignId(modelInput);
+        }
+        modelInput.addEventListener("input", update);
+        modelInput.addEventListener("change", update);
+        update();
+    });
+
+    function assignId(element) {
+        element.id = `qa-model-${Math.random().toString(36).slice(2)}`;
+        return element.id;
+    }
+})();
+</script>
+
