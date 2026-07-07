@@ -97,8 +97,15 @@ public class TicketsModel : PageModel
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-        var operators = await _userManager.GetUsersInRoleAsync("Operator");
-        OperatorOptions = operators
+        var roleOperators = await _userManager.GetUsersInRoleAsync("Operator");
+        var profileOperators = await _db.Users
+            .Where(x => x.AccessProfile == AccessProfileService.Operator)
+            .ToListAsync();
+
+        OperatorOptions = roleOperators
+            .Concat(profileOperators)
+            .GroupBy(x => x.Id)
+            .Select(x => x.First())
             .OrderBy(x => x.FullName ?? x.UserName)
             .Select(x => new OperatorOption(x.Id, x.FullName ?? x.UserName ?? x.Id))
             .ToList();

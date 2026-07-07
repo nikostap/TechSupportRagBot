@@ -75,7 +75,7 @@
                         }
                     </td>
                     <td>
-                        @if (ticket.Status == TicketStatuses.WaitingForOperator && availableOperators.Count > 0)
+                        @if (ticket.Status != TicketStatuses.Closed && availableOperators.Count > 0)
                         {
                             <form method="post" asp-page-handler="AddOperator" asp-route-id="@ticket.Id" class="assign-inline-form">
                                 <select name="OperatorId">
@@ -86,6 +86,14 @@
                                 </select>
                                 <button class="btn-secondary small" type="submit">Добавить</button>
                             </form>
+                        }
+                        else if (ticket.Status == TicketStatuses.Closed)
+                        {
+                            <span class="muted-text">Закрыто</span>
+                        }
+                        else
+                        {
+                            <span class="muted-text">Нет доступных операторов</span>
                         }
                     </td>
                     <td class="table-actions">
