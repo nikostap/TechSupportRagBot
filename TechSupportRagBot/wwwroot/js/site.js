@@ -110,6 +110,200 @@
     });
   }
 
+  function setupAvatarCropper() {
+    const input = document.querySelector("[data-avatar-crop-input]");
+    const modal = document.getElementById("avatarCropModal");
+    const stage = document.getElementById("avatarCropStage");
+    const image = document.getElementById("avatarCropImage");
+    const zoom = document.getElementById("avatarCropZoom");
+    const apply = document.getElementById("avatarCropApply");
+    const cancel = document.getElementById("avatarCropCancel");
+    const closeButton = modal?.querySelector(".avatar-crop-close");
+
+    if (!input || !modal || !stage || !image || !zoom || !apply) {
+      return;
+    }
+
+    let objectUrl = "";
+    let selectedFileName = "avatar.png";
+    let baseScale = 1;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let startOffsetX = 0;
+    let startOffsetY = 0;
+
+    const render = () => {
+      image.style.width = `${image.naturalWidth * baseScale}px`;
+      image.style.height = `${image.naturalHeight * baseScale}px`;
+      image.style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    };
+
+    const resetInput = () => {
+      input.value = "";
+      const labelText = input.closest(".file-picker")?.querySelector("span");
+      if (labelText) {
+        labelText.textContent = text("Выберите файл", "Choose file");
+      }
+    };
+
+    const close = (clearInput) => {
+      modal.hidden = true;
+      image.removeAttribute("src");
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = "";
+      }
+      if (clearInput) {
+        resetInput();
+      }
+    };
+
+    const open = (file) => {
+      selectedFileName = file.name || "avatar.png";
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      objectUrl = URL.createObjectURL(file);
+      image.onload = () => {
+        const rect = stage.getBoundingClientRect();
+        baseScale = Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+        zoom.value = "1";
+        render();
+      };
+      image.src = objectUrl;
+      modal.hidden = false;
+      apply.focus();
+    };
+
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file || !file.type.startsWith("image/")) {
+        return;
+      }
+
+      open(file);
+    });
+
+    zoom.addEventListener("input", () => {
+      scale = Number(zoom.value || "1");
+      render();
+    });
+
+    const pointerPosition = (event) => {
+      const point = event.touches?.[0] || event;
+      return { x: point.clientX, y: point.clientY };
+    };
+
+    stage.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      dragging = true;
+      stage.setPointerCapture?.(event.pointerId);
+      const point = pointerPosition(event);
+      dragStartX = point.x;
+      dragStartY = point.y;
+      startOffsetX = offsetX;
+      startOffsetY = offsetY;
+    });
+
+    stage.addEventListener("pointermove", (event) => {
+      if (!dragging) {
+        return;
+      }
+
+      const point = pointerPosition(event);
+      offsetX = startOffsetX + point.x - dragStartX;
+      offsetY = startOffsetY + point.y - dragStartY;
+      render();
+    });
+
+    const stopDrag = (event) => {
+      dragging = false;
+      if (event?.pointerId != null) {
+        stage.releasePointerCapture?.(event.pointerId);
+      }
+    };
+
+    stage.addEventListener("pointerup", stopDrag);
+    stage.addEventListener("pointercancel", stopDrag);
+    stage.addEventListener("pointerleave", stopDrag);
+
+    const makeCroppedFile = async () => {
+      const rect = stage.getBoundingClientRect();
+      const cropSize = Math.min(rect.width, rect.height) * 0.72;
+      const cropLeft = (rect.width - cropSize) / 2;
+      const cropTop = (rect.height - cropSize) / 2;
+      const displayWidth = image.naturalWidth * baseScale * scale;
+      const displayHeight = image.naturalHeight * baseScale * scale;
+      const imageLeft = rect.width / 2 + offsetX - displayWidth / 2;
+      const imageTop = rect.height / 2 + offsetY - displayHeight / 2;
+      const outputSize = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const context = canvas.getContext("2d");
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, outputSize, outputSize);
+      context.drawImage(
+        image,
+        (imageLeft - cropLeft) / cropSize * outputSize,
+        (imageTop - cropTop) / cropSize * outputSize,
+        displayWidth / cropSize * outputSize,
+        displayHeight / cropSize * outputSize);
+
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          const safeName = selectedFileName.replace(/\.[^.]+$/, "") || "avatar";
+          resolve(new File([blob], `${safeName}.png`, { type: "image/png" }));
+        }, "image/png", 0.95);
+      });
+    };
+
+    apply.addEventListener("click", async () => {
+      const cropped = await makeCroppedFile();
+      const transfer = new DataTransfer();
+      transfer.items.add(cropped);
+      input.files = transfer.files;
+
+      const preview = document.getElementById("avatarPreviewImage");
+      const initials = document.getElementById("avatarPreviewInitials");
+      const previewUrl = URL.createObjectURL(cropped);
+      if (preview) {
+        preview.src = previewUrl;
+      } else if (initials) {
+        const img = document.createElement("img");
+        img.id = "avatarPreviewImage";
+        img.className = initials.className;
+        img.alt = "avatar";
+        img.src = previewUrl;
+        initials.replaceWith(img);
+      }
+
+      close(false);
+      input.closest("form")?.requestSubmit();
+    });
+
+    cancel?.addEventListener("click", () => close(true));
+    closeButton?.addEventListener("click", () => close(true));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        close(true);
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hidden) {
+        close(true);
+      }
+    });
+  }
+
   function showRemoteTyping(displayName) {
     if (!chatShell) {
       return;
@@ -764,6 +958,7 @@
   }
 
   setupFilePickers();
+  setupAvatarCropper();
   setupCtrlEnterSubmit();
   setupChatAjaxMessages();
   setupVideoAjaxUpload();

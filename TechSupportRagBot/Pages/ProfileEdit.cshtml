@@ -16,11 +16,11 @@
     <div class="profile-head">
         @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))
         {
-            <img class="avatar avatar-large" src="/@Model.CurrentAvatarPath.Replace("\\", "/")" alt="avatar" />
+            <img class="avatar avatar-large" id="avatarPreviewImage" src="/@Model.CurrentAvatarPath.Replace("\\", "/")" alt="avatar" />
         }
         else
         {
-            <div class="avatar avatar-large">@Model.Initials</div>
+            <div class="avatar avatar-large" id="avatarPreviewInitials">@Model.Initials</div>
         }
         <div>
             <h2>@Model.FullName</h2>
@@ -47,7 +47,7 @@
     </label>
     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Avatar")
         <span class="file-picker">
-            <input asp-for="Input.Avatar" type="file" accept="image/*" />
+            <input asp-for="Input.Avatar" type="file" accept="image/*" data-avatar-crop-input />
             <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile")</span>
         </span>
     </label>
@@ -72,3 +72,30 @@
     <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
     <div asp-validation-summary="All" class="text-danger"></div>
 </form>
+
+<div class="avatar-crop-modal" id="avatarCropModal" hidden>
+    <div class="avatar-crop-card" role="dialog" aria-modal="true" aria-labelledby="avatarCropTitle">
+        <div class="avatar-crop-head">
+            <div>
+                <h2 id="avatarCropTitle">@TechSupportRagBot.Services.UiText.T(HttpContext, "AvatarCropTitle")</h2>
+                <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "AvatarCropHint")</p>
+            </div>
+            <button class="avatar-crop-close" type="button" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Cancel")">×</button>
+        </div>
+
+        <div class="avatar-crop-stage" id="avatarCropStage">
+            <img id="avatarCropImage" alt="" draggable="false" />
+            <div class="avatar-crop-mask"></div>
+            <div class="avatar-crop-frame"></div>
+        </div>
+
+        <label class="avatar-crop-zoom">@TechSupportRagBot.Services.UiText.T(HttpContext, "AvatarZoom")
+            <input id="avatarCropZoom" type="range" min="1" max="4" step="0.01" value="1" />
+        </label>
+
+        <div class="avatar-crop-actions">
+            <button class="btn-secondary" type="button" id="avatarCropCancel">@TechSupportRagBot.Services.UiText.T(HttpContext, "Cancel")</button>
+            <button class="btn-main" type="button" id="avatarCropApply">@TechSupportRagBot.Services.UiText.T(HttpContext, "AvatarApply")</button>
+        </div>
+    </div>
+</div>

@@ -58,7 +58,8 @@ else
                 <strong>@Model.UnreadMessageCount</strong>
             </a>
         }
-        @if ((!Model.Can("Tickets") || Model.WaitingForOperatorCount == 0)
+        @if (Model.IsInternalUser
+            && (!Model.Can("Tickets") || Model.WaitingForOperatorCount == 0)
             && (!Model.Can("OperatorQueue") || !Model.ShowOperatorArea || Model.AssignedTicketCount == 0)
             && (!Model.Can("ClientCabinet") || !Model.HasClientAccount || Model.UnreadMessageCount == 0))
         {
