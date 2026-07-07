@@ -42,43 +42,81 @@ public class ClientsModel : PageModel
             return Page();
         }
 
+        var companyName = Input.CompanyName.Trim();
+        var contactEmail = Input.ContactEmail?.Trim();
+        var duplicateExists = await _db.Clients.AnyAsync(x =>
+            x.Name == companyName
+            && (string.IsNullOrWhiteSpace(contactEmail) || x.ContactEmail == contactEmail));
+
+        if (duplicateExists)
+        {
+            ModelState.AddModelError(string.Empty, "Клиент с таким названием уже существует.");
+            await LoadAsync();
+            return Page();
+        }
+
         var userName = await GenerateClientUserNameAsync(Input.CompanyName, Input.FullName);
 
         var client = new TechSupportRagBot.Models.Client
         {
-            Name = Input.CompanyName.Trim(),
-            ContactEmail = Input.ContactEmail,
+            Name = companyName,
+            ContactEmail = contactEmail,
             ContactPhone = Input.ContactPhone
         };
 
-        _db.Clients.Add(client);
-        await _db.SaveChangesAsync();
-
         var password = PasswordGenerator.Generate();
-        var user = new ApplicationUser
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        try
         {
-            UserName = userName,
-            Email = Input.ContactEmail,
-            FullName = Input.FullName.Trim(),
-            ClientId = client.Id,
-            IssuedPassword = password,
-            EmailConfirmed = true
-        };
+            _db.Clients.Add(client);
+            await _db.SaveChangesAsync();
 
-        var result = await _userManager.CreateAsync(user, password);
-        if (result.Succeeded)
-        {
-            await _userManager.AddToRoleAsync(user, "Client");
+            var user = new ApplicationUser
+            {
+                UserName = userName,
+                Email = contactEmail,
+                FullName = Input.FullName.Trim(),
+                ClientId = client.Id,
+                IssuedPassword = password,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, password);
+            if (!result.Succeeded)
+            {
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+
+                await transaction.RollbackAsync();
+                await LoadAsync();
+                return Page();
+            }
+
+            var roleResult = await _userManager.AddToRoleAsync(user, "Client");
+            if (!roleResult.Succeeded)
+            {
+                foreach (var error in roleResult.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+
+                await transaction.RollbackAsync();
+                await LoadAsync();
+                return Page();
+            }
+
+            await transaction.CommitAsync();
             return RedirectToPage();
         }
-
-        foreach (var error in result.Errors)
+        catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, error.Description);
+            await transaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, ex.Message);
+            await LoadAsync();
+            return Page();
         }
-
-        await LoadAsync();
-        return Page();
     }
 
     public async Task<IActionResult> OnPostUpdateUserAsync(int clientId, string userId, ClientUserInput input)
