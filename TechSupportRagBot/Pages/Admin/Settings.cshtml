@@ -1,7 +1,40 @@
 @page
+@using System.Text.Json
 @model TechSupportRagBot.Pages.Admin.SettingsModel
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки");
+
+    var ollamaChatModels = Model.Models
+        .Where(x => !x.IsLikelyEmbedding)
+        .Select(x => x.Name)
+        .Distinct()
+        .ToArray();
+
+    var ollamaEmbeddingModels = Model.Models
+        .Where(x => x.IsLikelyEmbedding)
+        .Select(x => x.Name)
+        .Distinct()
+        .ToArray();
+
+    var openAiChatModels = new[]
+    {
+        "gpt-4.1-mini",
+        "gpt-4.1",
+        "gpt-4o-mini",
+        "gpt-4o"
+    };
+
+    var openAiEmbeddingModels = new[]
+    {
+        "text-embedding-3-small",
+        "text-embedding-3-large"
+    };
+
+    var deepSeekChatModels = new[]
+    {
+        "deepseek-chat",
+        "deepseek-reasoner"
+    };
 }
 
 <section class="page-head">
@@ -29,17 +62,7 @@
         </label>
 
         <label>LLM модель
-            <input asp-for="Input.ChatModel" list="chat-models" autocomplete="off" placeholder="Например: llama3.1, gpt-4.1-mini, deepseek-chat" />
-            <datalist id="chat-models">
-                @foreach (var item in Model.Models.Where(x => !x.IsLikelyEmbedding))
-                {
-                    <option value="@item.Name"></option>
-                }
-                <option value="gpt-4.1-mini"></option>
-                <option value="gpt-4.1"></option>
-                <option value="deepseek-chat"></option>
-                <option value="deepseek-reasoner"></option>
-            </datalist>
+            <select asp-for="Input.ChatModel" id="chat-model"></select>
         </label>
 
         <label>Провайдер embeddings
@@ -50,15 +73,7 @@
         </label>
 
         <label>Embedding модель
-            <input asp-for="Input.EmbeddingModel" list="embedding-models" autocomplete="off" placeholder="Например: embeddinggemma, text-embedding-3-small" />
-            <datalist id="embedding-models">
-                @foreach (var item in Model.Models.Where(x => x.IsLikelyEmbedding))
-                {
-                    <option value="@item.Name"></option>
-                }
-                <option value="text-embedding-3-small"></option>
-                <option value="text-embedding-3-large"></option>
-            </datalist>
+            <select asp-for="Input.EmbeddingModel" id="embedding-model"></select>
         </label>
 
         @if (Model.Models.Count == 0)
@@ -124,3 +139,89 @@
         </div>
     </section>
 </div>
+
+<script>
+    (() => {
+        const models = {
+            chat: {
+                Ollama: @Html.Raw(JsonSerializer.Serialize(ollamaChatModels)),
+                OpenAI: @Html.Raw(JsonSerializer.Serialize(openAiChatModels)),
+                DeepSeek: @Html.Raw(JsonSerializer.Serialize(deepSeekChatModels))
+            },
+            embedding: {
+                Ollama: @Html.Raw(JsonSerializer.Serialize(ollamaEmbeddingModels)),
+                OpenAI: @Html.Raw(JsonSerializer.Serialize(openAiEmbeddingModels))
+            }
+        };
+
+        const current = {
+            chatModel: @Html.Raw(JsonSerializer.Serialize(Model.Input.ChatModel)),
+            embeddingModel: @Html.Raw(JsonSerializer.Serialize(Model.Input.EmbeddingModel))
+        };
+
+        const fallback = {
+            chat: {
+                Ollama: "llama3.1",
+                OpenAI: "gpt-4.1-mini",
+                DeepSeek: "deepseek-chat"
+            },
+            embedding: {
+                Ollama: "embeddinggemma",
+                OpenAI: "text-embedding-3-small"
+            }
+        };
+
+        function fillSelect(select, values, selectedValue, fallbackValue) {
+            select.innerHTML = "";
+
+            const normalizedValues = [...new Set(values.filter(x => x && x.trim()))];
+            if (selectedValue && !normalizedValues.includes(selectedValue)) {
+                normalizedValues.unshift(selectedValue);
+            }
+
+            if (normalizedValues.length === 0 && fallbackValue) {
+                normalizedValues.push(fallbackValue);
+            }
+
+            for (const value of normalizedValues) {
+                const option = document.createElement("option");
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            }
+
+            select.value = selectedValue && normalizedValues.includes(selectedValue)
+                ? selectedValue
+                : normalizedValues[0] ?? "";
+        }
+
+        function refreshChatModels() {
+            const provider = document.getElementById("chat-provider").value;
+            const select = document.getElementById("chat-model");
+            const selected = select.value || current.chatModel;
+            fillSelect(select, models.chat[provider] ?? [], selected, fallback.chat[provider]);
+            current.chatModel = select.value;
+        }
+
+        function refreshEmbeddingModels() {
+            const provider = document.getElementById("embedding-provider").value;
+            const select = document.getElementById("embedding-model");
+            const selected = select.value || current.embeddingModel;
+            fillSelect(select, models.embedding[provider] ?? [], selected, fallback.embedding[provider]);
+            current.embeddingModel = select.value;
+        }
+
+        document.getElementById("chat-provider").addEventListener("change", () => {
+            current.chatModel = "";
+            refreshChatModels();
+        });
+
+        document.getElementById("embedding-provider").addEventListener("change", () => {
+            current.embeddingModel = "";
+            refreshEmbeddingModels();
+        });
+
+        refreshChatModels();
+        refreshEmbeddingModels();
+    })();
+</script>
