@@ -19,6 +19,8 @@ public class OperatorsModel : PageModel
     public OperatorInput Input { get; set; } = new();
 
     public IList<ApplicationUser> Operators { get; private set; } = new List<ApplicationUser>();
+    public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
 
     public async Task OnGetAsync() => await LoadAsync();
 
@@ -42,8 +44,9 @@ public class OperatorsModel : PageModel
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
+            AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
             Gender = Input.Gender,
-            Country = Input.Country,
+            Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             IssuedPassword = temporaryPassword,
             MustChangePassword = true,
             EmailConfirmed = true
@@ -96,8 +99,9 @@ public class OperatorsModel : PageModel
         user.UserName = input.UserName.Trim();
         user.Email = input.Email;
         user.Position = input.Position;
+        user.AccessProfile = AccessProfileService.NormalizeProfileKey(input.AccessProfile);
         user.Gender = input.Gender;
-        user.Country = input.Country;
+        user.Country = ChatTranslationService.NormalizeLanguage(input.Country);
         user.NormalizedUserName = _userManager.NormalizeName(user.UserName);
         user.NormalizedEmail = _userManager.NormalizeEmail(user.Email);
         await _userManager.UpdateAsync(user);
@@ -140,8 +144,10 @@ public class OperatorsModel : PageModel
 
         public string? Position { get; set; }
 
+        public string? AccessProfile { get; set; } = AccessProfileService.Operator;
+
         public string? Gender { get; set; }
 
-        public string? Country { get; set; }
+        public string? Country { get; set; } = "ru";
     }
 }

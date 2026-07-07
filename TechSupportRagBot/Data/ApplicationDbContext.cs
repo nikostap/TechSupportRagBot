@@ -113,6 +113,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(100);
 
         builder.Entity<ApplicationUser>()
+            .Property(x => x.AccessProfile)
+            .HasMaxLength(80);
+
+        builder.Entity<ApplicationUser>()
             .Property(x => x.AutoTranslateMessages)
             .HasDefaultValue(true);
 

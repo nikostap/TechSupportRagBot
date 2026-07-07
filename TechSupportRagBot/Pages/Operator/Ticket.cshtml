@@ -144,25 +144,32 @@
 
     @if (Model.Ticket.Status != TicketStatuses.Closed)
     {
-        <div class="typing-indicator operator-compose" hidden>
-            @(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")) @TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorTyping", "печатает")
-        </div>
+        @if (Model.CanWriteChat)
+        {
+            <div class="typing-indicator operator-compose" hidden>
+                @(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")) @TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorTyping", "печатает")
+            </div>
 
-        <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form typing-form">
-            <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>
-            <label class="file-picker">
-                <input asp-for="AttachmentFile" type="file" />
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
-            </label>
-            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Send", "Отправить")</button>
-        </form>        <form method="post" asp-page-handler="Close" class="panel narrow close-form">
-            <h2>Закрыть чат</h2>
-            <label class="check-line">
-                <input asp-for="QuestionResolved" />
-                <span>Вопрос решён. Добавить очищенную пару вопрос-ответ в базу знаний.</span>
-            </label>
-            <button class="btn-secondary" type="submit">Закрыть чат</button>
-        </form>
+            <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form typing-form">
+                <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>
+                <label class="file-picker">
+                    <input asp-for="AttachmentFile" type="file" />
+                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
+                </label>
+                <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Send", "Отправить")</button>
+            </form>
+        }
+        @if (Model.CanCloseTickets)
+        {
+            <form method="post" asp-page-handler="Close" class="panel narrow close-form">
+                <h2>Закрыть чат</h2>
+                <label class="check-line">
+                    <input asp-for="QuestionResolved" />
+                    <span>Вопрос решён. Добавить очищенную пару вопрос-ответ в базу знаний.</span>
+                </label>
+                <button class="btn-secondary" type="submit">Закрыть чат</button>
+            </form>
+        }
     }
 }
 

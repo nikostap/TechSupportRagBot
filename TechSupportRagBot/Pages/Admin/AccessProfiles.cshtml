@@ -1,0 +1,55 @@
+@page
+@model TechSupportRagBot.Pages.Admin.AccessProfilesModel
+@{
+    ViewData["Title"] = "Профили доступа";
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Настройки</p>
+        <h1>Профили доступа</h1>
+    </div>
+    <a class="btn-secondary as-link" asp-page="/Admin/Settings">Назад к настройкам</a>
+</section>
+
+<form method="post" class="panel">
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="notice-success">@Model.StatusMessage</div>
+    }
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Функция</th>
+                    @foreach (var profile in Model.Profiles)
+                    {
+                        <th>@profile.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var permission in Model.Permissions)
+            {
+                <tr>
+                    <td>@permission.Name</td>
+                    @foreach (var profile in Model.Profiles)
+                    {
+                        var inputName = $"perm_{profile.Key}_{permission.Key}";
+                        var enabled = profile.Permissions.TryGetValue(permission.Key, out var allowed) && allowed;
+                        <td>
+                            <label class="check-line compact-check">
+                                <input type="checkbox" name="@inputName" checked="@enabled" />
+                                <span>Вкл</span>
+                            </label>
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn-main" type="submit">Сохранить права</button>
+</form>

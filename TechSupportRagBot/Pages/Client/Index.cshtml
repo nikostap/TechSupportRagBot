@@ -1,7 +1,10 @@
 @page
+@inject TechSupportRagBot.Services.AccessProfileService Access
 @model TechSupportRagBot.Pages.Client.IndexModel
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Client", "Клиент");
+    var canCreateTickets = await Access.IsAllowedAsync(User, "CreateTickets");
+    var canCompanyUsers = await Access.IsAllowedAsync(User, "CompanyUsers");
 }
 
 <section class="page-head">
@@ -9,7 +12,10 @@
         <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientCabinet", "Личный кабинет")</p>
         <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineSupport", "Поддержка станков")</h1>
     </div>
-    <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+    @if (canCreateTickets)
+    {
+        <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+    }
 </section>
 
 <div class="metric-grid">
@@ -25,10 +31,13 @@
         <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMessages", "Новые сообщения")</span>
         <strong>@Model.UnreadMessageCount</strong>
     </a>
-    <a class="metric-card" asp-page="/Client/Users">
-        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers", "Пользователи компании")</span>
-        <strong>@Model.CompanyUserCount</strong>
-    </a>
+    @if (canCompanyUsers)
+    {
+        <a class="metric-card" asp-page="/Client/Users">
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers", "Пользователи компании")</span>
+            <strong>@Model.CompanyUserCount</strong>
+        </a>
+    }
 </div>
 
 <div class="panel">

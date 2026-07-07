@@ -107,6 +107,7 @@ builder.Services.AddScoped<ResolvedTicketKnowledgeService>();
 builder.Services.AddScoped<QAService>();
 builder.Services.AddScoped<OperatorTimeTrackingService>();
 builder.Services.AddScoped<EmailNotificationService>();
+builder.Services.AddScoped<AccessProfileService>();
 builder.Services.AddScoped<IVideoProcessingService, VideoProcessingService>();
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 builder.Services.AddSingleton<RagAuditLogger>();
@@ -197,6 +198,26 @@ app.Use(async (context, next) =>
 {
     if (context.User.Identity?.IsAuthenticated == true)
     {
+        var permission = AccessProfileService.PermissionForPath(context.Request.Path);
+        if (!string.IsNullOrWhiteSpace(permission))
+        {
+            var access = context.RequestServices.GetRequiredService<AccessProfileService>();
+            if (!await access.IsAllowedAsync(context.User, permission, context.RequestAborted))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Access denied.", context.RequestAborted);
+                return;
+            }
+        }
+    }
+
+    await next();
+});
+
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
         var path = context.Request.Path;
         var isAllowedPath = path.StartsWithSegments("/Identity/Account/ChangePassword")
             || path.StartsWithSegments("/Identity/Account/Logout")
@@ -239,6 +260,8 @@ using (var scope = app.Services.CreateScope())
     await services.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
     await TechSupportRagBot.Services.DbInitializer.SeedAsync(services);
     await services.GetRequiredService<SystemSettingsService>().SeedDefaultsAsync();
+    var accessProfiles = services.GetRequiredService<AccessProfileService>();
+    await accessProfiles.SaveProfilesAsync(await accessProfiles.GetProfilesAsync());
     await services.GetRequiredService<KnowledgeFtsService>().RebuildAsync();
     if (builder.Configuration.GetValue("Rag:ReindexOnStartup", false))
     {

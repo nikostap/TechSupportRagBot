@@ -142,7 +142,7 @@
         </div>
     }
 
-    @if (Model.Ticket.Status != TicketStatuses.Closed)
+    @if (Model.Ticket.Status != TicketStatuses.Closed && Model.CanWriteChat)
     {
         <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form">
             <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
@@ -30,6 +31,8 @@ public class UserProfileModel : PageModel
     public ApplicationUser? EditedUser { get; private set; }
     public IList<string> Roles { get; private set; } = new List<string>();
     public string Initials { get; private set; } = "CE";
+    public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -65,8 +68,9 @@ public class UserProfileModel : PageModel
         EditedUser.UserName = Input.UserName.Trim();
         EditedUser.Email = Input.Email;
         EditedUser.Position = Input.Position;
+        EditedUser.AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile);
         EditedUser.Gender = Input.Gender;
-        EditedUser.Country = Input.Country;
+        EditedUser.Country = ChatTranslationService.NormalizeLanguage(Input.Country);
         EditedUser.NormalizedUserName = _userManager.NormalizeName(EditedUser.UserName);
         EditedUser.NormalizedEmail = _userManager.NormalizeEmail(EditedUser.Email);
 
@@ -146,8 +150,9 @@ public class UserProfileModel : PageModel
         Input.UserName = EditedUser?.UserName ?? string.Empty;
         Input.Email = EditedUser?.Email;
         Input.Position = EditedUser?.Position;
+        Input.AccessProfile = AccessProfileService.NormalizeProfileKey(EditedUser?.AccessProfile);
         Input.Gender = EditedUser?.Gender;
-        Input.Country = EditedUser?.Country;
+        Input.Country = ChatTranslationService.LanguageToLibreTranslateCode(EditedUser?.Country) ?? "ru";
         Input.CompanyName = EditedUser?.Client?.Name;
         Input.Phone = EditedUser?.Client?.ContactPhone;
     }
@@ -164,6 +169,8 @@ public class UserProfileModel : PageModel
         public string? Email { get; set; }
 
         public string? Position { get; set; }
+
+        public string? AccessProfile { get; set; }
 
         public string? Gender { get; set; }
 

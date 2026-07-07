@@ -33,7 +33,8 @@
         <dl class="profile-details">
             <div><dt>Email</dt><dd>@(Model.EditedUser?.Email ?? "—")</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</dt><dd>@(Model.EditedUser?.Position ?? "—")</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")</dt><dd>@(Model.EditedUser?.Country ?? "—")</dd></div>
+            <div><dt>Профиль доступа</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(Model.EditedUser?.AccessProfile)</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(Model.EditedUser?.Country)</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword", "Выданный пароль")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? "изменен")</code></dd></div>
         </dl>
@@ -45,7 +46,22 @@
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+        <label>Профиль доступа
+            <select asp-for="Input.AccessProfile">
+                @foreach (var profile in Model.AccessProfileOptions)
+                {
+                    <option value="@profile.Key">@profile.Name</option>
+                }
+            </select>
+        </label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+            <select asp-for="Input.Country">
+                @foreach (var language in Model.LanguageOptions)
+                {
+                    <option value="@language.Code">@language.Name</option>
+                }
+            </select>
+        </label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
             <select asp-for="Input.Gender">
                 <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>

@@ -18,7 +18,22 @@
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" autocomplete="off" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")<input asp-for="Input.Country" /></label>
+        <label>Профиль доступа
+            <select asp-for="Input.AccessProfile">
+                @foreach (var profile in Model.AccessProfileOptions)
+                {
+                    <option value="@profile.Key">@profile.Name</option>
+                }
+            </select>
+        </label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+            <select asp-for="Input.Country">
+                @foreach (var language in Model.LanguageOptions)
+                {
+                    <option value="@language.Code">@language.Name</option>
+                }
+            </select>
+        </label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
             <select asp-for="Input.Gender">
                 <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
@@ -41,8 +56,9 @@
                         <th>Email</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword", "Временный пароль")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</th>
+                        <th>Профиль</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Country", "Страна")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -55,8 +71,9 @@
                         <td>@user.Email</td>
                         <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed", "изменен"))</code></td>
                         <td>@user.Position</td>
+                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(user.AccessProfile)</td>
                         <td>@user.Gender</td>
-                        <td>@user.Country</td>
+                        <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
                         <td class="table-actions">
                             <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">

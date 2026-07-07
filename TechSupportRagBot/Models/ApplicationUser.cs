@@ -28,6 +28,8 @@ public class ApplicationUser : IdentityUser
 
     public string? Position { get; set; }
 
+    public string? AccessProfile { get; set; }
+
     public string? Gender { get; set; }
 
     public string? Country { get; set; }

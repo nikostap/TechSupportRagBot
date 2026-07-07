@@ -8,8 +8,38 @@ public class ChatTranslationService
 {
     public static readonly IReadOnlyList<(string Code, string Name)> SupportedLanguages =
     [
+        ("ar", "Arabic"),
+        ("az", "Azerbaijani"),
+        ("bg", "Bulgarian"),
+        ("ca", "Catalan"),
+        ("zh", "Chinese"),
+        ("cs", "Czech"),
+        ("da", "Danish"),
+        ("nl", "Dutch"),
+        ("en", "English"),
+        ("eo", "Esperanto"),
+        ("fi", "Finnish"),
+        ("fr", "French"),
+        ("de", "German"),
+        ("el", "Greek"),
+        ("he", "Hebrew"),
+        ("hi", "Hindi"),
+        ("hu", "Hungarian"),
+        ("id", "Indonesian"),
+        ("ga", "Irish"),
+        ("it", "Italian"),
+        ("ja", "Japanese"),
+        ("ko", "Korean"),
+        ("fa", "Persian"),
+        ("pl", "Polish"),
+        ("pt", "Portuguese"),
         ("ru", "Русский"),
-        ("en", "English")
+        ("sk", "Slovak"),
+        ("es", "Spanish"),
+        ("sv", "Swedish"),
+        ("tr", "Turkish"),
+        ("uk", "Ukrainian"),
+        ("vi", "Vietnamese")
     ];
 
     private readonly HttpClient _httpClient;
@@ -102,6 +132,13 @@ public class ChatTranslationService
                 return "Russian";
             }
 
+            var normalizedFallback = NormalizeLanguage(fallbackLanguage);
+            if (!string.IsNullOrWhiteSpace(fallbackLanguage)
+                && !normalizedFallback.Equals("Russian", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedFallback;
+            }
+
             if (latin >= 3 && cyrillic == 0)
             {
                 return "English";
@@ -119,14 +156,30 @@ public class ChatTranslationService
         }
 
         var value = language.Trim().ToLowerInvariant();
+        var known = SupportedLanguages.FirstOrDefault(x =>
+            x.Code.Equals(value, StringComparison.OrdinalIgnoreCase)
+            || x.Name.Equals(language.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(known.Code))
+        {
+            return known.Name;
+        }
+
         return value switch
         {
             "russian" or "русский" or "ru" or "russia" or "россия" => "Russian",
             "english" or "английский" or "en" or "england" or "uk" or "usa" or "us" or "united states" or "united kingdom" or "сша" or "англия" => "English",
+            "arabic" or "арабский" => "Arabic",
+            "azerbaijani" or "азербайджанский" => "Azerbaijani",
+            "bulgarian" or "болгарский" => "Bulgarian",
+            "catalan" or "каталанский" => "Catalan",
             "german" or "немецкий" or "de" or "germany" or "германия" => "German",
             "french" or "французский" or "fr" or "france" or "франция" => "French",
             "italian" or "итальянский" or "it" or "italy" or "италия" => "Italian",
             "spanish" or "испанский" or "es" or "spain" or "испания" => "Spanish",
+            "dutch" or "нидерландский" or "голландский" => "Dutch",
+            "polish" or "польский" => "Polish",
+            "portuguese" or "португальский" => "Portuguese",
+            "ukrainian" or "украинский" or "ua" or "ukraine" or "украина" => "Ukrainian",
             "chinese" or "китайский" or "zh" or "cn" or "china" or "китай" => "Chinese",
             "turkish" or "турецкий" or "tr" or "turkey" or "турция" => "Turkish",
             "kazakhstan" or "kz" or "казахстан" or "belarus" or "by" or "беларусь" => "Russian",
@@ -179,16 +232,48 @@ public class ChatTranslationService
         }
 
         var value = language.Trim().ToLowerInvariant();
+        var known = SupportedLanguages.FirstOrDefault(x =>
+            x.Code.Equals(value, StringComparison.OrdinalIgnoreCase)
+            || x.Name.Equals(language.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(known.Code))
+        {
+            return known.Code;
+        }
+
         return value switch
         {
             "russian" or "русский" or "ru" => "ru",
             "english" or "английский" or "en" => "en",
+            "arabic" or "арабский" => "ar",
+            "azerbaijani" or "азербайджанский" => "az",
+            "bulgarian" or "болгарский" => "bg",
+            "catalan" or "каталанский" => "ca",
+            "czech" or "чешский" => "cs",
+            "danish" or "датский" => "da",
+            "dutch" or "нидерландский" or "голландский" => "nl",
+            "esperanto" or "эсперанто" => "eo",
+            "finnish" or "финский" => "fi",
             "german" or "немецкий" or "de" => "de",
             "french" or "французский" or "fr" => "fr",
+            "greek" or "греческий" => "el",
+            "hebrew" or "иврит" => "he",
+            "hindi" or "хинди" => "hi",
+            "hungarian" or "венгерский" => "hu",
+            "indonesian" or "индонезийский" => "id",
+            "irish" or "ирландский" => "ga",
             "italian" or "итальянский" or "it" => "it",
+            "japanese" or "японский" => "ja",
+            "korean" or "корейский" => "ko",
+            "persian" or "фарси" or "персидский" => "fa",
+            "polish" or "польский" => "pl",
+            "portuguese" or "португальский" => "pt",
+            "slovak" or "словацкий" => "sk",
             "spanish" or "испанский" or "es" => "es",
+            "swedish" or "шведский" => "sv",
             "chinese" or "китайский" or "zh" or "cn" => "zh",
             "turkish" or "турецкий" or "tr" => "tr",
+            "ukrainian" or "украинский" or "ua" => "uk",
+            "vietnamese" or "вьетнамский" => "vi",
             _ => value.Length == 2 ? value : null
         };
     }

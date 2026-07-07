@@ -56,8 +56,6 @@ services:
       - "--port"
       - "5000"
       - "--update-models"
-      - "--load-only"
-      - "en,ru"
     ports:
       - "5000:5000"
     healthcheck:

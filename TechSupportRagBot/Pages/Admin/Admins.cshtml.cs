@@ -19,6 +19,8 @@ public class AdminsModel : PageModel
     public AdminInput Input { get; set; } = new();
 
     public IList<ApplicationUser> Admins { get; private set; } = new List<ApplicationUser>();
+    public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
 
     public async Task OnGetAsync() => await LoadAsync();
 
@@ -42,7 +44,8 @@ public class AdminsModel : PageModel
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
-            Country = Input.Country,
+            AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
+            Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             IssuedPassword = temporaryPassword,
             MustChangePassword = true,
             EmailConfirmed = true
@@ -84,7 +87,8 @@ public class AdminsModel : PageModel
         user.UserName = input.UserName.Trim();
         user.Email = input.Email;
         user.Position = input.Position;
-        user.Country = input.Country;
+        user.AccessProfile = AccessProfileService.NormalizeProfileKey(input.AccessProfile);
+        user.Country = ChatTranslationService.NormalizeLanguage(input.Country);
         user.NormalizedUserName = _userManager.NormalizeName(user.UserName);
         user.NormalizedEmail = _userManager.NormalizeEmail(user.Email);
         await _userManager.UpdateAsync(user);
@@ -139,6 +143,8 @@ public class AdminsModel : PageModel
 
         public string? Position { get; set; }
 
-        public string? Country { get; set; }
+        public string? AccessProfile { get; set; } = AccessProfileService.Administrator;
+
+        public string? Country { get; set; } = "ru";
     }
 }

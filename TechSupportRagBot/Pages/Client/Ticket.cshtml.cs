@@ -20,6 +20,7 @@ public class TicketModel : PageModel
     private readonly VideoProcessingOptions _videoOptions;
     private readonly RagAuditLogger _auditLogger;
     private readonly ChatMessageDeletionService _messageDeletion;
+    private readonly AccessProfileService _access;
 
     public TicketModel(
         ApplicationDbContext db,
@@ -29,6 +30,7 @@ public class TicketModel : PageModel
         IBackgroundTaskQueue videoQueue,
         RagAuditLogger auditLogger,
         ChatMessageDeletionService messageDeletion,
+        AccessProfileService access,
         Microsoft.Extensions.Options.IOptions<VideoProcessingOptions> videoOptions)
     {
         _db = db;
@@ -38,6 +40,7 @@ public class TicketModel : PageModel
         _videoQueue = videoQueue;
         _auditLogger = auditLogger;
         _messageDeletion = messageDeletion;
+        _access = access;
         _videoOptions = videoOptions.Value;
     }
 
@@ -48,6 +51,8 @@ public class TicketModel : PageModel
     public string? CurrentUserId { get; private set; }
 
     public bool ShouldAskBot { get; private set; }
+
+    public bool CanWriteChat { get; private set; }
 
     [BindProperty]
     public string? MessageText { get; set; }
@@ -99,6 +104,13 @@ public class TicketModel : PageModel
         if (Ticket == null)
         {
             return NotFound();
+        }
+
+        if (!await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted))
+        {
+            return IsAjaxRequest()
+                ? new JsonResult(new { ok = false, error = "Нет доступа к отправке сообщений." })
+                : Forbid();
         }
 
         var hasText = !string.IsNullOrWhiteSpace(MessageText);
@@ -369,6 +381,7 @@ public class TicketModel : PageModel
     private async Task<bool> LoadAsync(int id)
     {
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        CanWriteChat = await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted);
 
         Ticket = await _db.Tickets
             .Include(x => x.Machine)

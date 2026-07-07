@@ -22,6 +22,7 @@ public class TicketModel : PageModel
     private readonly VideoProcessingOptions _videoOptions;
     private readonly RagAuditLogger _auditLogger;
     private readonly ChatMessageDeletionService _messageDeletion;
+    private readonly AccessProfileService _access;
 
     public TicketModel(
         ApplicationDbContext db,
@@ -33,6 +34,7 @@ public class TicketModel : PageModel
         IBackgroundTaskQueue videoQueue,
         RagAuditLogger auditLogger,
         ChatMessageDeletionService messageDeletion,
+        AccessProfileService access,
         Microsoft.Extensions.Options.IOptions<VideoProcessingOptions> videoOptions)
     {
         _db = db;
@@ -44,6 +46,7 @@ public class TicketModel : PageModel
         _videoQueue = videoQueue;
         _auditLogger = auditLogger;
         _messageDeletion = messageDeletion;
+        _access = access;
         _videoOptions = videoOptions.Value;
     }
 
@@ -52,6 +55,10 @@ public class TicketModel : PageModel
     public List<ChatMessageView> Messages { get; private set; } = new();
 
     public string? CurrentUserId { get; private set; }
+
+    public bool CanWriteChat { get; private set; }
+
+    public bool CanCloseTickets { get; private set; }
 
     [BindProperty]
     public string? MessageText { get; set; }
@@ -130,6 +137,13 @@ public class TicketModel : PageModel
         if (string.IsNullOrWhiteSpace(CurrentUserId))
         {
             return Forbid();
+        }
+
+        if (!await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted))
+        {
+            return IsAjaxRequest()
+                ? new JsonResult(new { ok = false, error = "Нет доступа к отправке сообщений." })
+                : Forbid();
         }
 
         var hasText = !string.IsNullOrWhiteSpace(MessageText);
@@ -255,7 +269,12 @@ public class TicketModel : PageModel
         {
             return NotFound();
         }
-if (string.IsNullOrWhiteSpace(CurrentUserId))
+        if (string.IsNullOrWhiteSpace(CurrentUserId))
+        {
+            return Forbid();
+        }
+
+        if (!await _access.IsAllowedAsync(User, "CloseTickets", HttpContext.RequestAborted))
         {
             return Forbid();
         }
@@ -386,6 +405,8 @@ if (string.IsNullOrWhiteSpace(CurrentUserId))
     private async Task<bool> LoadAsync(int id)
     {
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        CanWriteChat = await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted);
+        CanCloseTickets = await _access.IsAllowedAsync(User, "CloseTickets", HttpContext.RequestAborted);
 
         Ticket = await _db.Tickets
             .Include(x => x.Machine)

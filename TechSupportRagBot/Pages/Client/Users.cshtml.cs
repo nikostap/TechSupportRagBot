@@ -32,6 +32,8 @@ public class UsersModel : PageModel
     public CompanyUserInput Input { get; set; } = new();
 
     public List<ApplicationUser> Users { get; private set; } = new();
+    public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.ProfileOptions;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -69,7 +71,8 @@ public class UsersModel : PageModel
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
-            Country = Input.Country,
+            AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
+            Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             ClientId = clientId,
             IssuedPassword = password,
             EmailConfirmed = true
@@ -153,6 +156,8 @@ public class UsersModel : PageModel
 
         public string? Position { get; set; }
 
-        public string? Country { get; set; }
+        public string? AccessProfile { get; set; } = AccessProfileService.Manager;
+
+        public string? Country { get; set; } = "ru";
     }
 }
