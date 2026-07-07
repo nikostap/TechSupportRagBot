@@ -43,7 +43,7 @@
                                 {
                                     <form method="post" asp-page-handler="RemoveOperator" asp-route-id="@ticket.Id" asp-route-operatorId="@assignment.OperatorUserId" class="operator-chip">
                                         <span>@(assignment.OperatorUser?.FullName ?? assignment.OperatorUser?.UserName)</span>
-                                        <button type="submit" title="Убрать">×</button>
+                                        <button type="submit" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "Remove")">×</button>
                                     </form>
                                 }
                                 @if (ticket.OperatorAssignments.Count > 3)
@@ -84,16 +84,16 @@
                                         <option value="@option.Id">@option.Name</option>
                                     }
                                 </select>
-                                <button class="btn-secondary small" type="submit">Добавить</button>
+                                <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
                             </form>
                         }
                         else if (ticket.Status == TicketStatuses.Closed)
                         {
-                            <span class="muted-text">Закрыто</span>
+                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "Closed")</span>
                         }
                         else
                         {
-                            <span class="muted-text">Нет доступных операторов</span>
+                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAvailableOperators")</span>
                         }
                     </td>
                     <td class="table-actions">

@@ -55,14 +55,14 @@
 
 <div class="settings-layout">
     <form method="post" class="panel" id="rag-settings-form">
-        <h2>Модели и провайдеры</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ModelsAndProviders")</h2>
 
         @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
         {
             <div class="notice-success">@Model.StatusMessage</div>
         }
 
-        <label>Провайдер LLM
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "LlmProvider")
             <select asp-for="Input.ChatProvider" id="chat-provider">
                 <option value="Ollama">Ollama</option>
                 <option value="OpenAI">OpenAI</option>
@@ -70,77 +70,77 @@
             </select>
         </label>
 
-        <label>LLM модель
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "LlmModel")
             <select asp-for="Input.ChatModel" id="chat-model"></select>
         </label>
 
-        <label>Провайдер embeddings
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmbeddingProvider")
             <select asp-for="Input.EmbeddingProvider" id="embedding-provider">
                 <option value="Ollama">Ollama</option>
                 <option value="OpenAI">OpenAI</option>
             </select>
         </label>
 
-        <label>Embedding модель
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmbeddingModel")
             <select asp-for="Input.EmbeddingModel" id="embedding-model"></select>
         </label>
 
         @if (Model.Models.Count == 0)
         {
             <div class="notice-soft" data-provider-note="Ollama">
-                Ollama не вернул список моделей. Это нормально, если выбран OpenAI или DeepSeek. Для Ollama проверьте, что сервис запущен и доступен приложению.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "OllamaModelsUnavailable")
             </div>
         }
 
         @if (!Model.HasOpenAiKey)
         {
             <div class="notice-soft" data-provider-note="OpenAI">
-                OpenAI API key не задан. Укажите переменную окружения <code>OpenAI__ApiKey</code>.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "OpenAiKeyMissing") <code>OpenAI__ApiKey</code>.
             </div>
         }
 
         @if (!Model.HasDeepSeekKey)
         {
             <div class="notice-soft" data-provider-note="DeepSeek">
-                DeepSeek API key не задан. Укажите переменную окружения <code>DeepSeek__ApiKey</code>.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "DeepSeekKeyMissing") <code>DeepSeek__ApiKey</code>.
             </div>
         }
 
-        <h2>Почтовые уведомления</h2>
-        <label>Отправлять письмо, если сообщение не прочитано, минут
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmailNotifications")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "UnreadEmailDelayMinutes")
             <input asp-for="Input.UnreadEmailDelayMinutes" type="number" min="5" max="1440" step="5" />
         </label>
 
-        <button class="btn-main" type="submit">Сохранить</button>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     @if (canAccessProfiles)
     {
         <section class="panel">
-            <h2>Доступы сотрудников</h2>
-            <p>Настройка профилей: менеджер, оператор, программист, администратор, наблюдатель.</p>
-            <a class="btn-main as-link" asp-page="/Admin/AccessProfiles">Открыть профили доступа</a>
+            <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmployeeAccess")</h2>
+            <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmployeeAccessDescription")</p>
+            <a class="btn-main as-link" asp-page="/Admin/AccessProfiles">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenAccessProfiles")</a>
         </section>
     }
 
     <section class="panel">
-        <h2>Модели Ollama</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "OllamaModels")</h2>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>Модель</th>
-                        <th>Тип</th>
-                        <th>Размер</th>
-                        <th>Обновлена</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Type")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Size")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Updated")</th>
                     </tr>
                 </thead>
                 <tbody>
                 @if (Model.Models.Count == 0)
                 {
                     <tr>
-                        <td colspan="4">Список моделей Ollama недоступен.</td>
+                        <td colspan="4">@TechSupportRagBot.Services.UiText.T(HttpContext, "OllamaModelListUnavailable")</td>
                     </tr>
                 }
                 @foreach (var item in Model.Models)

@@ -1,42 +1,42 @@
 @page
 @model TechSupportRagBot.Pages.Admin.LicensesModel
 @{
-    ViewData["Title"] = "Лицензии";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">Доступ</p>
-        <h1>Лицензии</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Access")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</h1>
     </div>
 </section>
 
 <div class="split-layout">
     <form method="post" class="panel">
-        <h2>Выдать ключ</h2>
-        <label>Клиент
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssueKey")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")
             <select asp-for="Input.ClientId" asp-items="Model.ClientOptions"></select>
         </label>
-        <label>Станок
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")
             <select asp-for="Input.MachineId" asp-items="Model.MachineOptions"></select>
         </label>
-        <label>Действует до
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExpiresAt")
             <input asp-for="Input.ExpiresAt" type="date" />
         </label>
-        <button class="btn-main" type="submit">Создать лицензию</button>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateLicense")</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <div class="panel">
-        <h2>Ключи доступа</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessKeys")</h2>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>Ключ</th>
-                        <th>Клиент</th>
-                        <th>Станок</th>
-                        <th>Статус</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Key")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -47,10 +47,10 @@
                         <td><code>@license.Key</code></td>
                         <td>@license.Client?.Name</td>
                         <td>@license.Machine?.Name</td>
-                        <td>@(license.IsActivated ? "Активирована" : "Выдана")</td>
+                        <td>@(license.IsActivated ? TechSupportRagBot.Services.UiText.T(HttpContext, "Activated") : TechSupportRagBot.Services.UiText.T(HttpContext, "Issued"))</td>
                         <td>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@license.Id" class="row-action">
-                                <button class="btn-danger" type="submit">Удалить</button>
+                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
                             </form>
                         </td>
                     </tr>

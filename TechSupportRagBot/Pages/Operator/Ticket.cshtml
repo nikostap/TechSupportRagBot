@@ -1,7 +1,7 @@
 ﻿@page "{id:int}"
 @model TechSupportRagBot.Pages.Operator.TicketModel
 @{
-    ViewData["Title"] = Model.Ticket?.Title ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращение");
+    ViewData["Title"] = Model.Ticket?.Title ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets");
     bool IsImage(TechSupportRagBot.Models.Attachment attachment)
     {
         var ext = System.IO.Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
@@ -30,7 +30,7 @@
     @if (Model.Ticket.OperatorUserId == null && Model.Ticket.Status != TicketStatuses.Closed)
     {
         <form method="post" asp-page-handler="Assign" class="inline-form">
-            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "TakeToWork", "Взять в работу")</button>
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "TakeToWork")</button>
         </form>
     }
 
@@ -41,13 +41,13 @@
          data-message-count="@Model.Messages.Count"
          data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
-         data-current-user-name="@(User.Identity?.Name ?? "Оператор")"
+         data-current-user-name="@(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Operator"))"
          data-track-operator-time="true">
         @foreach (var item in Model.Messages)
         {
             var message = item.Message;
             var authorName = message.IsBotMessage
-                ? TechSupportRagBot.Services.UiText.T(HttpContext, "Bot", "Бот")
+                ? TechSupportRagBot.Services.UiText.T(HttpContext, "Bot")
                 : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName;
             var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
@@ -65,7 +65,7 @@
                         @if (Model.CanWriteChat && !message.IsBotMessage && message.AuthorUserId == Model.CurrentUserId)
                         {
                             <form method="post" asp-page-handler="DeleteMessage" asp-route-messageId="@message.Id" class="message-delete-form">
-                                <button type="submit" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage", "Удалить сообщение")">×</button>
+                                <button type="submit" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMessage")">×</button>
                             </form>
                         }
                     </span>
@@ -79,14 +79,14 @@
                     if (string.IsNullOrWhiteSpace(item.Translation))
                     {
                         <div class="message-translation pending-translation" data-translation-message-id="@message.Id">
-                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation", "Перевод")</span>
-                            <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "TranslationLoading", "Перевод загружается...")</p>
+                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation")</span>
+                            <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "TranslationLoading")</p>
                         </div>
                     }
                     else
                     {
                         <div class="message-translation">
-                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation", "Перевод")</span>
+                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Translation")</span>
                             <p>@item.Translation</p>
                         </div>
                     }
@@ -109,11 +109,11 @@
                                 }
                                 else if (attachment.Status == AttachmentStatuses.Failed)
                                 {
-                                    <div class="video-state failed">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoFailed", "Видео не обработано"): @attachment.ErrorMessage</div>
+                                    <div class="video-state failed">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoFailed"): @attachment.ErrorMessage</div>
                                 }
                                 else
                                 {
-                                    <div class="video-state">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoProcessing", "Видео обрабатывается...")</div>
+                                    <div class="video-state">@TechSupportRagBot.Services.UiText.T(HttpContext, "VideoProcessing")</div>
                                 }
                                 <span>@attachment.OriginalFileName</span>
                             </div>
@@ -148,23 +148,23 @@
         @if (Model.CanWriteChat)
         {
             <form method="post" enctype="multipart/form-data" asp-page-handler="Message" class="chat-form typing-form">
-                <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage", "Напишите сообщение")"></textarea>
+                <textarea asp-for="MessageText" rows="3" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "WriteMessage")"></textarea>
                 <label class="file-picker">
                     <input asp-for="AttachmentFile" type="file" />
-                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
+                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile")</span>
                 </label>
-                <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Send", "Отправить")</button>
+                <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Send")</button>
             </form>
         }
         @if (Model.CanCloseTickets)
         {
             <form method="post" asp-page-handler="Close" class="panel narrow close-form">
-                <h2>Закрыть чат</h2>
+                <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</h2>
                 <label class="check-line">
                     <input asp-for="QuestionResolved" />
-                    <span>Вопрос решён. Добавить очищенную пару вопрос-ответ в базу знаний.</span>
+                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AddToKnowledgeBase")</span>
                 </label>
-                <button class="btn-secondary" type="submit">Закрыть чат</button>
+                <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</button>
             </form>
         }
     }

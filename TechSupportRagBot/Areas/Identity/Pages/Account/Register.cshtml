@@ -1,14 +1,14 @@
 @page
 @model TechSupportRagBot.Areas.Identity.Pages.Account.RegisterModel
 @{
-    ViewData["Title"] = "Регистрация";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Registration");
 }
 
 <div class="auth-layout">
     <div class="auth-card">
         <p class="eyebrow">Class-Engineering Suport</p>
-        <h1>Регистрация закрыта</h1>
-        <p class="muted-text">Аккаунт клиента создает администратор и выдает логин с паролем.</p>
-        <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">Войти</a>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "RegistrationClosed")</h1>
+        <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "RegistrationClosedText")</p>
+        <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login")</a>
     </div>
 </div>

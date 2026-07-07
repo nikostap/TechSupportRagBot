@@ -1,24 +1,24 @@
 @page
 @model TechSupportRagBot.Pages.Admin.AdminsModel
 @{
-    ViewData["Title"] = "Сотрудники";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Employees");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Administration", "Администрирование")</p>
-        <h1>Сотрудники</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Administration")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Employees")</h1>
     </div>
 </section>
 
 <div class="split-layout">
     <form method="post" class="panel">
-        <h2>Новый сотрудник</h2>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" autocomplete="off" /></label>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewEmployee")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")<input asp-for="Input.FullName" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")<input asp-for="Input.UserName" autocomplete="off" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-        <label>Профиль доступа
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")<input asp-for="Input.Position" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")
             <select asp-for="Input.AccessProfile">
                 @foreach (var profile in Model.AccessProfileOptions)
                 {
@@ -26,7 +26,7 @@
                 }
             </select>
         </label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")
             <select asp-for="Input.Country">
                 @foreach (var language in Model.LanguageOptions)
                 {
@@ -34,23 +34,23 @@
                 }
             </select>
         </label>
-        <button class="btn-main" type="submit">Создать сотрудника</button>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateEmployee")</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <div class="panel">
-        <h2>Сотрудники</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Employees")</h2>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")</th>
                         <th>Email</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword", "Временный пароль")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</th>
-                        <th>Профиль</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -61,14 +61,14 @@
                         <td>@user.FullName</td>
                         <td><code>@user.UserName</code></td>
                         <td>@user.Email</td>
-                        <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed", "изменен"))</code></td>
+                        <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
                         <td>@user.Position</td>
                         <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(user.AccessProfile)</td>
                         <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
                         <td class="table-actions">
-                            <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
+                            <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</a>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
-                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
+                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
                             </form>
                         </td>
                     </tr>

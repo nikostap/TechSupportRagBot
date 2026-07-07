@@ -2,7 +2,7 @@
 @inject TechSupportRagBot.Services.AccessProfileService Access
 @model TechSupportRagBot.Pages.Admin.IndexModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Admin", "Администратор");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Admin");
     var canClients = await Access.IsAllowedAsync(User, "ManageClients");
     var canMachines = await Access.IsAllowedAsync(User, "ManageMachines");
     var canLicenses = await Access.IsAllowedAsync(User, "ManageLicenses");
@@ -11,8 +11,8 @@
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Dashboard", "Панель управления")</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Admin", "Администратор")</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Dashboard")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Admin")</h1>
     </div>
 </section>
 
@@ -20,43 +20,43 @@
     @if (canClients)
     {
         <a class="metric-card" asp-page="/Admin/Clients">
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</span>
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</span>
             <strong>@Model.ClientCount</strong>
         </a>
     }
     @if (canMachines)
     {
         <a class="metric-card blue" asp-page="/Admin/Machines">
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</span>
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</span>
             <strong>@Model.MachineCount</strong>
         </a>
     }
     @if (canLicenses)
     {
         <a class="metric-card cyan" asp-page="/Admin/Licenses">
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</span>
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</span>
             <strong>@Model.LicenseCount</strong>
         </a>
     }
     @if (canTickets)
     {
         <a class="metric-card attention" asp-page="/Admin/Tickets">
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenTickets", "Открытые обращения")</span>
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenTickets")</span>
             <strong>@Model.OpenTicketCount</strong>
         </a>
     }
 </div>
 
 <div class="control-grid">
-    @if (await Access.IsAllowedAsync(User, "ManageAdmins")) { <a asp-page="/Admin/Admins">Сотрудники</a> }
-    @if (canClients) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a> }
-    @if (canMachines) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</a> }
-    @if (canLicenses) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</a> }
-    @if (await Access.IsAllowedAsync(User, "ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</a> }
-    @if (await Access.IsAllowedAsync(User, "KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</a> }
+    @if (await Access.IsAllowedAsync(User, "ManageAdmins")) { <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Employees")</a> }
+    @if (canClients) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</a> }
+    @if (canMachines) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</a> }
+    @if (canLicenses) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</a> }
+    @if (await Access.IsAllowedAsync(User, "ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators")</a> }
+    @if (await Access.IsAllowedAsync(User, "KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</a> }
     @if (await Access.IsAllowedAsync(User, "QA")) { <a asp-page="/Admin/QA">QA</a> }
-    @if (canTickets) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</a> }
-    @if (await Access.IsAllowedAsync(User, "TimeTracking")) { <a asp-page="/Admin/TimeTracking">Учёт времени</a> }
-    @if (await Access.IsAllowedAsync(User, "Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</a> }
-    @if (await Access.IsAllowedAsync(User, "AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">Профили доступа</a> }
+    @if (canTickets) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
+    @if (await Access.IsAllowedAsync(User, "TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }
+    @if (await Access.IsAllowedAsync(User, "Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a> }
+    @if (await Access.IsAllowedAsync(User, "AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles")</a> }
 </div>

@@ -1,15 +1,15 @@
 @page
 @model TechSupportRagBot.Pages.Admin.AccessProfilesModel
 @{
-    ViewData["Title"] = "Профили доступа";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">Настройки</p>
-        <h1>Профили доступа</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles")</h1>
     </div>
-    <a class="btn-secondary as-link" asp-page="/Admin/Settings">Назад к настройкам</a>
+    <a class="btn-secondary as-link" asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "BackToSettings")</a>
 </section>
 
 <form method="post" class="panel">
@@ -22,7 +22,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Функция</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Function")</th>
                     @foreach (var profile in Model.Profiles)
                     {
                         <th>@profile.Name</th>
@@ -41,7 +41,7 @@
                         <td>
                             <label class="check-line compact-check">
                                 <input type="checkbox" name="@inputName" checked="@enabled" />
-                                <span>Вкл</span>
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "EnabledShort")</span>
                             </label>
                         </td>
                     }
@@ -51,5 +51,5 @@
         </table>
     </div>
 
-    <button class="btn-main" type="submit">Сохранить права</button>
+    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SavePermissions")</button>
 </form>

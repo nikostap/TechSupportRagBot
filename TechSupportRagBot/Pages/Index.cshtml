@@ -1,17 +1,17 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle", "Class-Engineering Suport");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle");
 }
 
 @if (User.Identity?.IsAuthenticated != true)
 {
     <section class="home-hero">
         <div class="hero-panel">
-            <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow", "Локальная линия поддержки")</p>
-            <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle", "Class-Engineering Suport")</h1>
+            <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow")</p>
+            <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle")</h1>
             <div class="hero-actions">
-                <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login", "Войти")</a>
+                <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login")</a>
             </div>
         </div>
     </section>
@@ -21,17 +21,17 @@ else
     <section class="page-head dashboard-head">
         <div>
             <p class="eyebrow">@Model.ProfileName</p>
-            <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Workplace", "Рабочий стол")</h1>
+            <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Workplace")</h1>
             <p class="muted">@Model.DisplayName</p>
         </div>
         <div class="dashboard-actions">
             @if (Model.Can("CreateTickets") && Model.HasClientAccount)
             {
-                <a class="btn-main as-link" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+                <a class="btn-main as-link" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket")</a>
             }
             @if (Model.Can("Settings"))
             {
-                <a class="btn-secondary as-link" asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</a>
+                <a class="btn-secondary as-link" asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a>
             }
         </div>
     </section>
@@ -40,21 +40,21 @@ else
         @if (Model.IsInternalUser && Model.Can("Tickets") && Model.WaitingForOperatorCount > 0)
         {
             <a class="attention-card urgent" asp-page="/Admin/Tickets">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "WaitingForOperator", "Ждут оператора")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "WaitingForOperator")</span>
                 <strong>@Model.WaitingForOperatorCount</strong>
             </a>
         }
         @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea && Model.AssignedTicketCount > 0)
         {
             <a class="attention-card" asp-page="/Operator/Index">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets", "Назначенные обращения")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets")</span>
                 <strong>@Model.AssignedTicketCount</strong>
             </a>
         }
         @if (Model.Can("ClientCabinet") && Model.HasClientAccount && Model.UnreadMessageCount > 0)
         {
             <a class="attention-card urgent" asp-page="/Client/Tickets">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "UnreadMessages", "Новые сообщения")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "UnreadMessages")</span>
                 <strong>@Model.UnreadMessageCount</strong>
             </a>
         }
@@ -63,7 +63,7 @@ else
             && (!Model.Can("ClientCabinet") || !Model.HasClientAccount || Model.UnreadMessageCount == 0))
         {
             <div class="attention-card calm">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "NoUrgentItems", "Сейчас нет срочных действий")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "NoUrgentItems")</span>
                 <strong>OK</strong>
             </div>
         }
@@ -73,35 +73,35 @@ else
         @if (Model.IsInternalUser && Model.Can("ManageClients"))
         {
             <a class="metric-card" asp-page="/Admin/Clients">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</span>
                 <strong>@Model.ClientCount</strong>
             </a>
         }
         @if (Model.IsInternalUser && Model.Can("ManageMachines"))
         {
             <a class="metric-card blue" asp-page="/Admin/Machines">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</span>
                 <strong>@Model.MachineCount</strong>
             </a>
         }
         @if (Model.IsInternalUser && Model.Can("ManageLicenses"))
         {
             <a class="metric-card cyan" asp-page="/Admin/Licenses">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</span>
                 <strong>@Model.LicenseCount</strong>
             </a>
         }
         @if (Model.Can("ClientCabinet") && Model.HasClientAccount)
         {
             <a class="metric-card blue" asp-page="/Client/Machines">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AvailableMachines", "Доступные станки")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AvailableMachines")</span>
                 <strong>@Model.AvailableMachineCount</strong>
             </a>
         }
         @if (Model.Can("CompanyUsers") && Model.HasClientAccount)
         {
             <a class="metric-card" asp-page="/Client/Users">
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers", "Пользователи компании")</span>
+                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers")</span>
                 <strong>@Model.CompanyUserCount</strong>
             </a>
         }
@@ -112,12 +112,12 @@ else
         {
             <div class="panel dashboard-panel">
                 <div class="panel-title-row">
-                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets", "Назначенные обращения")</h2>
-                    <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a>
+                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets")</h2>
+                    <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
                 @if (Model.AssignedTickets.Count == 0)
                 {
-                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAssignedTickets", "Назначенных обращений нет.")</p>
+                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAssignedTickets")</p>
                 }
                 else
                 {
@@ -139,12 +139,12 @@ else
         {
             <div class="panel dashboard-panel">
                 <div class="panel-title-row">
-                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</h2>
-                    <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a>
+                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</h2>
+                    <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
                 @if (Model.AttentionTickets.Count == 0)
                 {
-                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoOpenTickets", "Открытых обращений нет.")</p>
+                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoOpenTickets")</p>
                 }
                 else
                 {
@@ -165,12 +165,12 @@ else
         {
             <div class="panel dashboard-panel">
                 <div class="panel-title-row">
-                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets", "Мои обращения")</h2>
-                    <a asp-page="/Client/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a>
+                    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets")</h2>
+                    <a asp-page="/Client/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
                 @if (Model.RecentClientTickets.Count == 0)
                 {
-                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoTicketsYet", "Обращений пока нет.")</p>
+                    <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoTicketsYet")</p>
                 }
                 else
                 {
@@ -191,20 +191,20 @@ else
         @if (Model.IsInternalUser)
         {
             <div class="panel dashboard-panel">
-                <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QuickActions", "Быстрые действия")</h2>
+                <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QuickActions")</h2>
                 <div class="quick-action-list">
-                    @if (Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">Сотрудники</a> }
-                    @if (Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients", "Клиенты")</a> }
-                    @if (Model.Can("ManageMachines")) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines", "Станки")</a> }
-                    @if (Model.Can("ManageLicenses")) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses", "Лицензии")</a> }
-                    @if (Model.Can("ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators", "Операторы")</a> }
-                    @if (Model.Can("KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</a> }
+                    @if (Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Employees")</a> }
+                    @if (Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</a> }
+                    @if (Model.Can("ManageMachines")) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</a> }
+                    @if (Model.Can("ManageLicenses")) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</a> }
+                    @if (Model.Can("ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators")</a> }
+                    @if (Model.Can("KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</a> }
                     @if (Model.Can("QA")) { <a asp-page="/Admin/QA">QA</a> }
-                    @if (Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</a> }
-                    @if (Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">Учёт времени</a> }
-                    @if (Model.Can("Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings", "Настройки")</a> }
-                    @if (Model.Can("AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">Профили доступа</a> }
-                    @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea) { <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")</a> }
+                    @if (Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
+                    @if (Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }
+                    @if (Model.Can("Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a> }
+                    @if (Model.Can("AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles")</a> }
+                    @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea) { <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</a> }
                 </div>
             </div>
         }

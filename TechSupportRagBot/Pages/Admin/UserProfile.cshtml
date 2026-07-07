@@ -1,16 +1,16 @@
 @page "{id}"
 @model TechSupportRagBot.Pages.Admin.UserProfileModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Profile");
     var isClient = Model.EditedUser?.ClientId != null;
 }
 
 <section class="page-head">
     <div>
         <p class="eyebrow">@string.Join(", ", Model.Roles)</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</h1>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</h1>
     </div>
-    <a class="btn-secondary as-link" href="javascript:history.back()">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back", "Назад")</a>
+    <a class="btn-secondary as-link" href="javascript:history.back()">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back")</a>
 </section>
 
 <div class="profile-admin-layout">
@@ -32,21 +32,21 @@
 
         <dl class="profile-details">
             <div><dt>Email</dt><dd>@(Model.EditedUser?.Email ?? "—")</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")</dt><dd>@(Model.EditedUser?.Position ?? "—")</dd></div>
-            <div><dt>Профиль доступа</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(Model.EditedUser?.AccessProfile)</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(Model.EditedUser?.Country)</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword", "Выданный пароль")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? "изменен")</code></dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</dt><dd>@(Model.EditedUser?.Position ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(Model.EditedUser?.AccessProfile)</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(Model.EditedUser?.Country)</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
+            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
         </dl>
     </section>
 
     <form method="post" asp-page-handler="Save" class="panel">
-        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль")</h2>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")<input asp-for="Input.UserName" /></label>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")<input asp-for="Input.FullName" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")<input asp-for="Input.UserName" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-        <label>Профиль доступа
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")<input asp-for="Input.Position" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")
             <select asp-for="Input.AccessProfile">
                 @foreach (var profile in Model.AccessProfileOptions)
                 {
@@ -54,7 +54,7 @@
                 }
             </select>
         </label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")
             <select asp-for="Input.Country">
                 @foreach (var language in Model.LanguageOptions)
                 {
@@ -62,25 +62,25 @@
                 }
             </select>
         </label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")
             <select asp-for="Input.Gender">
-                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
-                <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male", "Мужской")</option>
-                <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female", "Женский")</option>
+                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male")</option>
+                <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female")</option>
             </select>
         </label>
         @if (isClient)
         {
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Company", "Компания")<input asp-for="Input.CompanyName" /></label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone", "Телефон")<input asp-for="Input.Phone" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Company")<input asp-for="Input.CompanyName" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone")<input asp-for="Input.Phone" /></label>
         }
-        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save", "Сохранить")</button>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <form method="post" asp-page-handler="ResetPassword" class="panel">
-        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Password", "Пароль")</h2>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewPassword", "Новый пароль")<input name="password" autocomplete="new-password" /></label>
-        <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SetPassword", "Задать пароль")</button>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Password")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewPassword")<input name="password" autocomplete="new-password" /></label>
+        <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SetPassword")</button>
     </form>
 </div>

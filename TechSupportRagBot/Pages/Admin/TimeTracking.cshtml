@@ -1,61 +1,61 @@
 @page
 @model TechSupportRagBot.Pages.Admin.TimeTrackingModel
 @{
-    ViewData["Title"] = "Учёт времени";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">Операторы</p>
-        <h1>Учёт времени</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</h1>
     </div>
 </section>
 
 <form method="get" class="panel time-filter">
-    <label>С
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeFrom")
         <input asp-for="DateFrom" type="date" />
     </label>
-    <label>По
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTo")
         <input asp-for="DateTo" type="date" />
     </label>
-    <label>Период
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Period")
         <select asp-for="Period">
-            <option value="day">По дням</option>
-            <option value="month">По месяцам</option>
-            <option value="year">По годам</option>
+            <option value="day">@TechSupportRagBot.Services.UiText.T(HttpContext, "PeriodDay")</option>
+            <option value="month">@TechSupportRagBot.Services.UiText.T(HttpContext, "PeriodMonth")</option>
+            <option value="year">@TechSupportRagBot.Services.UiText.T(HttpContext, "PeriodYear")</option>
         </select>
     </label>
-    <label>Оператор
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")
         <select asp-for="OperatorId" asp-items="Model.OperatorOptions">
-            <option value="">Все операторы</option>
+            <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllOperators")</option>
         </select>
     </label>
-    <label>Модель
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
         <select asp-for="MachineModel" asp-items="Model.MachineModelOptions">
-            <option value="">Все модели</option>
+            <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllModels")</option>
         </select>
     </label>
-    <button class="btn-secondary small" type="submit">Показать</button>
+    <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
 </form>
 
 <div class="metric-grid">
     <div class="metric-card blue">
-        <span>Рабочее время</span>
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkingTime")</span>
         <strong>@TimeTrackingModel.FormatDuration(Model.TotalWorkSeconds)</strong>
     </div>
     <div class="metric-card attention">
-        <span>Внеурочные часы</span>
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "OvertimeHours")</span>
         <strong>@TimeTrackingModel.FormatDuration(Model.TotalOvertimeSeconds)</strong>
     </div>
     <div class="metric-card cyan">
-        <span>Всего</span>
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Total")</span>
         <strong>@TimeTrackingModel.FormatDuration(Model.TotalWorkSeconds + Model.TotalOvertimeSeconds)</strong>
     </div>
 </div>
 
 <div class="split-layout">
     <section class="panel">
-        <h2>Сравнение сотрудников</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "EmployeeComparison")</h2>
         <div class="bar-list">
             @foreach (var row in Model.OperatorChart)
             {
@@ -75,13 +75,13 @@
             }
             @if (Model.OperatorChart.Count == 0)
             {
-                <p class="muted-text">За выбранный период активности нет.</p>
+                <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoActivityForSelectedPeriod")</p>
             }
         </div>
     </section>
 
     <section class="panel">
-        <h2>Модели станков</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModels")</h2>
         <div class="bar-list">
             @foreach (var row in Model.MachineChart)
             {
@@ -97,25 +97,25 @@
             }
             @if (Model.MachineChart.Count == 0)
             {
-                <p class="muted-text">За выбранный период активности нет.</p>
+                <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoActivityForSelectedPeriod")</p>
             }
         </div>
     </section>
 </div>
 
 <section class="panel">
-    <h2>Детальный отчёт</h2>
+    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "DetailsReport")</h2>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Период</th>
-                    <th>Оператор</th>
-                    <th>Модель</th>
-                    <th>Обращений</th>
-                    <th>Рабочее время</th>
-                    <th>Внеурочно</th>
-                    <th>Всего</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Period")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkingTime")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Overtime")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Total")</th>
                 </tr>
             </thead>
             <tbody>

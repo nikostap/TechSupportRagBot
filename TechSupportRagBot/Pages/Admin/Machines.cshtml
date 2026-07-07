@@ -1,13 +1,13 @@
 @page
 @model TechSupportRagBot.Pages.Admin.MachinesModel
 @{
-    ViewData["Title"] = "Станки";
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Machines");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">Администрирование</p>
-        <h1>Станки</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Administration")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</h1>
     </div>
 </section>
 
@@ -18,19 +18,19 @@
 
 <div class="machines-admin-page">
     <form method="post" class="panel machine-create-panel">
-        <h2>Новый станок</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMachine")</h2>
         <div class="machine-create-grid">
-            <label>Название<input asp-for="Input.Name" /></label>
-            <label>Модель<input asp-for="Input.Model" /></label>
-            <label>Серийный номер<input asp-for="Input.SerialNumber" /></label>
-            <label>Описание<input asp-for="Input.Description" /></label>
-            <button class="btn-main" type="submit">Добавить</button>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Name")<input asp-for="Input.Name" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")<input asp-for="Input.Model" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")<input asp-for="Input.SerialNumber" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")<input asp-for="Input.Description" /></label>
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
         </div>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>
 
     <div class="panel machine-list-panel">
-        <h2>Парк станков</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineFleet")</h2>
         <div class="machine-admin-scroll">
             <div class="machine-admin-list">
                 @foreach (var machine in Model.Machines)
@@ -38,29 +38,29 @@
                     <div class="machine-admin-row">
                         <form method="post" asp-page-handler="Update" asp-route-id="@machine.Id" class="machine-admin-form">
                             <label>
-                                <span>Название</span>
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Name")</span>
                                 <input name="input.Name" value="@machine.Name" />
                             </label>
                             <label>
-                                <span>Модель</span>
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</span>
                                 <input name="input.Model" value="@machine.Model" />
                             </label>
                             <label>
-                                <span>Серийный номер</span>
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")</span>
                                 <input name="input.SerialNumber" value="@machine.SerialNumber" />
                             </label>
                             <label>
-                                <span>Описание</span>
-                                <input name="input.Description" value="@machine.Description" placeholder="Описание" />
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")</span>
+                                <input name="input.Description" value="@machine.Description" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")" />
                             </label>
                             <div class="machine-admin-status">
-                                <span>Лицензия</span>
-                                <strong>@(machine.IsLicenseActivated ? "Активирована" : "Не активирована")</strong>
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "License")</span>
+                                <strong>@(machine.IsLicenseActivated ? TechSupportRagBot.Services.UiText.T(HttpContext, "Activated") : TechSupportRagBot.Services.UiText.T(HttpContext, "NotActivated"))</strong>
                             </div>
-                            <button class="btn-secondary machine-row-button" type="submit">Сохранить</button>
+                            <button class="btn-secondary machine-row-button" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
                         </form>
                         <form method="post" asp-page-handler="Delete" asp-route-id="@machine.Id" class="machine-delete-form">
-                            <button class="btn-danger machine-row-button" type="submit">Удалить</button>
+                            <button class="btn-danger machine-row-button" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
                         </form>
                     </div>
                 }

@@ -1,15 +1,15 @@
 @page
 @model TechSupportRagBot.Pages.ProfileEditModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Account", "Аккаунт")</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile", "Редактировать профиль")</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Account")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile")</h1>
     </div>
-    <a class="btn-secondary as-link" asp-page="/Profile">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back", "Назад")</a>
+    <a class="btn-secondary as-link" asp-page="/Profile">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back")</a>
 </section>
 
 <form method="post" enctype="multipart/form-data" class="panel narrow">
@@ -28,9 +28,9 @@
         </div>
     </div>
 
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName", "ФИО")<input asp-for="Input.FullName" /></label>
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position", "Должность")<input asp-for="Input.Position" /></label>
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language", "Язык")
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")<input asp-for="Input.FullName" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")<input asp-for="Input.Position" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")
         <select asp-for="Input.Language">
             @foreach (var language in Model.LanguageOptions)
             {
@@ -38,37 +38,37 @@
             }
         </select>
     </label>
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender", "Пол")
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")
         <select asp-for="Input.Gender">
-            <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified", "Не указан")</option>
-            <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male", "Мужской")</option>
-            <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female", "Женский")</option>
+            <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+            <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male")</option>
+            <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female")</option>
         </select>
     </label>
-    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Avatar", "Аватар")
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Avatar")
         <span class="file-picker">
             <input asp-for="Input.Avatar" type="file" accept="image/*" />
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile", "Выберите файл")</span>
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile")</span>
         </span>
     </label>
 
     <label class="check-line profile-toggle">
         <input asp-for="Input.AutoTranslateMessages" type="checkbox" />
-        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoTranslate", "Автоперевод сообщений")</span>
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoTranslate")</span>
     </label>
 
     @if (User.IsInRole("Operator") || User.IsInRole("Admin"))
     {
         <div class="inline-grid">
-            <label>Рабочий день с
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkdayStart")
                 <input asp-for="Input.WorkdayStart" type="time" />
             </label>
-            <label>Рабочий день до
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkdayEnd")
                 <input asp-for="Input.WorkdayEnd" type="time" />
             </label>
         </div>
     }
 
-    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save", "Сохранить")</button>
+    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
     <div asp-validation-summary="All" class="text-danger"></div>
 </form>
