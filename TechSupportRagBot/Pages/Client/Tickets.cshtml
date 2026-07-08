@@ -2,45 +2,51 @@
 @model TechSupportRagBot.Pages.Client.TicketsModel
 @inject TechSupportRagBot.Services.AccessProfileService Access
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets");
     var canCreateTickets = await Access.IsAllowedAsync(User, "CreateTickets");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Support", "Поддержка")</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets", "Мои обращения")</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Support")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets")</h1>
     </div>
     @if (canCreateTickets)
     {
-        <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket", "Создать обращение")</a>
+        <a class="btn-main" asp-page="/Client/NewTicket">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateTicket")</a>
     }
 </section>
 
-<div class="panel">
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Subject", "Тема")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine", "Станок")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status", "Статус")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Created", "Создано")</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var ticket in Model.Tickets)
-            {
-                <tr>
-                    <td>@ticket.Title</td>
-                    <td>@ticket.Machine?.Name</td>
-                    <td>@TechSupportRagBot.Services.UiText.Status(HttpContext, ticket.Status)</td>
-                    <td>@ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
-                    <td><a asp-page="/Client/Ticket" asp-route-id="@ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a></td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+<div class="ticket-group-list">
+@foreach (var group in Model.TicketGroups)
+{
+    <section class="ticket-group panel">
+        <div class="ticket-group-head">
+            <div>
+                <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p>
+                <h2>@group.MachineName</h2>
+            </div>
+            <span class="status-pill">@group.Rows.Count</span>
+        </div>
+
+        <div class="ticket-card-list">
+        @foreach (var row in group.Rows)
+        {
+            <a class="ticket-card ticket-card-link" asp-page="/Client/Ticket" asp-route-id="@row.Ticket.Id">
+                @if (row.UnreadCount > 0)
+                {
+                    <span class="unread-badge">+@row.UnreadCount</span>
+                }
+                <div class="ticket-card-main">
+                    <div>
+                        <h3>@row.Ticket.Title</h3>
+                        <p>@row.Ticket.Machine?.Model · @row.Ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+                    </div>
+                    <span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, row.Ticket.Status)</span>
+                </div>
+            </a>
+        }
+        </div>
+    </section>
+}
 </div>

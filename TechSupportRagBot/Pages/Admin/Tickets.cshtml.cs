@@ -30,6 +30,7 @@ public class TicketsModel : PageModel
     public string? OperatorId { get; set; }
 
     public List<Ticket> Tickets { get; private set; } = new();
+    public List<TicketGroup> TicketGroups { get; private set; } = new();
 
     public List<OperatorOption> OperatorOptions { get; private set; } = new();
 
@@ -91,11 +92,31 @@ public class TicketsModel : PageModel
             .Include(x => x.Machine)
             .Include(x => x.ClientUser)
             .Include(x => x.OperatorUser)
+            .Include(x => x.Messages)
             .Include(x => x.ResolvedAnswers)
             .Include(x => x.OperatorAssignments)
                 .ThenInclude(x => x.OperatorUser)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+        var currentUserId = _userManager.GetUserId(User);
+        TicketGroups = Tickets
+            .Select(ticket => new TicketRow(
+                ticket,
+                string.IsNullOrWhiteSpace(currentUserId)
+                    ? 0
+                    : ticket.Messages.Count(x =>
+                        x.AuthorUserId != currentUserId &&
+                        !x.IsBotMessage &&
+                        !x.IsReadByOperator)))
+            .GroupBy(x => new
+            {
+                MachineId = x.Ticket.MachineId,
+                Name = x.Ticket.Machine?.Name ?? UiText.T(HttpContext, "Machine")
+            })
+            .OrderBy(x => x.Key.Name)
+            .Select(x => new TicketGroup(x.Key.Name, x.OrderByDescending(r => r.Ticket.CreatedAt).ToList()))
+            .ToList();
 
         var roleOperators = await _userManager.GetUsersInRoleAsync("Operator");
         var profileOperators = await _db.Users
@@ -112,4 +133,6 @@ public class TicketsModel : PageModel
     }
 
     public sealed record OperatorOption(string Id, string Name);
+    public sealed record TicketRow(Ticket Ticket, int UnreadCount);
+    public sealed record TicketGroup(string MachineName, List<TicketRow> Rows);
 }

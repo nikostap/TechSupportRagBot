@@ -1,41 +1,50 @@
 @page
 @model TechSupportRagBot.Pages.Admin.TicketsModel
 @{
-    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения");
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets");
 }
 
 <section class="page-head">
     <div>
-        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Control", "Контроль")</p>
-        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets", "Обращения")</h1>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Control")</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</h1>
     </div>
 </section>
 
-<div class="panel">
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Subject", "Тема")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine", "Станок")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client", "Клиент")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Операторы")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status", "Статус")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase", "База знаний")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignOperators", "Назначить")</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var ticket in Model.Tickets)
-            {
-                var assignedIds = ticket.OperatorAssignments.Select(x => x.OperatorUserId).ToHashSet();
-                var availableOperators = Model.OperatorOptions.Where(x => !assignedIds.Contains(x.Id)).ToList();
-                <tr>
-                    <td>@ticket.Title</td>
-                    <td>@ticket.Machine?.Name</td>
-                    <td>@(ticket.ClientUser?.FullName ?? ticket.ClientUser?.UserName)</td>
-                    <td>
+<div class="ticket-group-list">
+@foreach (var group in Model.TicketGroups)
+{
+    <section class="ticket-group panel">
+        <div class="ticket-group-head">
+            <div>
+                <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p>
+                <h2>@group.MachineName</h2>
+            </div>
+            <span class="status-pill">@group.Rows.Count</span>
+        </div>
+
+        <div class="ticket-card-list">
+        @foreach (var row in group.Rows)
+        {
+            var ticket = row.Ticket;
+            var assignedIds = ticket.OperatorAssignments.Select(x => x.OperatorUserId).ToHashSet();
+            var availableOperators = Model.OperatorOptions.Where(x => !assignedIds.Contains(x.Id)).ToList();
+            <article class="ticket-card">
+                @if (row.UnreadCount > 0)
+                {
+                    <span class="unread-badge">+@row.UnreadCount</span>
+                }
+                <div class="ticket-card-main">
+                    <div>
+                        <h3>@ticket.Title</h3>
+                        <p>@(ticket.ClientUser?.FullName ?? ticket.ClientUser?.UserName) · @ticket.Machine?.Model · @ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+                    </div>
+                    <span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, ticket.Status)</span>
+                </div>
+
+                <div class="ticket-card-meta">
+                    <div>
+                        <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</strong>
                         @if (ticket.OperatorAssignments.Count > 0)
                         {
                             <div class="operator-chip-list">
@@ -56,55 +65,57 @@
                         {
                             <span class="muted-text">—</span>
                         }
-                    </td>
-                    <td><span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, ticket.Status)</span></td>
-                    <td>
+                    </div>
+
+                    <div>
+                        <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</strong>
                         @if (ticket.ResolvedAnswers.Count > 0)
                         {
                             var indexed = ticket.ResolvedAnswers.OrderByDescending(x => x.CreatedAt).First();
-                            <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, "Indexed", "Проиндексирован")</span>
-                            <div class="muted-text">@indexed.Category · @indexed.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                            <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, "Indexed")</span>
+                            <span class="muted-text">@indexed.Category · @indexed.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
                         }
                         else if (ticket.Status == TicketStatuses.Closed)
                         {
-                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotIndexed", "Не добавлен")</span>
+                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotIndexed")</span>
                         }
                         else
                         {
                             <span class="muted-text">—</span>
                         }
-                    </td>
-                    <td>
-                        @if (ticket.Status != TicketStatuses.Closed && availableOperators.Count > 0)
-                        {
-                            <form method="post" asp-page-handler="AddOperator" asp-route-id="@ticket.Id" class="assign-inline-form">
-                                <select name="OperatorId">
-                                    @foreach (var option in availableOperators)
-                                    {
-                                        <option value="@option.Id">@option.Name</option>
-                                    }
-                                </select>
-                                <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
-                            </form>
-                        }
-                        else if (ticket.Status == TicketStatuses.Closed)
-                        {
-                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "Closed")</span>
-                        }
-                        else
-                        {
-                            <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAvailableOperators")</span>
-                        }
-                    </td>
-                    <td class="table-actions">
-                        <a class="btn-secondary small" asp-page="/Operator/Ticket" asp-route-id="@ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open", "Открыть")</a>
-                        <form method="post" asp-page-handler="Delete" asp-route-id="@ticket.Id" class="row-action">
-                            <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
+                    </div>
+                </div>
+
+                <div class="ticket-card-actions">
+                    @if (ticket.Status != TicketStatuses.Closed && availableOperators.Count > 0)
+                    {
+                        <form method="post" asp-page-handler="AddOperator" asp-route-id="@ticket.Id" class="assign-inline-form">
+                            <select name="OperatorId">
+                                @foreach (var option in availableOperators)
+                                {
+                                    <option value="@option.Id">@option.Name</option>
+                                }
+                            </select>
+                            <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
                         </form>
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+                    }
+                    else if (ticket.Status == TicketStatuses.Closed)
+                    {
+                        <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "Closed")</span>
+                    }
+                    else
+                    {
+                        <span class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAvailableOperators")</span>
+                    }
+
+                    <a class="btn-secondary small" asp-page="/Operator/Ticket" asp-route-id="@ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@ticket.Id" class="row-action">
+                        <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                    </form>
+                </div>
+            </article>
+        }
+        </div>
+    </section>
+}
 </div>

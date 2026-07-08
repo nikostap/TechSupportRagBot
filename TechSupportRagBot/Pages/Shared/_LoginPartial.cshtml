@@ -1,7 +1,11 @@
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@using TechSupportRagBot.Data
 @using TechSupportRagBot.Models
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
+@inject ApplicationDbContext Db
 
 <ul class="login-links">
     <li><a asp-page="/Language" asp-route-lang="ru" asp-route-returnUrl="@Context.Request.Path">RU</a></li>
@@ -9,6 +13,45 @@
 @if (SignInManager.IsSignedIn(User))
 {
     var currentUser = await UserManager.GetUserAsync(User);
+    var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    var notificationCount = 0;
+    var notificationLink = Url.Page("/Index") ?? "/";
+    if (!string.IsNullOrWhiteSpace(currentUserId))
+    {
+        if (User.IsInRole("Client"))
+        {
+            notificationCount += await Db.ChatMessages
+                .Include(x => x.Ticket)
+                .CountAsync(x =>
+                    x.Ticket!.ClientUserId == currentUserId &&
+                    x.AuthorUserId != currentUserId &&
+                    !x.IsReadByClient);
+            notificationLink = Url.Page("/Client/Tickets") ?? notificationLink;
+        }
+
+        if (User.IsInRole("Operator") || User.IsInRole("Admin"))
+        {
+            notificationCount += await Db.ChatMessages
+                .Include(x => x.Ticket)
+                    .ThenInclude(x => x!.OperatorAssignments)
+                .CountAsync(x =>
+                    x.Ticket!.Status != TicketStatuses.Closed &&
+                    x.AuthorUserId != currentUserId &&
+                    !x.IsReadByOperator &&
+                    (x.Ticket.OperatorUserId == currentUserId ||
+                     x.Ticket.OperatorAssignments.Any(a => a.OperatorUserId == currentUserId)));
+            notificationLink = Url.Page("/Operator/Index") ?? notificationLink;
+        }
+    }
+    <li>
+        <a class="notification-bell" href="@notificationLink" title="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")">
+            <span aria-hidden="true">●</span>
+            @if (notificationCount > 0)
+            {
+                <strong>+@notificationCount</strong>
+            }
+        </a>
+    </li>
     <li>
         <a class="profile-link" asp-area="" asp-page="/Profile" title="@TechSupportRagBot.Services.UiText.T(Context, "Profile", "Профиль")">
             @if (!string.IsNullOrWhiteSpace(currentUser?.AvatarPath))
