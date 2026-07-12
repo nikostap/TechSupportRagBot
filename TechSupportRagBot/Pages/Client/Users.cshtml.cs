@@ -32,6 +32,7 @@ public class UsersModel : PageModel
     public CompanyUserInput Input { get; set; } = new();
 
     public List<ApplicationUser> Users { get; private set; } = new();
+    public string? CurrentUserId { get; private set; }
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
     public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext)
         .Where(x => x.Key is AccessProfileService.Manager or AccessProfileService.Engineer or AccessProfileService.Observer)
@@ -55,13 +56,23 @@ public class UsersModel : PageModel
             return Forbid();
         }
 
-        if (await _userManager.FindByNameAsync(Input.UserName.Trim()) != null)
-        {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
-        }
-
         if (!ModelState.IsValid)
         {
+            await LoadAsync();
+            return Page();
+        }
+
+        var companyName = await _db.Clients
+            .Where(x => x.Id == clientId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync() ?? "client";
+        var userName = string.IsNullOrWhiteSpace(Input.UserName)
+            ? await GenerateCompanyUserNameAsync(companyName, Input.FullName)
+            : Input.UserName.Trim();
+
+        if (await _userManager.FindByNameAsync(userName) != null)
+        {
+            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
             await LoadAsync();
             return Page();
         }
@@ -69,7 +80,7 @@ public class UsersModel : PageModel
         var password = PasswordGenerator.Generate();
         var user = new ApplicationUser
         {
-            UserName = Input.UserName.Trim(),
+            UserName = userName,
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
@@ -117,6 +128,7 @@ public class UsersModel : PageModel
 
     private async Task<bool> LoadAsync()
     {
+        CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var clientId = await GetClientIdAsync();
         if (clientId == null)
         {
@@ -145,13 +157,60 @@ public class UsersModel : PageModel
             .FirstOrDefaultAsync();
     }
 
+    private async Task<string> GenerateCompanyUserNameAsync(string companyName, string fullName)
+    {
+        var company = SlugPart(companyName, 10);
+        var person = SlugPart(fullName, 10);
+        var baseName = string.Join(".", new[] { company, person }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            baseName = "client";
+        }
+
+        var userName = baseName;
+        var suffix = 1;
+        while (await _userManager.FindByNameAsync(userName) != null)
+        {
+            userName = $"{baseName}{suffix++}";
+        }
+
+        return userName;
+    }
+
+    private static string SlugPart(string value, int maxLength)
+    {
+        var map = new Dictionary<char, string>
+        {
+            ['а'] = "a", ['б'] = "b", ['в'] = "v", ['г'] = "g", ['д'] = "d", ['е'] = "e", ['ё'] = "e",
+            ['ж'] = "zh", ['з'] = "z", ['и'] = "i", ['й'] = "y", ['к'] = "k", ['л'] = "l", ['м'] = "m",
+            ['н'] = "n", ['о'] = "o", ['п'] = "p", ['р'] = "r", ['с'] = "s", ['т'] = "t", ['у'] = "u",
+            ['ф'] = "f", ['х'] = "h", ['ц'] = "c", ['ч'] = "ch", ['ш'] = "sh", ['щ'] = "sch", ['ы'] = "y",
+            ['э'] = "e", ['ю'] = "yu", ['я'] = "ya", ['ь'] = "", ['ъ'] = ""
+        };
+
+        var builder = new System.Text.StringBuilder();
+        foreach (var ch in value.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(ch) && ch < 128)
+            {
+                builder.Append(ch);
+            }
+            else if (map.TryGetValue(ch, out var replacement))
+            {
+                builder.Append(replacement);
+            }
+        }
+
+        var result = builder.ToString();
+        return result.Length <= maxLength ? result : result[..maxLength];
+    }
+
     public class CompanyUserInput
     {
         [Required]
         public string FullName { get; set; } = string.Empty;
 
-        [Required]
-        public string UserName { get; set; } = string.Empty;
+        public string? UserName { get; set; }
 
         [EmailAddress]
         public string? Email { get; set; }

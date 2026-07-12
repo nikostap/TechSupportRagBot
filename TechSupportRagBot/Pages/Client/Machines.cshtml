@@ -12,13 +12,42 @@
     <a class="btn-main" asp-page="/Client/Activate">@TechSupportRagBot.Services.UiText.T(HttpContext, "ActivateKey", "Активировать ключ")</a>
 </section>
 
-<div class="card-grid">
-@foreach (var item in Model.Machines)
+@if (Model.Machines.Count == 0)
 {
-    <article class="machine-card">
-        <h2>@item.Machine?.Name</h2>
-        <p>@item.Machine?.Model</p>
-        <span>@item.Machine?.SerialNumber</span>
-    </article>
+    <section class="panel client-machines-empty">
+        <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAvailableMachines", "Нет доступных станков. Активируйте лицензионный ключ, чтобы добавить оборудование.")</p>
+    </section>
 }
-</div>
+else
+{
+    <div class="card-grid client-machine-grid">
+    @foreach (var item in Model.Machines)
+    {
+        var machine = item.Machine;
+        <article class="machine-card client-machine-card">
+            <header class="client-machine-card-head">
+                <span class="client-machine-mark" aria-hidden="true">CE</span>
+                <div>
+                    <span class="client-machine-type">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine", "Станок")</span>
+                    <h2>@(string.IsNullOrWhiteSpace(machine?.Name) ? "—" : machine.Name)</h2>
+                </div>
+            </header>
+
+            <dl class="client-machine-details">
+                <div>
+                    <dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Name", "Название")</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(machine?.Name) ? "—" : machine.Name)</dd>
+                </div>
+                <div>
+                    <dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Series", "Серия / модель")</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(machine?.Model) ? "—" : machine.Model)</dd>
+                </div>
+                <div>
+                    <dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber", "Серийный номер")</dt>
+                    <dd class="client-machine-serial">@(string.IsNullOrWhiteSpace(machine?.SerialNumber) ? "—" : machine.SerialNumber)</dd>
+                </div>
+            </dl>
+        </article>
+    }
+    </div>
+}

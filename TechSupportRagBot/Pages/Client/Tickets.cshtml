@@ -17,17 +17,42 @@
     }
 </section>
 
+<section class="tickets-total-bar panel client-tickets-total">
+    <div>
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "TotalTickets", "Всего обращений")</span>
+        <strong>@Model.TotalTicketCount</strong>
+    </div>
+    <div class="tickets-total-unread">
+        <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMessages", "Новых сообщений")</span>
+        <strong class="unread-badge inline">+@Model.TotalUnreadCount</strong>
+    </div>
+</section>
+
+@if (Model.TicketGroups.Count == 0)
+{
+    <section class="panel client-tickets-empty">
+        <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "NoTicketsYet", "Обращений пока нет.")</p>
+    </section>
+}
+
 <div class="ticket-group-list">
 @foreach (var group in Model.TicketGroups)
 {
-    <section class="ticket-group panel">
-        <div class="ticket-group-head">
+    <details class="ticket-machine-group panel client-ticket-machine-group" data-details-key="machine-@group.MachineId">
+        <summary class="ticket-accordion-summary machine-summary">
             <div>
                 <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p>
                 <h2>@group.MachineName</h2>
             </div>
-            <span class="status-pill">@group.Rows.Count</span>
-        </div>
+            <div class="ticket-summary-counts">
+                @if (group.UnreadCount > 0)
+                {
+                    <span class="unread-badge inline">+@group.UnreadCount</span>
+                }
+                <span class="status-pill">@group.Rows.Count</span>
+                <span class="accordion-chevron">⌄</span>
+            </div>
+        </summary>
 
         <div class="ticket-card-list">
         @foreach (var row in group.Rows)
@@ -47,6 +72,25 @@
             </a>
         }
         </div>
-    </section>
+    </details>
 }
 </div>
+
+<script>
+    (() => {
+        const stateKey = `client-tickets:open:${location.pathname}`;
+        const groups = [...document.querySelectorAll("details[data-details-key]")];
+        let openKeys = new Set();
+        try {
+            openKeys = new Set(JSON.parse(sessionStorage.getItem(stateKey) ?? "[]"));
+        } catch { }
+
+        for (const group of groups) {
+            group.open = openKeys.has(group.dataset.detailsKey);
+            group.addEventListener("toggle", () => {
+                sessionStorage.setItem(stateKey, JSON.stringify(
+                    groups.filter(item => item.open).map(item => item.dataset.detailsKey)));
+            });
+        }
+    })();
+</script>

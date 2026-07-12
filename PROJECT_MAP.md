@@ -1,0 +1,197 @@
+# Карта проекта TechSupportRagBot
+
+> Постоянный ориентир по интерфейсу и архитектуре. Обновлять этот файл при добавлении, удалении или переименовании страниц, вкладок, прав доступа, ключевых сценариев, провайдеров и инфраструктуры.
+
+## Быстрый старт для работы
+
+- Локальный сайт: `http://localhost:5028`.
+- Production: `https://productionmanager.ru/`.
+- Основная точка входа: `TechSupportRagBot/Pages/Index.cshtml`.
+- Общее меню и ресурсы: `TechSupportRagBot/Pages/Shared/_Layout.cshtml` и `_LoginPartial.cshtml`.
+- Видимость плиток определяется `AccessProfileService` и методом `IndexModel.Can(...)`.
+- UI-тексты RU/EN находятся в `Services/UiText.cs`.
+- Основная БД: PostgreSQL через `ApplicationDbContext`.
+- Семантический индекс: Qdrant; полнотекстовый индекс: PostgreSQL FTS.
+- Локальный запуск: `docker compose up -d --build app`.
+
+## Роли и области сайта
+
+### Неавторизованный пользователь
+
+- `/` — приветственная страница и вход.
+- `/Identity/Account/Login` — авторизация ASP.NET Identity.
+- `/Language` — переключение языка интерфейса.
+
+### Общие страницы авторизованного пользователя
+
+- `/` — рабочий стол. Плитки, показатели и уведомления зависят от профиля доступа.
+- `/Profile` — просмотр профиля.
+- `/ProfileEdit` — редактирование профиля.
+
+### Внутренние пользователи
+
+Доступ определяется не только ролью Admin, но и профилем/разрешениями из `AccessProfileService`.
+
+| Вкладка | Маршрут | Разрешение | Назначение |
+|---|---|---|---|
+| Сотрудники | `/Admin/Admins` | `ManageAdmins` | Управление внутренними пользователями и администраторами. |
+| Клиенты | `/Admin/Clients` | `ManageClients` | Организации-клиенты и их параметры. |
+| Оборудование | `/Admin/Machines` | `ManageMachines` | Машины, модели, серийные номера и привязки. |
+| Лицензии | `/Admin/Licenses` | `ManageLicenses` | Выпуск и активация лицензий оборудования. |
+| Тест бота | `/Admin/BotTest` | `QA` | Проверка полного RAG-ответа и диагностической информации. |
+| Завершённые чаты | `/Admin/IndexedChats` | `QA` | Черновики извлечённых решений и проиндексированные завершённые обращения. |
+| QA | `/Admin/QA` | `QA` | Ручная база вопросов/ответов, вложения, индексация и переиндексация. |
+| Обращения | `/Admin/Tickets` | `Tickets` | Все обращения, сгруппированные по клиенту и оборудованию. |
+| Учёт времени | `/Admin/TimeTracking` | `TimeTracking` | Рабочее время операторов и отчётность. |
+| Настройки | `/Admin/Settings` | `Settings` | LLM/embedding-провайдеры, модели и уведомления. |
+| Профили доступа | `/Admin/AccessProfiles` | `AccessProfiles` | Матрица разрешений сотрудников. |
+| Рабочий календарь | `/Admin/WorkCalendar` | через настройки/админку | Рабочие, выходные, праздничные и сокращённые дни. |
+| Профиль пользователя | `/Admin/UserProfile` | внутренний доступ | Просмотр/настройка выбранного пользователя. |
+
+### Оператор
+
+| Вкладка | Маршрут | Назначение |
+|---|---|---|
+| Очередь оператора | `/Operator/Index` | Назначенные и доступные обращения, группировка по оборудованию. |
+| Чат обращения | `/Operator/Ticket?id=...` | Диалог, назначение, статусы и закрытие обращения. При закрытии LLM формирует структурированные решения-черновики. |
+
+### Клиент
+
+| Вкладка | Маршрут | Назначение |
+|---|---|---|
+| Кабинет | `/Client/Index` | Клиентская стартовая страница. |
+| Активация | `/Client/Activate` | Активация доступа/лицензии. |
+| Оборудование | `/Client/Machines` | Карточки доступных клиенту станков: название, серия/модель и серийный номер. |
+| Новое обращение | `/Client/NewTicket` | Создание обращения по оборудованию. |
+| Мои обращения | `/Client/Tickets` | Раскрывающиеся группы обращений по станкам, общая плашка новых сообщений и счётчики непрочитанного. |
+| Чат | `/Client/Ticket?id=...` | Переписка по обращению и ответы бота/оператора. |
+| Пользователи компании | `/Client/Users` | Создание пользователей и единый список компактных карточек с профилем, языком, выданным паролем и действиями. Если логин не указан, он автоматически и уникально формируется из названия компании и ФИО. |
+
+## Ключевые сценарии
+
+### Обращения
+
+1. Клиент создаёт тикет через `/Client/NewTicket`.
+2. Чат ведётся через `/Client/Ticket` и `/Operator/Ticket` с SignalR.
+3. Назначения операторов хранятся в `TicketOperatorAssignments`.
+4. Администратор видит обращения на `/Admin/Tickets`, сгруппированные: клиент → оборудование → карточки.
+5. Состояние раскрытых групп и позиция прокрутки сохраняются после POST-действий, включая удаление.
+6. `TicketDeletionService` удаляет тикет и связанные данные, включая RAG-записи.
+
+### Завершённые чаты и база знаний
+
+1. При закрытии обращения `ResolvedTicketKnowledgeService` извлекает одно или несколько структурированных решений.
+2. Они сохраняются как `ResolvedAnswer` со статусом `Draft`.
+3. На `/Admin/IndexedChats` администратор редактирует черновик и подтверждает индексацию.
+4. `KnowledgeIngestionService.IndexResolvedAnswerAsync` создаёт `KnowledgeChunk`, FTS-запись и Qdrant-вектор.
+5. Кнопка «Переиндексировать» заменяет старые индексы.
+6. Кнопка «Удалить из индекса» вызывает `DeleteResolvedAnswerAsync`: удаляет Qdrant point, FTS, chunks и `ResolvedAnswer`, но сохраняет исходный тикет и чат.
+
+### RAG-поиск
+
+- Оркестрация поиска: `RagSearchService`.
+- Embeddings/LLM API: исторически названный `OllamaClient`.
+- Гибридный поиск: Qdrant dense search + PostgreSQL FTS + Reciprocal Rank Fusion.
+- Ответ пользователю: `SupportBotService`.
+- Отладочный endpoint: `Controllers/SearchDebugController.cs`.
+- Аудит RAG: `RagAuditLogger`.
+
+## Провайдеры моделей
+
+Выбор сохраняется в таблице `SystemSettings`, UI — `/Admin/Settings`.
+
+### LLM
+
+- `Ollama` — локальный `/api/generate`.
+- `OpenAI` — Responses API.
+- `DeepSeek` — OpenAI-compatible chat completions.
+- `AiTunnel` — `https://api.aitunnel.ru/v1/chat/completions`; поддерживается модель `auto`.
+
+### Embeddings
+
+- `Ollama` — локальный `/api/embed`.
+- `OpenAI` — `/embeddings`.
+- `Qwen` — Alibaba Model Studio OpenAI-compatible endpoint, `text-embedding-v4`, явно 1024 измерения.
+- `AiTunnel` — `/v1/embeddings`; основной вариант `text-embedding-v4` с размерностью 1024.
+
+При изменении размерности `KnowledgeIngestionService.EnsureVectorIndexCompatibleAsync` пересоздаёт коллекцию Qdrant и переиндексирует chunks.
+
+## Основные модели данных
+
+| Модель | Назначение |
+|---|---|
+| `ApplicationUser` | Пользователь Identity, профиль доступа, клиентская организация. |
+| `Client` | Организация клиента. |
+| `Machine` | Оборудование, модель и серийный номер. |
+| `License` | Лицензия/активация оборудования. |
+| `Ticket` | Обращение клиента. |
+| `ChatMessage` | Сообщение в тикете. |
+| `TicketOperatorAssignment` | Назначение одного или нескольких операторов. |
+| `ResolvedAnswer` | Извлечённое из завершённого чата решение: Draft или Indexed. |
+| `KnowledgeDocument` | Загруженный документ базы знаний. |
+| `KnowledgeChunk` | Унифицированный фрагмент документа, QA или завершённого чата. |
+| `QAEntry` | Ручной вопрос/ответ базы знаний. |
+| `SystemSetting` | Выбранные провайдеры, модели и системные параметры. |
+| `WorkCalendarDay` | Производственный календарь. |
+
+Связи и ограничения настраиваются в `Data/ApplicationDbContext.cs`; миграции находятся в `Migrations/`.
+
+## Сервисы: куда идти при изменениях
+
+| Задача | Основной код |
+|---|---|
+| Удаление тикета | `Services/TicketDeletionService.cs` |
+| Индексация/удаление знаний | `Services/KnowledgeIngestionService.cs` |
+| Qdrant | `Services/QdrantKnowledgeClient.cs` |
+| PostgreSQL FTS | `Services/KnowledgeFtsService.cs` |
+| QA | `Services/QAService.cs` |
+| Извлечение решения из чата | `Services/ResolvedTicketKnowledgeService.cs` |
+| Поиск | `Services/RagSearchService.cs` |
+| Ответ бота | `Services/SupportBotService.cs` |
+| Модели API | `Services/OllamaClient.cs`, `RagOptions.cs` |
+| Настройки | `Services/SystemSettingsService.cs` |
+| Права | `Services/AccessProfileService.cs` |
+| Перевод | `Services/ChatTranslationService.cs` |
+| Учёт времени | `Services/OperatorTimeTrackingService.cs` |
+| Рабочий календарь | `Services/WorkCalendarService.cs` |
+
+## Инфраструктура
+
+### Локально
+
+- `docker-compose.yml`: app, PostgreSQL, Qdrant, LibreTranslate и опциональный Ollama.
+- `.env`: реальные секреты; не коммитить и не показывать в логах.
+- `.env.example`: безопасный шаблон.
+- Порт приложения: `5028`.
+- PostgreSQL локально: `55432`.
+- Qdrant локально: `6333/6334`.
+
+### Production
+
+- Сервер: `productionmanager.ru`.
+- Каталог приложения: `/opt/techsupportragbot/app`.
+- Production override: `/opt/techsupportragbot/compose.production.yml`.
+- Caddy завершает TLS и проксирует на `127.0.0.1:5028`.
+- PostgreSQL, Qdrant и LibreTranslate наружу не публикуются.
+- LibreTranslate загружает только `en,ru`, ограничен 420 МБ RAM и 0.6 CPU.
+- VPS имеет около 1 ГБ RAM и постоянный swap 2 ГБ.
+- `techsupportragbot-update.timer`: каждые 10 минут проверяет `origin/main`, собирает и разворачивает новый commit; при неуспешном health-check откатывает commit.
+- `techsupportragbot-health.timer`: каждые 10 минут проверяет HTTPS и при сбое перезапускает контейнер app.
+
+## Правила обновления этой карты
+
+Обновить `PROJECT_MAP.md` в той же задаче, если изменено хотя бы одно из следующего:
+
+- добавлена, удалена или переименована Razor Page/вкладка;
+- изменилось разрешение или роль, управляющие видимостью страницы;
+- изменился основной пользовательский сценарий;
+- добавлена модель данных, важная связь или новая миграция;
+- добавлен/удалён внешний AI-провайдер;
+- изменились Docker, production, домен, таймеры или порты;
+- важная операция теперь очищает/создаёт дополнительные индексы или данные.
+
+После изменения карты проверить пути командой:
+
+```powershell
+rg --files TechSupportRagBot/Pages -g '*.cshtml' -g '*.cshtml.cs'
+```

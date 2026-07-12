@@ -15,7 +15,11 @@
     <form method="post" class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewCompanyUser")</h2>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")<input asp-for="Input.FullName" /></label>
-        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")<input asp-for="Input.UserName" autocomplete="off" /></label>
+        <label>
+            @TechSupportRagBot.Services.UiText.T(HttpContext, "Username")
+            <input asp-for="Input.UserName" autocomplete="off" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "GeneratedAutomatically", "Создастся автоматически")" />
+            <small class="field-hint">@TechSupportRagBot.Services.UiText.T(HttpContext, "LeaveBlankForAutomaticLogin", "Оставьте пустым — логин создастся из названия компании и ФИО")</small>
+        </label>
         <label>Email<input asp-for="Input.Email" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")<input asp-for="Input.Position" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")
@@ -40,38 +44,40 @@
 
     <div class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers")</h2>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                @foreach (var user in Model.Users)
-                {
-                    <tr>
-                        <td>@user.FullName</td>
-                        <td><code>@user.UserName</code></td>
-                        <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
-                        <td>@user.Position</td>
-                        <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
-                        <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
-                        <td>
-                            <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
-                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
+        <div class="company-user-list">
+        @foreach (var user in Model.Users)
+        {
+            <article class="company-user-card">
+                <div class="company-user-avatar" aria-hidden="true">@((user.FullName ?? user.UserName ?? "U").Trim()[0].ToString().ToUpperInvariant())</div>
+                <div class="company-user-identity">
+                    <div class="company-user-name-row">
+                        <strong>@(user.FullName ?? user.UserName)</strong>
+                        @if (user.Id == Model.CurrentUserId)
+                        {
+                            <span class="status-pill company-user-current">@TechSupportRagBot.Services.UiText.T(HttpContext, "CurrentUser", "Текущий пользователь")</span>
+                        }
+                    </div>
+                    <span>@@@user.UserName</span>
+                    @if (!string.IsNullOrWhiteSpace(user.Position))
+                    {
+                        <small>@user.Position</small>
+                    }
+                </div>
+                <dl class="company-user-meta">
+                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</dd></div>
+                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</dd></div>
+                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
+                </dl>
+                <div class="company-user-actions">
+                    @if (user.Id != Model.CurrentUserId)
+                    {
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
+                            <button class="btn-danger small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                        </form>
+                    }
+                </div>
+            </article>
+        }
         </div>
     </div>
 </div>

@@ -15,6 +15,8 @@ public class TicketsModel : PageModel
     public TicketsModel(ApplicationDbContext db) => _db = db;
 
     public List<TicketGroup> TicketGroups { get; private set; } = new();
+    public int TotalTicketCount { get; private set; }
+    public int TotalUnreadCount { get; private set; }
 
     public async Task OnGetAsync()
     {
@@ -25,6 +27,8 @@ public class TicketsModel : PageModel
             .Where(x => x.ClientUserId == userId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+        TotalTicketCount = tickets.Count;
 
         TicketGroups = tickets
             .Select(ticket => new TicketRow(
@@ -40,10 +44,16 @@ public class TicketsModel : PageModel
                 Name = x.Ticket.Machine?.Name ?? "Machine"
             })
             .OrderBy(x => x.Key.Name)
-            .Select(x => new TicketGroup(x.Key.Name, x.OrderByDescending(r => r.Ticket.CreatedAt).ToList()))
+            .Select(x =>
+            {
+                var rows = x.OrderByDescending(r => r.Ticket.CreatedAt).ToList();
+                return new TicketGroup(x.Key.MachineId, x.Key.Name, rows.Sum(r => r.UnreadCount), rows);
+            })
             .ToList();
+
+        TotalUnreadCount = TicketGroups.Sum(x => x.UnreadCount);
     }
 
     public sealed record TicketRow(Ticket Ticket, int UnreadCount);
-    public sealed record TicketGroup(string MachineName, List<TicketRow> Rows);
+    public sealed record TicketGroup(int MachineId, string MachineName, int UnreadCount, List<TicketRow> Rows);
 }

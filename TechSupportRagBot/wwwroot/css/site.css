@@ -596,6 +596,286 @@ a:hover {
   box-shadow: 0 18px 44px rgba(29, 83, 132, 0.14);
 }
 
+.client-machine-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+  gap: 20px;
+}
+
+.machine-card.client-machine-card {
+  display: grid;
+  align-content: start;
+  justify-content: stretch;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  color: var(--ink);
+  background: linear-gradient(145deg, #ffffff 0%, #f0f8ff 100%);
+}
+
+.client-machine-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(210, 229, 247, 0.9);
+}
+
+.client-machine-card-head > div {
+  min-width: 0;
+}
+
+.client-machine-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 17px;
+  color: #fff;
+  background: linear-gradient(135deg, #168fc8, #1b69bd);
+  box-shadow: 0 10px 24px rgba(27, 105, 189, 0.24);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.client-machine-type {
+  display: block;
+  margin-bottom: 4px;
+  color: #4b7693;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.machine-card.client-machine-card h2 {
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #123a56;
+  font-size: clamp(19px, 2vw, 24px);
+  line-height: 1.16;
+}
+
+.client-machine-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 8px 22px 16px;
+}
+
+.client-machine-details > div {
+  display: grid;
+  grid-template-columns: minmax(105px, 0.8fr) minmax(0, 1.4fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(210, 229, 247, 0.72);
+}
+
+.client-machine-details > div:last-child {
+  border-bottom: 0;
+}
+
+.client-machine-details dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.client-machine-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #173f5c;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.client-machine-serial {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.025em;
+}
+
+.client-machines-empty {
+  text-align: center;
+  color: var(--muted);
+}
+
+.client-machines-empty p {
+  margin: 0;
+}
+
+.client-tickets-total {
+  margin-bottom: 18px;
+}
+
+.client-ticket-machine-group {
+  padding: 0;
+  overflow: hidden;
+}
+
+.client-ticket-machine-group > .machine-summary {
+  padding: 18px 22px;
+}
+
+.client-ticket-machine-group > .ticket-card-list {
+  padding: 0 18px 18px;
+}
+
+.client-ticket-machine-group .accordion-chevron {
+  display: inline-block;
+  color: #0e78b7;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1;
+  transition: transform 0.16s ease;
+}
+
+.client-ticket-machine-group[open] .accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.client-tickets-empty {
+  color: var(--muted);
+  text-align: center;
+}
+
+.client-tickets-empty p {
+  margin: 0;
+}
+
+.company-user-list {
+  display: grid;
+  gap: 12px;
+}
+
+.company-user-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  column-gap: 14px;
+  row-gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(210, 229, 247, 0.9);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(240,248,255,0.9));
+}
+
+.company-user-avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #168fc8, #1b69bd);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.company-user-identity {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.company-user-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.company-user-current {
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: 5px 9px;
+  font-size: 10px;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.company-user-identity strong,
+.company-user-identity span,
+.company-user-identity small {
+  overflow-wrap: anywhere;
+}
+
+.company-user-identity strong {
+  color: #123a56;
+  font-size: 15px;
+}
+
+.company-user-identity span,
+.company-user-identity small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.company-user-meta {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+
+.company-user-meta div {
+  min-width: 0;
+}
+
+.company-user-meta dt {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.company-user-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #173f5c;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.company-user-meta code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.company-user-actions,
+.company-user-actions form {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.company-user-actions {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.company-user-actions:empty {
+  display: none;
+}
+
+.company-user-actions .btn-danger {
+  width: auto;
+  min-width: 92px;
+  white-space: nowrap;
+}
+
 .split-layout,
 .knowledge-layout {
   display: grid;
@@ -2618,6 +2898,53 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
     min-height: 54px;
     padding: 14px 16px;
     border-radius: 18px;
+  }
+
+  .client-machine-details > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .client-ticket-machine-group > .machine-summary {
+    padding: 14px 16px;
+  }
+
+  .client-ticket-machine-group > .ticket-card-list {
+    padding: 0 10px 10px;
+  }
+
+  .company-user-card {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+
+  .company-user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .company-user-meta {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-top: 10px;
+    border-top: 1px solid rgba(210, 229, 247, 0.72);
+  }
+
+  .company-user-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .company-user-actions .btn-danger {
+    min-width: 0;
+  }
+
+  .client-machine-card-head {
+    padding: 18px;
+  }
+
+  .client-machine-details {
+    padding-inline: 18px;
   }
 
   .dashboard-machine-group {
