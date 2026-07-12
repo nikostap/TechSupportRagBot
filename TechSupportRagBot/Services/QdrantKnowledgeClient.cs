@@ -69,7 +69,9 @@ public class QdrantKnowledgeClient
                             sourceChat = chunk.SourceChat,
                             text = chunk.Text,
                             source,
-                            tags = chunk.Tags
+                            tags = chunk.Tags,
+                            searchQuestions = chunk.SearchQuestions,
+                            operations = chunk.Operations
                         }
                     }
                 }
@@ -248,6 +250,65 @@ public class QdrantKnowledgeClient
         catch
         {
             // SQLite remains the source of truth; Qdrant may be offline locally.
+        }
+    }
+
+    public async Task<int> GetCollectionVectorSizeAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync(
+                $"{_options.QdrantBaseUrl.TrimEnd('/')}/collections/{_options.CollectionName}",
+                cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return 0;
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                return -1;
+            }
+
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            return json.RootElement
+                .GetProperty("result")
+                .GetProperty("config")
+                .GetProperty("params")
+                .GetProperty("vectors")
+                .GetProperty("size")
+                .GetInt32();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read Qdrant collection vector size.");
+            return -1;
+        }
+    }
+
+    public async Task<bool> RecreateCollectionAsync(int vectorSize, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _httpClient.DeleteAsync(
+                $"{_options.QdrantBaseUrl.TrimEnd('/')}/collections/{_options.CollectionName}",
+                cancellationToken);
+            var response = await _httpClient.PutAsJsonAsync(
+                $"{_options.QdrantBaseUrl.TrimEnd('/')}/collections/{_options.CollectionName}",
+                new { vectors = new { size = vectorSize, distance = "Cosine" } },
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError(
+                    "Could not recreate Qdrant collection. VectorSize={VectorSize}, Status={Status}",
+                    vectorSize,
+                    (int)response.StatusCode);
+            }
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not recreate Qdrant collection with vector size {VectorSize}.", vectorSize);
+            return false;
         }
     }
 

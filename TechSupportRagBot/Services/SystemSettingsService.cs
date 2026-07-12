@@ -99,6 +99,16 @@ public class SystemSettingsService
             return "DeepSeek";
         }
 
+        if (provider.Equals("Qwen", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Qwen";
+        }
+
+        if (provider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase))
+        {
+            return "AiTunnel";
+        }
+
         return "Ollama";
     }
 

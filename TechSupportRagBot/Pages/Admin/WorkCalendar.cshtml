@@ -1,0 +1,100 @@
+@page
+@using System.Globalization
+@using TechSupportRagBot.Models
+@model TechSupportRagBot.Pages.Admin.WorkCalendarModel
+@{
+    ViewData["Title"] = "Производственный календарь";
+    var culture = CultureInfo.GetCultureInfo("ru-RU");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Учёт времени</p>
+        <h1>Производственный календарь</h1>
+        <p>Импортированные данные хранятся локально. Ручные изменения имеют приоритет при повторном импорте.</p>
+    </div>
+    <a class="btn-soft as-link" asp-page="/Admin/Settings">Назад к настройкам</a>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage)) { <div class="notice-success">@Model.StatusMessage</div> }
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage)) { <div class="notice-error">@Model.ErrorMessage</div> }
+
+<div class="settings-layout calendar-settings">
+    <section class="panel">
+        <h2>Календарь на год</h2>
+        <form method="get" class="form-inline">
+            <label>Год <input asp-for="Year" type="number" min="2000" max="2100" /></label>
+            <button class="btn-soft" type="submit">Показать</button>
+        </form>
+        <form method="post" asp-page-handler="Preview" class="form-inline">
+            <input type="hidden" asp-for="Year" />
+            <button class="btn-main" type="submit">Загрузить календарь РФ</button>
+            <span class="muted">Источник: isDayOff, пятидневная рабочая неделя</span>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Ручное исключение</h2>
+        <form method="post" asp-page-handler="SaveDay">
+            <label>Дата <input asp-for="ManualDay.Date" type="date" /></label>
+            <label>Тип дня
+                <select asp-for="ManualDay.DayType">
+                    <option value="0">Рабочий</option>
+                    <option value="1">Выходной</option>
+                    <option value="2">Сокращённый</option>
+                    <option value="8">Праздничный</option>
+                </select>
+            </label>
+            <label>Название или комментарий <input asp-for="ManualDay.Name" placeholder="Например: региональный праздник" /></label>
+            <button class="btn-main" type="submit">Сохранить день</button>
+            <div asp-validation-summary="All" class="text-danger"></div>
+        </form>
+    </section>
+</div>
+
+@if (Model.IsPreview && Model.PreviewDays.Count > 0)
+{
+    var working = Model.PreviewDays.Count(x => x.DayType is WorkCalendarDayType.Working or WorkCalendarDayType.Shortened);
+    var shortened = Model.PreviewDays.Count(x => x.DayType == WorkCalendarDayType.Shortened);
+    <section class="panel calendar-preview">
+        <h2>Предварительный просмотр импорта</h2>
+        <p>Рабочих дней: <strong>@working</strong>, нерабочих: <strong>@(Model.PreviewDays.Count - working)</strong>, сокращённых: <strong>@shortened</strong>.</p>
+        <form method="post" asp-page-handler="ConfirmImport">
+            <input type="hidden" asp-for="Year" />
+            @for (var i = 0; i < Model.PreviewDays.Count; i++)
+            {
+                <input type="hidden" asp-for="PreviewDays[i].Date" />
+                <input type="hidden" asp-for="PreviewDays[i].DayType" />
+            }
+            <button class="btn-main" type="submit">Подтвердить и сохранить</button>
+        </form>
+    </section>
+}
+
+<section class="panel">
+    <div class="calendar-legend">
+        <span><i class="day-working"></i> Рабочий</span>
+        <span><i class="day-weekend"></i> Выходной</span>
+        <span><i class="day-holiday"></i> Праздничный</span>
+        <span><i class="day-shortened"></i> Сокращённый</span>
+        <span>● ручное изменение</span>
+    </div>
+    <div class="year-calendar">
+        @foreach (var month in Model.Days.GroupBy(x => x.Date.Month))
+        {
+            var firstOffset = ((int)new DateOnly(Model.Year, month.Key, 1).DayOfWeek + 6) % 7;
+            <article class="month-calendar">
+                <h3>@culture.DateTimeFormat.GetMonthName(month.Key)</h3>
+                <div class="month-grid weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+                <div class="month-grid">
+                    @for (var blank = 0; blank < firstOffset; blank++) { <span></span> }
+                    @foreach (var day in month)
+                    {
+                        var css = day.DayType switch { WorkCalendarDayType.Working => "day-working", WorkCalendarDayType.Shortened => "day-shortened", WorkCalendarDayType.Holiday => "day-holiday", _ => "day-weekend" };
+                        <span class="calendar-day @css" title="@($"{day.Date:dd.MM.yyyy}: {WorkCalendarModel.DayTypeName(day.DayType)}; {day.Source}{(string.IsNullOrWhiteSpace(day.Name) ? "" : "; " + day.Name)}")">@day.Date.Day@(day.IsManual ? "●" : "")</span>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+</section>

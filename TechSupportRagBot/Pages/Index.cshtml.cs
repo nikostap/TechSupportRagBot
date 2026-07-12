@@ -43,6 +43,9 @@ namespace TechSupportRagBot.Pages
         public List<Ticket> AttentionTickets { get; private set; } = new();
         public List<Ticket> AssignedTickets { get; private set; } = new();
         public List<Ticket> RecentClientTickets { get; private set; } = new();
+        public List<DashboardTicketGroup> AttentionTicketGroups { get; private set; } = new();
+        public List<DashboardTicketGroup> AssignedTicketGroups { get; private set; } = new();
+        public List<DashboardTicketGroup> RecentClientTicketGroups { get; private set; } = new();
         public HashSet<int> ClientTicketsWithUnreadMessages { get; private set; } = new();
         public bool HasClientAccount { get; private set; }
         public bool ShowOperatorArea { get; private set; }
@@ -80,6 +83,35 @@ namespace TechSupportRagBot.Pages
 
         public string StatusName(string status) => UiText.Status(HttpContext, status);
 
+        public sealed record DashboardTicketRow(Ticket Ticket, int UnreadCount, string Url);
+
+        public sealed record DashboardTicketGroup(
+            string MachineName,
+            string? MachineModel,
+            int TicketCount,
+            int UnreadCount,
+            List<DashboardTicketRow> Rows);
+
+        private static List<DashboardTicketGroup> BuildDashboardGroups(IEnumerable<DashboardTicketRow> rows)
+        {
+            return rows
+                .GroupBy(x => new
+                {
+                    x.Ticket.MachineId,
+                    Name = string.IsNullOrWhiteSpace(x.Ticket.Machine?.Name) ? x.Ticket.Machine?.Model ?? "Machine" : x.Ticket.Machine.Name,
+                    Model = x.Ticket.Machine?.Model
+                })
+                .OrderByDescending(x => x.Sum(r => r.UnreadCount))
+                .ThenBy(x => x.Key.Name)
+                .Select(x => new DashboardTicketGroup(
+                    x.Key.Name,
+                    x.Key.Model,
+                    x.Count(),
+                    x.Sum(r => r.UnreadCount),
+                    x.OrderByDescending(r => r.UnreadCount).ThenByDescending(r => r.Ticket.CreatedAt).ToList()))
+                .ToList();
+        }
+
         private async Task LoadAdminMetricsAsync()
         {
             if (Can("ManageClients"))
@@ -104,11 +136,22 @@ namespace TechSupportRagBot.Pages
                 AttentionTickets = await _db.Tickets
                     .Include(x => x.Machine)
                     .Include(x => x.ClientUser)
+                    .Include(x => x.Messages)
                     .Where(x => x.Status != TicketStatuses.Closed)
                     .OrderByDescending(x => x.Status == TicketStatuses.WaitingForOperator)
                     .ThenByDescending(x => x.CreatedAt)
-                    .Take(5)
+                    .Take(12)
                     .ToListAsync(HttpContext.RequestAborted);
+
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                AttentionTicketGroups = BuildDashboardGroups(AttentionTickets.Select(ticket =>
+                    new DashboardTicketRow(
+                        ticket,
+                        ticket.Messages.Count(message =>
+                            message.AuthorUserId != currentUserId &&
+                            !message.IsBotMessage &&
+                            !message.IsReadByOperator),
+                        Url.Page("/Operator/Ticket", new { id = ticket.Id }) ?? $"/Operator/Ticket/{ticket.Id}")));
             }
         }
 
@@ -145,9 +188,10 @@ namespace TechSupportRagBot.Pages
 
             RecentClientTickets = await _db.Tickets
                 .Include(x => x.Machine)
+                .Include(x => x.Messages)
                 .Where(x => x.ClientUserId == userId)
                 .OrderByDescending(x => x.CreatedAt)
-                .Take(5)
+                .Take(12)
                 .ToListAsync(HttpContext.RequestAborted);
 
             ClientTicketsWithUnreadMessages = await _db.ChatMessages
@@ -158,6 +202,12 @@ namespace TechSupportRagBot.Pages
                     !x.IsReadByClient)
                 .Select(x => x.TicketId)
                 .ToHashSetAsync(HttpContext.RequestAborted);
+
+            RecentClientTicketGroups = BuildDashboardGroups(RecentClientTickets.Select(ticket =>
+                new DashboardTicketRow(
+                    ticket,
+                    ticket.Messages.Count(message => message.AuthorUserId != userId && !message.IsReadByClient),
+                    Url.Page("/Client/Ticket", new { id = ticket.Id }) ?? $"/Client/Ticket/{ticket.Id}")));
         }
 
         private async Task LoadOperatorMetricsAsync(string? userId)
@@ -176,11 +226,16 @@ namespace TechSupportRagBot.Pages
                 .Where(x => x.OperatorUserId == userId || x.OperatorAssignments.Any(a => a.OperatorUserId == userId))
                 .OrderByDescending(x => x.Messages.Any(m => m.AuthorUserId != userId && !m.IsReadByOperator))
                 .ThenByDescending(x => x.CreatedAt)
-                .Take(6)
+                .Take(12)
                 .ToListAsync(HttpContext.RequestAborted);
 
             AssignedTicketCount = AssignedTickets.Count;
             ShowOperatorArea = ShowOperatorArea || AssignedTicketCount > 0;
+            AssignedTicketGroups = BuildDashboardGroups(AssignedTickets.Select(ticket =>
+                new DashboardTicketRow(
+                    ticket,
+                    ticket.Messages.Count(message => message.AuthorUserId != userId && !message.IsReadByOperator),
+                    Url.Page("/Operator/Ticket", new { id = ticket.Id }) ?? $"/Operator/Ticket/{ticket.Id}")));
         }
     }
 }

@@ -39,6 +39,12 @@ public class RagChunkCandidate
 
     public string? NodeName { get; set; }
 
+    public string? Tags { get; set; }
+
+    public string? SearchQuestions { get; set; }
+
+    public string? Operations { get; set; }
+
     public string? DocumentType { get; set; }
 
     public string? Title { get; set; }

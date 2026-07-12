@@ -10,6 +10,8 @@ public class OllamaClient
     private readonly RagOptions _options;
     private readonly OpenAiOptions _openAiOptions;
     private readonly DeepSeekOptions _deepSeekOptions;
+    private readonly QwenOptions _qwenOptions;
+    private readonly AiTunnelOptions _aiTunnelOptions;
     private readonly SystemSettingsService _settings;
     private readonly ILogger<OllamaClient> _logger;
 
@@ -18,6 +20,8 @@ public class OllamaClient
         IOptions<RagOptions> options,
         IOptions<OpenAiOptions> openAiOptions,
         IOptions<DeepSeekOptions> deepSeekOptions,
+        IOptions<QwenOptions> qwenOptions,
+        IOptions<AiTunnelOptions> aiTunnelOptions,
         SystemSettingsService settings,
         ILogger<OllamaClient> logger)
     {
@@ -25,6 +29,8 @@ public class OllamaClient
         _options = options.Value;
         _openAiOptions = openAiOptions.Value;
         _deepSeekOptions = deepSeekOptions.Value;
+        _qwenOptions = qwenOptions.Value;
+        _aiTunnelOptions = aiTunnelOptions.Value;
         _settings = settings;
         _logger = logger;
     }
@@ -63,6 +69,16 @@ public class OllamaClient
             return await EmbedOpenAiAsync(text, cancellationToken);
         }
 
+        if (embeddingProvider.Equals("Qwen", StringComparison.OrdinalIgnoreCase))
+        {
+            return await EmbedQwenAsync(text, cancellationToken);
+        }
+
+        if (embeddingProvider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase))
+        {
+            return await EmbedAiTunnelAsync(text, cancellationToken);
+        }
+
         if (embeddingProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -73,7 +89,7 @@ public class OllamaClient
             var embeddingModel = await _settings.GetEmbeddingModelAsync(cancellationToken);
             var response = await _httpClient.PostAsJsonAsync(
                 $"{_options.OllamaBaseUrl.TrimEnd('/')}/api/embed",
-                new { model = embeddingModel, input = text },
+                new { model = embeddingModel, input = text, keep_alive = "1m" },
                 cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -116,6 +132,16 @@ public class OllamaClient
             return await GenerateOpenAiCompatibleAsync(
                 _deepSeekOptions.BaseUrl,
                 _deepSeekOptions.ApiKey,
+                chatModel,
+                prompt,
+                cancellationToken);
+        }
+
+        if (chatProvider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase))
+        {
+            return await GenerateOpenAiCompatibleAsync(
+                _aiTunnelOptions.BaseUrl,
+                _aiTunnelOptions.ApiKey,
                 chatModel,
                 prompt,
                 cancellationToken);
@@ -286,6 +312,101 @@ public class OllamaClient
         }
         catch
         {
+            return null;
+        }
+    }
+
+    private async Task<float[]?> EmbedQwenAsync(string text, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_qwenOptions.ApiKey))
+        {
+            _logger.LogWarning("Qwen embedding API key is missing.");
+            return null;
+        }
+
+        try
+        {
+            var embeddingModel = await _settings.GetEmbeddingModelAsync(cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_qwenOptions.BaseUrl.TrimEnd('/')}/embeddings");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _qwenOptions.ApiKey);
+            request.Content = JsonContent.Create(new
+            {
+                model = embeddingModel,
+                input = text,
+                dimensions = _qwenOptions.EmbeddingDimensions
+            });
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Qwen embedding failed. Model={Model}, Dimensions={Dimensions}, Status={StatusCode}, Body={Body}",
+                    embeddingModel,
+                    _qwenOptions.EmbeddingDimensions,
+                    (int)response.StatusCode,
+                    error);
+                return null;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken);
+            var embedding = payload?.Data?.FirstOrDefault()?.Embedding;
+            if (embedding != null && embedding.Length != _qwenOptions.EmbeddingDimensions)
+            {
+                _logger.LogWarning(
+                    "Qwen returned an unexpected embedding dimension. Expected={Expected}, Actual={Actual}",
+                    _qwenOptions.EmbeddingDimensions,
+                    embedding.Length);
+                return null;
+            }
+
+            return embedding;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Qwen embedding request failed.");
+            return null;
+        }
+    }
+
+    private async Task<float[]?> EmbedAiTunnelAsync(string text, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_aiTunnelOptions.ApiKey))
+        {
+            _logger.LogWarning("AITunnel embedding API key is missing.");
+            return null;
+        }
+
+        try
+        {
+            var embeddingModel = await _settings.GetEmbeddingModelAsync(cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_aiTunnelOptions.BaseUrl.TrimEnd('/')}/embeddings");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _aiTunnelOptions.ApiKey);
+            request.Content = JsonContent.Create(new
+            {
+                model = embeddingModel,
+                input = text,
+                encoding_format = "float"
+            });
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "AITunnel embedding failed. Model={Model}, Status={StatusCode}, Body={Body}",
+                    embeddingModel,
+                    (int)response.StatusCode,
+                    error);
+                return null;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken);
+            return payload?.Data?.FirstOrDefault()?.Embedding;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AITunnel embedding request failed.");
             return null;
         }
     }

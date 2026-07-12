@@ -1,0 +1,188 @@
+@page
+@model TechSupportRagBot.Pages.Admin.IndexedChatsModel
+@{
+    ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChats", "Проиндексированные чаты");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">RAG</p>
+        <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChats", "Проиндексированные чаты")</h1>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-bar">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ResolvedChatKnowledge", "Решенные обращения в базе знаний")</h2>
+        <form method="get" class="inline-add qa-list-filter">
+            <select asp-for="MachineId" asp-items="Model.MachineOptions">
+                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllMachines")</option>
+            </select>
+            <select asp-for="PageSize" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "RowsPerPage", "На странице")">
+                @foreach (var size in Model.PageSizeOptions)
+                {
+                    <option value="@size">@size</option>
+                }
+            </select>
+            <input type="hidden" name="PageNumber" value="1" />
+            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
+        </form>
+    </div>
+
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoIndexedChats", "Проиндексированных чатов пока нет.")</p>
+    }
+    else
+    {
+        <div class="qa-list">
+            @foreach (var row in Model.Rows)
+            {
+                var answer = row.Answer;
+                var ticket = answer.Ticket;
+                var machine = answer.Machine;
+                <details class="qa-card qa-compact-card indexed-chat-card">
+                    <summary class="qa-card-summary">
+                        <span class="qa-summary-main">
+                            <span class="status-pill @(answer.Status == ResolvedAnswerStatuses.Draft ? "warning" : null)">
+                                @(answer.Status == ResolvedAnswerStatuses.Draft ? "Черновик — требуется проверка" : TechSupportRagBot.Services.UiText.T(HttpContext, "Indexed"))
+                            </span>
+                            <strong>@answer.Question</strong>
+                        </span>
+                        <span class="qa-summary-meta">
+                            <span>@(machine == null ? TechSupportRagBot.Services.UiText.T(HttpContext, "Machine") : $"{machine.Name} · {machine.Model}")</span>
+                            <time>@answer.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
+                        </span>
+                    </summary>
+
+                    <div class="qa-card-body indexed-chat-body">
+                        <dl class="qa-meta">
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Ticket", "Обращение")</dt><dd>#@answer.TicketId · @(ticket?.Title ?? "-")</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</dt><dd>@Display(ticket?.ClientUser?.FullName ?? ticket?.ClientUser?.UserName)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</dt><dd>@Display(ticket?.OperatorUser?.FullName ?? ticket?.OperatorUser?.UserName)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")</dt><dd>@Display(answer.Category)</dd></div>
+                            <div><dt>Заголовок</dt><dd>@Display(answer.Title)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")</dt><dd>@Display(answer.NodeName)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")</dt><dd>@Display(answer.ProblemType)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")</dt><dd>@Display(answer.Tags)</dd></div>
+                            <div><dt>Уверенность LLM</dt><dd>@answer.Confidence.ToString("0.00")</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</dt><dd>@Display(machine?.Model)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")</dt><dd>@Display(machine?.SerialNumber)</dd></div>
+                            <div><dt>Qdrant</dt><dd>@Display(answer.QdrantPointId)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Chunks", "Чанки")</dt><dd>@row.Chunks.Count</dd></div>
+                        </dl>
+
+                        @if (answer.Status == ResolvedAnswerStatuses.Draft)
+                        {
+                            <form method="post" class="archive-review-form">
+                                <div class="inline-grid">
+                                    <label>Заголовок
+                                        <input name="EditInput.Title" value="@answer.Title" />
+                                    </label>
+                                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")
+                                        <input name="EditInput.Category" value="@answer.Category" />
+                                    </label>
+                                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")
+                                        <input name="EditInput.NodeName" value="@answer.NodeName" />
+                                    </label>
+                                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")
+                                        <input name="EditInput.ProblemType" value="@answer.ProblemType" />
+                                    </label>
+                                </div>
+                                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Question")
+                                    <textarea name="EditInput.Question" rows="3">@answer.Question</textarea>
+                                </label>
+                                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Answer")
+                                    <textarea name="EditInput.Answer" rows="6">@answer.Answer</textarea>
+                                </label>
+                                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AlternativeQuestions")
+                                    <textarea name="EditInput.AlternativeQuestions" rows="3">@answer.AlternativeQuestions</textarea>
+                                </label>
+                                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")
+                                    <textarea name="EditInput.Tags" rows="2">@answer.Tags</textarea>
+                                </label>
+                                <div class="form-actions">
+                                    <button class="btn-secondary" type="submit" asp-page-handler="SaveDraft" asp-route-id="@answer.Id">Сохранить черновик</button>
+                                    <button class="btn-main" type="submit" asp-page-handler="Index" asp-route-id="@answer.Id">Подтвердить и индексировать</button>
+                                    <a class="btn-secondary" asp-page="/Operator/Ticket" asp-route-id="@answer.TicketId">Открыть исходный чат</a>
+                                    <button class="btn-danger" type="submit" asp-page-handler="DeleteDraft" asp-route-id="@answer.Id">Удалить черновик</button>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                        <div class="indexed-chat-grid">
+                            <section>
+                                <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExtractedQuestion", "Извлеченный вопрос")</h3>
+                                <div class="qa-answer">@answer.Question</div>
+                            </section>
+                            <section>
+                                <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExtractedAnswer", "Извлеченное решение")</h3>
+                                <div class="qa-answer">@answer.Answer</div>
+                            </section>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(answer.AlternativeQuestions))
+                        {
+                            <details class="qa-details"><summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "AlternativeQuestions")</summary><p>@answer.AlternativeQuestions</p></details>
+                        }
+                        }
+
+                        @if (answer.Status != ResolvedAnswerStatuses.Draft && row.Chunks.Count > 0)
+                        {
+                            <div class="indexed-chunk-list">
+                                <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedContext", "Что попало в индекс")</h3>
+                                @foreach (var chunk in row.Chunks)
+                                {
+                                    <details class="qa-details indexed-chunk">
+                                        <summary>
+                                            Chunk #@chunk.Id · @Display(chunk.Source) · @Display(chunk.DocumentType) · @Display(chunk.QdrantPointId)
+                                        </summary>
+                                        <dl class="qa-meta">
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")</dt><dd>@Display(chunk.Category)</dd></div>
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Topic", "Тема")</dt><dd>@Display(chunk.Topic)</dd></div>
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tags", "Теги")</dt><dd>@Display(chunk.Tags)</dd></div>
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Source")</dt><dd>@Display(chunk.SourceChat)</dd></div>
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Participants", "Участники")</dt><dd>@Display(chunk.Participants)</dd></div>
+                                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChatDate", "Дата чата")</dt><dd>@Display(chunk.ChatDate)</dd></div>
+                                        </dl>
+                                        <pre class="indexed-chunk-text">@chunk.Text</pre>
+                                    </details>
+                                }
+                            </div>
+                        }
+                        else if (answer.Status != ResolvedAnswerStatuses.Draft)
+                        {
+                            <p class="notice-error">@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChatNoChunk", "Для этой записи не найден индексированный чанк.")</p>
+                        }
+
+                        <div class="form-actions">
+                            <a class="btn-secondary" asp-page="/Operator/Ticket" asp-route-id="@answer.TicketId">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenChat")</a>
+                            @if (answer.Status != ResolvedAnswerStatuses.Draft)
+                            {
+                                <form method="post" asp-page-handler="Reindex" asp-route-id="@answer.Id" asp-route-MachineId="@Model.MachineId" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" class="row-action">
+                                    <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </details>
+            }
+        </div>
+    }
+
+    <div class="pagination">
+        @if (Model.PageNumber > 1)
+        {
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-PageSize="@Model.PageSize" asp-route-MachineId="@Model.MachineId">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
+        }
+        <span>@Model.PageNumber / @Model.TotalPages</span>
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-PageSize="@Model.PageSize" asp-route-MachineId="@Model.MachineId">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
+        }
+    </div>
+</section>
+
+@functions {
+    private string Display(string? value) => string.IsNullOrWhiteSpace(value) ? TechSupportRagBot.Services.UiText.T(ViewContext.HttpContext, "NotSpecified") : value;
+}

@@ -60,20 +60,25 @@ public class TicketModel : PageModel
 
     public bool CanCloseTickets { get; private set; }
 
+    public bool CanAssignOperatorsToTickets { get; private set; }
+
     [BindProperty]
     public string? MessageText { get; set; }
 
     [BindProperty]
     public IFormFile? AttachmentFile { get; set; }
 
-    [BindProperty]
-    public bool QuestionResolved { get; set; }
-
     public async Task<IActionResult> OnGetAsync(int id)
     {
         if (!await LoadAsync(id))
         {
             return NotFound();
+        }
+
+        if (!string.IsNullOrWhiteSpace(CurrentUserId)
+            && await _access.IsAllowedAsync(User, "OperatorQueue", HttpContext.RequestAborted))
+        {
+            await _timeTracking.StartSessionAsync(CurrentUserId, id, HttpContext.RequestAborted);
         }
 
         return Page();
@@ -107,6 +112,11 @@ public class TicketModel : PageModel
 
     public async Task<IActionResult> OnPostAssignAsync(int id)
     {
+        if (!await _access.IsAllowedAsync(User, "AssignOperatorsToTickets", HttpContext.RequestAborted))
+        {
+            return Forbid();
+        }
+
         if (!await LoadAsync(id))
         {
             return NotFound();
@@ -154,6 +164,15 @@ public class TicketModel : PageModel
         if ((hasText || hasAttachment) && Ticket!.Status != TicketStatuses.Closed)
         {
             Ticket.OperatorUserId ??= CurrentUserId;
+            if (!Ticket.OperatorAssignments.Any(x => x.OperatorUserId == CurrentUserId))
+            {
+                _db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+                {
+                    TicketId = id,
+                    OperatorUserId = CurrentUserId
+                });
+            }
+
             Ticket.Status = TicketStatuses.InProgress;
             var normalizedMessageText = TextEncodingRepairService.RepairIfNeeded(MessageText).Trim();
 
@@ -181,6 +200,8 @@ public class TicketModel : PageModel
                 return new JsonResult(new { ok = false, error = ex.Message });
             }
             await _db.SaveChangesAsync();
+
+            await _timeTracking.TrackActivityAsync(CurrentUserId, id, HttpContext.RequestAborted);
         }
 
         if (IsAjaxRequest())
@@ -263,13 +284,27 @@ public class TicketModel : PageModel
     public async Task<IActionResult> OnPostActivityAsync(int id)
     {
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(CurrentUserId) || !User.IsInRole("Operator"))
+        if (string.IsNullOrWhiteSpace(CurrentUserId)
+            || !await _access.IsAllowedAsync(User, "OperatorQueue", HttpContext.RequestAborted))
         {
             return new JsonResult(new { ok = false });
         }
 
-        await _timeTracking.TrackActivityAsync(CurrentUserId, id);
-        return new JsonResult(new { ok = true });
+        var entryCreated = await _timeTracking.TrackActivityAsync(CurrentUserId, id, HttpContext.RequestAborted);
+        return new JsonResult(new { ok = true, entryCreated });
+    }
+
+    public async Task<IActionResult> OnPostEndActivityAsync(int id)
+    {
+        CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(CurrentUserId)
+            || !await _access.IsAllowedAsync(User, "OperatorQueue", HttpContext.RequestAborted))
+        {
+            return new JsonResult(new { ok = false });
+        }
+
+        var entryCreated = await _timeTracking.EndSessionAsync(CurrentUserId, id, HttpContext.RequestAborted);
+        return new JsonResult(new { ok = true, entryCreated });
     }
 
     public async Task<IActionResult> OnPostCloseAsync(int id)
@@ -291,35 +326,32 @@ public class TicketModel : PageModel
         Ticket!.Status = TicketStatuses.Closed;
         Ticket.ClosedAt = DateTime.UtcNow;
         Ticket.OperatorUserId ??= CurrentUserId;
-        if (QuestionResolved)
-        {
-            var rawMessages = await _db.ChatMessages
+        var rawMessages = await _db.ChatMessages
                 .Include(x => x.AuthorUser)
                 .Where(x => x.TicketId == id && !string.IsNullOrWhiteSpace(x.Text))
                 .OrderBy(x => x.CreatedAt)
                 .ToListAsync();
 
-            var knowledge = await _resolvedTicketKnowledge.BuildAsync(Ticket, rawMessages);
-            var resolvedAnswer = new ResolvedAnswer
+        var knowledgeItems = await _resolvedTicketKnowledge.BuildManyAsync(Ticket, rawMessages, HttpContext.RequestAborted);
+        foreach (var knowledge in knowledgeItems)
+        {
+            _db.ResolvedAnswers.Add(new ResolvedAnswer
             {
                 TicketId = id,
                 MachineId = Ticket.MachineId,
+                Title = knowledge.Title ?? Ticket.Title,
                 Question = knowledge.Question,
                 Answer = knowledge.Answer,
-                Category = string.IsNullOrWhiteSpace(knowledge.Category)
-                    ? "Решённые обращения"
-                    : knowledge.Category
-            };
-
-            _db.ResolvedAnswers.Add(resolvedAnswer);
-            await _db.SaveChangesAsync();
-
-            await _ingestion.IndexResolvedAnswerAsync(resolvedAnswer);
+                AlternativeQuestions = knowledge.AlternativeQuestions,
+                Tags = knowledge.Tags,
+                NodeName = knowledge.NodeName,
+                ProblemType = knowledge.ProblemType,
+                Confidence = knowledge.Confidence,
+                Status = ResolvedAnswerStatuses.Draft,
+                Category = string.IsNullOrWhiteSpace(knowledge.Category) ? "Решённые обращения" : knowledge.Category
+            });
         }
-        else
-        {
-            await _db.SaveChangesAsync();
-        }
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
 
         return RedirectToPage(new { id });
     }
@@ -343,7 +375,7 @@ public class TicketModel : PageModel
             || currentUser == null
             || !currentUser.AutoTranslateMessages
             || rawMessage.AuthorUserId == CurrentUserId
-            || !ChatTranslationService.NeedsTranslation(rawMessage.AuthorUser?.Country, currentUser.Country, rawMessage.Text))
+            || !_translation.NeedsTranslationByText(rawMessage.Text, rawMessage.AuthorUser?.Country, currentUser.Country))
         {
             return new JsonResult(new { ok = false });
         }
@@ -401,13 +433,6 @@ public class TicketModel : PageModel
             return null;
         }
 
-        if (!User.IsInRole("Admin")
-            && ticket.OperatorAssignments.Count > 0
-            && !ticket.OperatorAssignments.Any(x => x.OperatorUserId == CurrentUserId))
-        {
-            return null;
-        }
-
         return ticket;
     }
 
@@ -416,6 +441,7 @@ public class TicketModel : PageModel
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         CanWriteChat = await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted);
         CanCloseTickets = await _access.IsAllowedAsync(User, "CloseTickets", HttpContext.RequestAborted);
+        CanAssignOperatorsToTickets = await _access.IsAllowedAsync(User, "AssignOperatorsToTickets", HttpContext.RequestAborted);
 
         Ticket = await _db.Tickets
             .Include(x => x.Machine)
@@ -425,13 +451,6 @@ public class TicketModel : PageModel
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Ticket == null)
-        {
-            return false;
-        }
-
-        if (!User.IsInRole("Admin")
-            && Ticket.OperatorAssignments.Count > 0
-            && !Ticket.OperatorAssignments.Any(x => x.OperatorUserId == CurrentUserId))
         {
             return false;
         }
@@ -472,7 +491,7 @@ public class TicketModel : PageModel
                 : null;
             var needsTranslation = targetLanguage != null
                 && message.AuthorUserId != CurrentUserId
-                && ChatTranslationService.NeedsTranslation(message.AuthorUser?.Country, viewerCountry, message.Text);
+                && _translation.NeedsTranslationByText(message.Text, message.AuthorUser?.Country, viewerCountry);
             var translation = needsTranslation
                 ? message.Translations.FirstOrDefault(x => x.TargetLanguage == targetLanguage && x.SourceText == message.Text)?.Text
                 : null;

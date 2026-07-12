@@ -19,9 +19,29 @@ public class ResolvedAnswer
 
     public string Answer { get; set; } = string.Empty;
 
+    public string? Title { get; set; }
+
+    public string? AlternativeQuestions { get; set; }
+
+    public string? Tags { get; set; }
+
+    public string? NodeName { get; set; }
+
+    public string? ProblemType { get; set; }
+
+    public double Confidence { get; set; }
+
+    public string Status { get; set; } = ResolvedAnswerStatuses.Draft;
+
     public string Category { get; set; } = "Решённые обращения";
 
     public string? QdrantPointId { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public static class ResolvedAnswerStatuses
+{
+    public const string Draft = "Draft";
+    public const string Indexed = "Indexed";
 }

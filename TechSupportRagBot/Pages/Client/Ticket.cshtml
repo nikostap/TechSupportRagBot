@@ -34,6 +34,7 @@
          data-message-count="@Model.Messages.Count"
          data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
+         data-active-operator-count="@Model.ActiveOperatorNames.Count"
          data-current-user-name="@(User.Identity?.Name ?? "Клиент")"
          data-ask-bot="@Model.ShouldAskBot.ToString().ToLowerInvariant()"
          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping", "Бот печатает")">
@@ -135,6 +136,13 @@
     <form method="post" id="translationRequestForm" asp-page-handler="Translate">
         @Html.AntiForgeryToken()
     </form>
+
+    @if (Model.ActiveOperatorNames.Count > 0 && Model.Ticket.Status != TicketStatuses.Closed)
+    {
+        <div class="presence-pill">
+            @string.Join(", ", Model.ActiveOperatorNames) @TechSupportRagBot.Services.UiText.T(HttpContext, "OperatorInChat", "сейчас в чате")
+        </div>
+    }
 
     @if (Model.Ticket.OperatorUserId != null && Model.Ticket.Status != TicketStatuses.Closed)
     {

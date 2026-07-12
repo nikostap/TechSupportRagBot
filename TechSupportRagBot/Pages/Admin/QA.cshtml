@@ -168,7 +168,10 @@
 
         <div class="qa-template">
             <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "QATemplate")</h3>
-            <pre>Вопрос:
+            <p class="muted-text">TXT и MD должны быть сохранены в кодировке UTF-8. DOCX уже хранит Unicode-текст.</p>
+            <pre># Кодировка файла: UTF-8
+
+Вопрос:
 Почему не подается ремешок на АЛФ-033?
 
 Альтернативные вопросы:
@@ -181,8 +184,14 @@
 Модель:
 АЛФ-033
 
+Серийный номер или диапазон:
+5-30
+
 Узел:
 Ремешковый узел
+
+Тип проблемы:
+Настройка
 
 Ключевые слова:
 ремешок, ремень, подача
@@ -212,6 +221,12 @@
                     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Answer")
                         <textarea name="ConfirmEntries[@i].Answer" rows="4">@Model.PreviewEntries[i].Answer</textarea>
                     </label>
+                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AlternativeQuestions")
+                        <textarea name="ConfirmEntries[@i].AlternativeQuestions" rows="3">@Model.PreviewEntries[i].AlternativeQuestions</textarea>
+                    </label>
+                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")
+                        <input name="ConfirmEntries[@i].Keywords" value="@Model.PreviewEntries[i].Keywords" />
+                    </label>
                     <div class="inline-grid">
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")
                             <input name="ConfirmEntries[@i].Category" value="@Model.PreviewEntries[i].Category" />
@@ -226,6 +241,9 @@
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")
                             <input name="ConfirmEntries[@i].NodeName" value="@Model.PreviewEntries[i].NodeName" />
                         </label>
+                        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")
+                            <input name="ConfirmEntries[@i].ProblemType" value="@Model.PreviewEntries[i].ProblemType" />
+                        </label>
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")
                             <select name="ConfirmEntries[@i].Status">
                                 @foreach (var status in Model.Statuses)
@@ -235,9 +253,6 @@
                             </select>
                         </label>
                     </div>
-                    <input type="hidden" name="ConfirmEntries[@i].AlternativeQuestions" value="@Model.PreviewEntries[i].AlternativeQuestions" />
-                    <input type="hidden" name="ConfirmEntries[@i].Keywords" value="@Model.PreviewEntries[i].Keywords" />
-                    <input type="hidden" name="ConfirmEntries[@i].ProblemType" value="@Model.PreviewEntries[i].ProblemType" />
                     <input type="hidden" name="ConfirmEntries[@i].Source" value="@Model.PreviewEntries[i].Source" />
                 </article>
             }
@@ -249,7 +264,26 @@
 <section class="panel">
     <div class="section-bar">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAEntries")</h2>
-        <form method="get" class="inline-add">
+        <form method="get" class="qa-search-filter">
+            <input asp-for="SearchQuery" type="search" placeholder="Вопрос, ключевые слова, узел…" aria-label="Поиск по QA" />
+            <select asp-for="SearchMode" aria-label="Режим поиска">
+                <option value="Keyword">По ключевым словам</option>
+                <option value="Rag">RAG — по смыслу</option>
+            </select>
+            <select asp-for="MachineFilter">
+                <option value="">Все станки и модели</option>
+                @foreach (var modelName in Model.MachineFilterOptions)
+                {
+                    <option value="@modelName">@modelName</option>
+                }
+            </select>
+            <select asp-for="SerialFilter">
+                <option value="">Все серии</option>
+                @foreach (var serial in Model.SerialFilterOptions)
+                {
+                    <option value="@serial">@serial</option>
+                }
+            </select>
             <select asp-for="StatusFilter">
                 <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllStatuses")</option>
                 @foreach (var status in Model.Statuses)
@@ -257,81 +291,98 @@
                     <option value="@status">@status</option>
                 }
             </select>
+            <select asp-for="PageSize" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "RowsPerPage", "На странице")">
+                @foreach (var size in Model.PageSizeOptions)
+                {
+                    <option value="@size">@size</option>
+                }
+            </select>
+            <input type="hidden" name="PageNumber" value="1" />
             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
+            <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
         </form>
     </div>
 
     <div class="qa-list">
         @foreach (var entry in Model.Entries)
         {
-            <article class="qa-card">
-                <div class="qa-card-head">
-                    <div>
+            <details class="qa-card qa-compact-card">
+                <summary class="qa-card-summary">
+                    <span class="qa-summary-main">
                         <span class="status-pill">@entry.Status</span>
-                        <h3>@entry.Question</h3>
-                    </div>
-                    <small>@entry.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
-                </div>
-                <div class="qa-answer">@entry.Answer</div>
-                <dl class="qa-meta">
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")</dt><dd>@Display(entry.Category)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</dt><dd>@Display(entry.MachineModel)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRangeShort")</dt><dd>@Display(entry.SerialNumber)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")</dt><dd>@Display(entry.NodeName)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")</dt><dd>@Display(entry.ProblemType)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")</dt><dd>@Display(entry.Keywords)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Source")</dt><dd>@entry.Source</dd></div>
-                </dl>
-                @if (!string.IsNullOrWhiteSpace(entry.AlternativeQuestions))
-                {
-                    <details class="qa-details">
-                        <summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "AlternativeQuestions")</summary>
-                        <p>@entry.AlternativeQuestions</p>
-                    </details>
-                }
-                @if (entry.Attachments.Count > 0)
-                {
-                    <div class="qa-media-grid compact">
-                        @foreach (var media in entry.Attachments)
+                        <strong>@entry.Question</strong>
+                    </span>
+                    <span class="qa-summary-meta">
+                        @if (entry.Attachments.Count > 0)
                         {
-                            <article class="qa-media-item">
-                                @if (IsVideo(media))
-                                {
-                                    <video controls src="@FileUrl(media.FilePath)"></video>
-                                }
-                                else
-                                {
-                                    <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
-                                }
-                                <span>@media.OriginalFileName</span>
-                            </article>
+                            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer") · @entry.Attachments.Count</span>
                         }
+                        <time>@entry.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
+                    </span>
+                </summary>
+                <div class="qa-card-body">
+                    <div class="qa-answer">@entry.Answer</div>
+                    <dl class="qa-meta">
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")</dt><dd>@Display(entry.Category)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</dt><dd>@Display(entry.MachineModel)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRangeShort")</dt><dd>@Display(entry.SerialNumber)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")</dt><dd>@Display(entry.NodeName)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")</dt><dd>@Display(entry.ProblemType)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")</dt><dd>@Display(entry.Keywords)</dd></div>
+                        <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Source")</dt><dd>@entry.Source</dd></div>
+                    </dl>
+                    @if (!string.IsNullOrWhiteSpace(entry.AlternativeQuestions))
+                    {
+                        <details class="qa-details">
+                            <summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "AlternativeQuestions")</summary>
+                            <p>@entry.AlternativeQuestions</p>
+                        </details>
+                    }
+                    @if (entry.Attachments.Count > 0)
+                    {
+                        <div class="qa-media-grid compact">
+                            @foreach (var media in entry.Attachments)
+                            {
+                                <article class="qa-media-item">
+                                    @if (IsVideo(media))
+                                    {
+                                        <video controls src="@FileUrl(media.FilePath)"></video>
+                                    }
+                                    else
+                                    {
+                                        <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
+                                    }
+                                    <span>@media.OriginalFileName</span>
+                                </article>
+                            }
+                        </div>
+                    }
+                    <div class="form-actions">
+                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
+                        <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
+                            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Verify")</button>
+                        </form>
+                        <form method="post" asp-page-handler="Reindex" asp-route-id="@entry.Id" class="row-action">
+                            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
+                        </form>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@entry.Id" class="row-action">
+                            <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                        </form>
                     </div>
-                }                <div class="form-actions">
-                    <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
-                    <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
-                        <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Verify")</button>
-                    </form>
-                    <form method="post" asp-page-handler="Reindex" asp-route-id="@entry.Id" class="row-action">
-                        <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
-                    </form>
-                    <form method="post" asp-page-handler="Delete" asp-route-id="@entry.Id" class="row-action">
-                        <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
-                    </form>
                 </div>
-            </article>
+            </details>
         }
     </div>
 
     <div class="pagination">
         @if (Model.PageNumber > 1)
         {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-StatusFilter="@Model.StatusFilter">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
         }
         <span>@Model.PageNumber / @Model.TotalPages</span>
         @if (Model.PageNumber < Model.TotalPages)
         {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-StatusFilter="@Model.StatusFilter">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
         }
     </div>
 </section>

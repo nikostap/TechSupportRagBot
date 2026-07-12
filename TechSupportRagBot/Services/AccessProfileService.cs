@@ -34,7 +34,6 @@ public class AccessProfileService
         new("ManageMachines", "PermissionManageMachines"),
         new("ManageLicenses", "PermissionManageLicenses"),
         new("ManageOperators", "PermissionManageOperators"),
-        new("KnowledgeBase", "PermissionKnowledgeBase"),
         new("QA", "PermissionQA"),
         new("Tickets", "PermissionTickets"),
         new("TimeTracking", "PermissionTimeTracking"),
@@ -45,7 +44,9 @@ public class AccessProfileService
         new("CompanyUsers", "PermissionCompanyUsers"),
         new("OperatorQueue", "PermissionOperatorQueue"),
         new("ChatWrite", "PermissionChatWrite"),
-        new("CloseTickets", "PermissionCloseTickets")
+        new("CloseTickets", "PermissionCloseTickets"),
+        new("AssignOperatorsToTickets", "PermissionAssignOperatorsToTickets"),
+        new("DeleteTickets", "PermissionDeleteTickets")
     ];
 
     private readonly ApplicationDbContext _db;
@@ -212,7 +213,8 @@ public class AccessProfileService
         if (value.StartsWith("/Admin/Machines", StringComparison.OrdinalIgnoreCase)) return "ManageMachines";
         if (value.StartsWith("/Admin/Licenses", StringComparison.OrdinalIgnoreCase)) return "ManageLicenses";
         if (value.StartsWith("/Admin/Operators", StringComparison.OrdinalIgnoreCase)) return "ManageOperators";
-        if (value.StartsWith("/Admin/Knowledge", StringComparison.OrdinalIgnoreCase)) return "KnowledgeBase";
+        if (value.StartsWith("/Admin/BotTest", StringComparison.OrdinalIgnoreCase)) return "QA";
+        if (value.StartsWith("/Admin/IndexedChats", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/QA", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/Tickets", StringComparison.OrdinalIgnoreCase)) return "Tickets";
         if (value.StartsWith("/Admin/TimeTracking", StringComparison.OrdinalIgnoreCase)) return "TimeTracking";
@@ -281,7 +283,7 @@ public class AccessProfileService
             {
                 Key = Programmer,
                 Name = "ProfileProgrammer",
-                Permissions = Only("AdminDashboard", "ManageMachines", "KnowledgeBase", "QA", "Tickets", "Settings", "ChatWrite")
+                Permissions = Only("AdminDashboard", "ManageMachines", "QA", "Tickets", "Settings", "ChatWrite")
             },
             new AccessProfileRule
             {

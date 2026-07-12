@@ -13,6 +13,7 @@ public class KnowledgeIngestionService
     private readonly KnowledgeFtsService _fts;
     private readonly RagAuditLogger _audit;
     private readonly DocumentTypeDetector _typeDetector;
+    private readonly DocumentEnrichmentService _enrichment;
 
     public KnowledgeIngestionService(
         ApplicationDbContext db,
@@ -21,7 +22,8 @@ public class KnowledgeIngestionService
         QdrantKnowledgeClient qdrant,
         KnowledgeFtsService fts,
         RagAuditLogger audit,
-        DocumentTypeDetector typeDetector)
+        DocumentTypeDetector typeDetector,
+        DocumentEnrichmentService enrichment)
     {
         _db = db;
         _extractor = extractor;
@@ -30,6 +32,7 @@ public class KnowledgeIngestionService
         _fts = fts;
         _audit = audit;
         _typeDetector = typeDetector;
+        _enrichment = enrichment;
     }
 
     public async Task IndexDocumentAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
@@ -54,6 +57,15 @@ public class KnowledgeIngestionService
         {
             var extracted = await _extractor.ExtractDocumentAsync(document.FilePath, document.Category, cancellationToken);
             extracted.DocumentType = _typeDetector.Detect(document.OriginalFileName, document.Category, extracted.FullText);
+            DocumentEnrichmentDraft? enrichmentDraft = null;
+            if (!string.IsNullOrWhiteSpace(document.EnrichmentJson))
+            {
+                enrichmentDraft = _enrichment.Deserialize(document.EnrichmentJson);
+                if (Enum.TryParse<DocumentType>(enrichmentDraft.DocumentType, true, out var enrichedType))
+                {
+                    extracted.DocumentType = enrichedType;
+                }
+            }
             var extension = Path.GetExtension(document.OriginalFileName);
             if ((extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
                     || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
@@ -103,9 +115,15 @@ public class KnowledgeIngestionService
                 })
             }, traceId, cancellationToken);
 
+            var sourceIndex = 0;
             var index = 0;
             foreach (var textChunk in chunks)
             {
+                var enrichedChunk = enrichmentDraft?.Chunks.FirstOrDefault(x => x.ChunkIndex == sourceIndex++);
+                if (enrichedChunk?.Include == false)
+                {
+                    continue;
+                }
                 var chunk = new KnowledgeChunk
                 {
                     KnowledgeDocumentId = document.Id,
@@ -113,20 +131,20 @@ public class KnowledgeIngestionService
                     Text = textChunk.Text,
                     Category = document.Category,
                     MachineId = document.MachineId,
-                    MachineModel = textChunk.MachineModel ?? document.MachineModel,
+                    MachineModel = enrichmentDraft?.MachineModel ?? textChunk.MachineModel ?? document.MachineModel,
                     SerialNumber = document.SerialNumber,
                     FileName = textChunk.FileName,
                     Page = textChunk.Page,
                     DocumentType = textChunk.DocumentType ?? extracted.DocumentType.ToString(),
-                    Title = textChunk.Title,
+                    Title = enrichedChunk?.Title ?? textChunk.Title ?? enrichmentDraft?.Title,
                     NormalizedText = textChunk.NormalizedText,
-                    SectionTitle = textChunk.SectionTitle,
-                    SubsectionTitle = textChunk.SubsectionTitle,
+                    SectionTitle = enrichedChunk?.SectionTitle ?? textChunk.SectionTitle,
+                    SubsectionTitle = enrichedChunk?.SubsectionTitle ?? textChunk.SubsectionTitle,
                     ErrorName = textChunk.ErrorName,
                     ErrorCode = textChunk.ErrorCode,
                     Cause = textChunk.Cause,
                     Solution = textChunk.Solution,
-                    NodeName = textChunk.NodeName,
+                    NodeName = enrichedChunk?.NodeName ?? textChunk.NodeName ?? enrichmentDraft?.Nodes.FirstOrDefault(),
                     SheetName = textChunk.SheetName,
                     RowNumber = textChunk.RowNumber,
                     ColumnNames = textChunk.ColumnNames,
@@ -134,6 +152,9 @@ public class KnowledgeIngestionService
                     Participants = textChunk.Participants,
                     Topic = textChunk.Topic,
                     SourceChat = textChunk.SourceChat,
+                    Tags = JoinMetadata(enrichedChunk?.Tags, enrichmentDraft?.Tags),
+                    SearchQuestions = JoinMetadata(enrichedChunk?.SearchQuestions),
+                    Operations = JoinMetadata(enrichedChunk?.Operations),
                     Source = "Document"
                 };
 
@@ -141,7 +162,7 @@ public class KnowledgeIngestionService
                 await _db.SaveChangesAsync(cancellationToken);
                 await _fts.UpsertChunkAsync(chunk, cancellationToken);
 
-                var vector = await _ollama.EmbedAsync(chunk.Text, cancellationToken);
+                var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, enrichmentDraft), cancellationToken);
                 var qdrantUpserted = vector != null && await _qdrant.UpsertAsync(chunk, vector, "Document", cancellationToken);
                 if (qdrantUpserted)
                 {
@@ -221,9 +242,20 @@ public class KnowledgeIngestionService
             resolvedAnswer.Answer
         }, traceId, cancellationToken);
 
-        resolvedAnswer.Category = await InferCategoryAsync(
-            $"{resolvedAnswer.Question}\n\n{resolvedAnswer.Answer}",
-            cancellationToken);
+        if (string.IsNullOrWhiteSpace(resolvedAnswer.Category))
+        {
+            resolvedAnswer.Category = await InferCategoryAsync(
+                $"{resolvedAnswer.Question}\n\n{resolvedAnswer.Answer}", cancellationToken);
+        }
+
+        var oldChunks = await _db.KnowledgeChunks.Where(x => x.ResolvedAnswerId == resolvedAnswer.Id).ToListAsync(cancellationToken);
+        if (oldChunks.Count > 0)
+        {
+            await _qdrant.DeletePointsAsync(oldChunks.Select(x => x.QdrantPointId), cancellationToken);
+            await _fts.DeleteChunksAsync(oldChunks.Select(x => x.Id), cancellationToken);
+            _db.KnowledgeChunks.RemoveRange(oldChunks);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
 
         var machine = await _db.Machines
             .AsNoTracking()
@@ -248,8 +280,10 @@ public class KnowledgeIngestionService
             NormalizedText = $"{resolvedAnswer.Question}\n{resolvedAnswer.Answer}".ToLowerInvariant(),
             Source = "ResolvedTicket",
             DocumentType = "ChatLog",
-            Title = ticket?.Title,
-            Topic = ticket?.Title,
+            Title = resolvedAnswer.Title ?? ticket?.Title,
+            Topic = resolvedAnswer.ProblemType ?? resolvedAnswer.Title ?? ticket?.Title,
+            NodeName = resolvedAnswer.NodeName,
+            SearchQuestions = resolvedAnswer.AlternativeQuestions,
             SourceChat = $"Ticket #{resolvedAnswer.TicketId}",
             ChatDate = ticket?.ClosedAt?.ToString("yyyy-MM-dd") ?? ticket?.CreatedAt.ToString("yyyy-MM-dd"),
             Participants = string.Join(", ", new[]
@@ -262,7 +296,8 @@ public class KnowledgeIngestionService
                 "ResolvedTicket",
                 machine?.Name,
                 machine?.Model,
-                resolvedAnswer.Category
+                resolvedAnswer.Category,
+                resolvedAnswer.Tags
             }.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct())
         };
 
@@ -270,11 +305,16 @@ public class KnowledgeIngestionService
         await _db.SaveChangesAsync(cancellationToken);
         await _fts.UpsertChunkAsync(chunk, cancellationToken);
 
-        var vector = await _ollama.EmbedAsync(chunk.Text, cancellationToken);
+        var embeddingText = string.Join("\n", new[]
+        {
+            chunk.Title, chunk.NodeName, chunk.Topic, chunk.Tags, chunk.SearchQuestions, chunk.Text
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        var vector = await _ollama.EmbedAsync(embeddingText, cancellationToken);
         var qdrantUpserted = vector != null && await _qdrant.UpsertAsync(chunk, vector, "ResolvedTicket", cancellationToken);
         if (qdrantUpserted)
         {
             resolvedAnswer.QdrantPointId = chunk.QdrantPointId;
+            resolvedAnswer.Status = ResolvedAnswerStatuses.Indexed;
             await _db.SaveChangesAsync(cancellationToken);
         }
 
@@ -418,6 +458,56 @@ public class KnowledgeIngestionService
         }, traceId, cancellationToken);
     }
 
+    public async Task EnsureVectorIndexCompatibleAsync(CancellationToken cancellationToken = default)
+    {
+        var probe = await _ollama.EmbedAsync("embedding dimension compatibility check", cancellationToken);
+        if (probe == null)
+        {
+            return;
+        }
+
+        var currentSize = await _qdrant.GetCollectionVectorSizeAsync(cancellationToken);
+        if (currentSize < 0 || currentSize == probe.Length)
+        {
+            return;
+        }
+
+        await _audit.WriteAsync("Knowledge.VectorIndex.DimensionChanged", new
+        {
+            previousVectorSize = currentSize,
+            currentVectorSize = probe.Length
+        }, cancellationToken: cancellationToken);
+
+        if (!await _qdrant.RecreateCollectionAsync(probe.Length, cancellationToken))
+        {
+            return;
+        }
+
+        var chunks = await _db.KnowledgeChunks
+            .OrderBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+        var indexed = 0;
+        foreach (var chunk in chunks)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            chunk.QdrantPointId = null;
+            var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, null), cancellationToken);
+            if (vector != null && vector.Length == probe.Length
+                && await _qdrant.UpsertAsync(chunk, vector, chunk.Source, cancellationToken))
+            {
+                indexed++;
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await _audit.WriteAsync("Knowledge.VectorIndex.Rebuilt", new
+        {
+            vectorSize = probe.Length,
+            chunksCount = chunks.Count,
+            indexed
+        }, cancellationToken: cancellationToken);
+    }
+
     private async Task<string> InferCategoryAsync(string text, CancellationToken cancellationToken)
     {
         var categories = await _db.KnowledgeCategories
@@ -470,5 +560,30 @@ public class KnowledgeIngestionService
         }
 
         return text.Length <= maxLength ? text : text[..maxLength] + "...";
+    }
+
+    private static string BuildEmbeddingText(KnowledgeChunk chunk, DocumentEnrichmentDraft? draft)
+    {
+        return string.Join("\n", new[]
+        {
+            draft?.Title is { Length: > 0 } title ? $"Документ: {title}" : null,
+            chunk.Title is { Length: > 0 } chunkTitle ? $"Раздел: {chunkTitle}" : null,
+            chunk.NodeName is { Length: > 0 } node ? $"Узел: {node}" : null,
+            chunk.Operations is { Length: > 0 } operations ? $"Операции: {operations}" : null,
+            chunk.Tags is { Length: > 0 } tags ? $"Ключевые слова: {tags}" : null,
+            chunk.SearchQuestions is { Length: > 0 } questions ? $"Возможные вопросы:\n{questions}" : null,
+            chunk.Text
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    }
+
+    private static string? JoinMetadata(params IEnumerable<string>?[] values)
+    {
+        var result = values
+            .Where(x => x != null)
+            .SelectMany(x => x!)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return result.Count == 0 ? null : string.Join("\n", result);
     }
 }

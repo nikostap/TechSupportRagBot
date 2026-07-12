@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using TechSupportRagBot.Data;
@@ -30,6 +31,12 @@ builder.Services.Configure<FormOptions>(options =>
 builder.Services.Configure<IISServerOptions>(options =>
 {
     options.MaxRequestBodySize = videoMaxRequestBytes;
+});
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtectionKeys");
@@ -89,12 +96,17 @@ builder.Services.AddSignalR();
 builder.Services.Configure<RagOptions>(builder.Configuration.GetSection("Rag"));
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<DeepSeekOptions>(builder.Configuration.GetSection("DeepSeek"));
+builder.Services.Configure<QwenOptions>(builder.Configuration.GetSection("Qwen"));
+builder.Services.Configure<AiTunnelOptions>(builder.Configuration.GetSection("AiTunnel"));
 builder.Services.Configure<LibreTranslateOptions>(builder.Configuration.GetSection("LibreTranslate"));
+builder.Services.Configure<FastTextLanguageOptions>(builder.Configuration.GetSection("FastTextLanguage"));
 builder.Services.Configure<VideoProcessingOptions>(builder.Configuration.GetSection("VideoProcessing"));
 builder.Services.AddHttpClient<OllamaClient>();
 builder.Services.AddHttpClient<QdrantKnowledgeClient>();
 builder.Services.AddHttpClient<ChatTranslationService>();
+builder.Services.AddSingleton<LanguageDetectionService>();
 builder.Services.AddScoped<DocumentTextExtractor>();
+builder.Services.AddScoped<DocumentEnrichmentService>();
 builder.Services.AddSingleton<DocumentTypeDetector>();
 builder.Services.AddScoped<KnowledgeIngestionService>();
 builder.Services.AddScoped<SupportBotService>();
@@ -106,6 +118,7 @@ builder.Services.AddScoped<SystemSettingsService>();
 builder.Services.AddScoped<ResolvedTicketKnowledgeService>();
 builder.Services.AddScoped<QAService>();
 builder.Services.AddScoped<OperatorTimeTrackingService>();
+builder.Services.AddHttpClient<WorkCalendarService>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<AccessProfileService>();
 builder.Services.AddScoped<IVideoProcessingService, VideoProcessingService>();
@@ -117,6 +130,8 @@ builder.Services.AddHostedService<VideoProcessingBackgroundService>();
 builder.Services.AddHostedService<EmailNotificationBackgroundService>();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Настраиваем обработку ошибок и миграций.
 if (app.Environment.IsDevelopment())
@@ -264,6 +279,7 @@ using (var scope = app.Services.CreateScope())
     await accessProfiles.SaveProfilesAsync(await accessProfiles.GetProfilesAsync());
     await accessProfiles.HardenClientProfilesAsync();
     await accessProfiles.FillMissingUserProfilesAsync();
+    await services.GetRequiredService<KnowledgeIngestionService>().EnsureVectorIndexCompatibleAsync();
     await services.GetRequiredService<KnowledgeFtsService>().RebuildAsync();
     if (builder.Configuration.GetValue("Rag:ReindexOnStartup", false))
     {

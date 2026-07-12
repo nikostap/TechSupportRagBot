@@ -106,5 +106,30 @@ public class KnowledgeDocument
     /// </summary>
     public string Status { get; set; } = "Загружен";
 
+    /// <summary>
+    /// Режим подготовки метаданных: Manual, Template или Llm.
+    /// </summary>
+    public string EnrichmentMode { get; set; } = "Manual";
+
+    /// <summary>
+    /// Редактируемый JSON-черновик, который подтверждается до индексации.
+    /// Исходный файл при обогащении не изменяется.
+    /// </summary>
+    public string? EnrichmentJson { get; set; }
+
+    public string? Title { get; set; }
+
+    public string? Summary { get; set; }
+
+    public string? Tags { get; set; }
+
+    public string? NodeName { get; set; }
+
+    public string? DetectedDocumentType { get; set; }
+
+    public DateTime? EnrichedAt { get; set; }
+
+    public string? EnrichmentModel { get; set; }
+
     public ICollection<KnowledgeChunk> Chunks { get; set; } = new List<KnowledgeChunk>();
 }

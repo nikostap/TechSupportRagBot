@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -13,6 +14,10 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize(Roles = "Admin")]
 public class QAModel : PageModel
 {
+    private static readonly int[] AllowedPageSizes = [10, 20, 50, 100];
+    private const int DefaultPageSize = 10;
+    private const string PageSizeCookiePrefix = "qa-page-size";
+
     private readonly ApplicationDbContext _db;
     private readonly QAService _qa;
 
@@ -47,13 +52,34 @@ public class QAModel : PageModel
     public string? StatusFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? MachineFilter { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? SerialFilter { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? SearchQuery { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string SearchMode { get; set; } = "Keyword";
+
+    [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int? PageSize { get; set; }
+
+    public int[] PageSizeOptions => AllowedPageSizes;
 
     public List<QAEntry> Entries { get; private set; } = new();
 
     public List<KnowledgeCategory> Categories { get; private set; } = new();
 
     public List<Machine> Machines { get; private set; } = new();
+
+    public List<string> MachineFilterOptions { get; private set; } = new();
+
+    public List<string> SerialFilterOptions { get; private set; } = new();
 
     public List<QAInput> PreviewEntries { get; private set; } = new();
 
@@ -90,7 +116,11 @@ public class QAModel : PageModel
 
     public IActionResult OnGetTemplateTxt()
     {
-        return File(System.Text.Encoding.UTF8.GetBytes(QAService.BuildTxtTemplate()), "text/plain; charset=utf-8", "qa-template.txt");
+        var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        var content = encoding.GetPreamble()
+            .Concat(encoding.GetBytes(QAService.BuildTxtTemplate()))
+            .ToArray();
+        return File(content, "text/plain; charset=utf-8", "qa-template.txt");
     }
 
     public IActionResult OnGetTemplateDocx()
@@ -203,7 +233,17 @@ public class QAModel : PageModel
         }
 
         await using var stream = Import.File.OpenReadStream();
-        var parsed = await _qa.PreviewImportAsync(Import.File.FileName, stream, Import.AutoParse, cancellationToken);
+        IReadOnlyList<QAEntry> parsed;
+        try
+        {
+            parsed = await _qa.PreviewImportAsync(Import.File.FileName, stream, Import.AutoParse, cancellationToken);
+        }
+        catch (DecoderFallbackException)
+        {
+            ModelState.AddModelError(string.Empty, "TXT и MD файлы должны быть сохранены в кодировке UTF-8.");
+            await LoadAsync();
+            return Page();
+        }
         PreviewEntries = parsed.Select(FromEntry).ToList();
         if (PreviewEntries.Count == 0)
         {
@@ -264,7 +304,7 @@ public class QAModel : PageModel
 
     private async Task LoadAsync()
     {
-        const int pageSize = 10;
+        var pageSize = ResolvePageSize();
         PageNumber = Math.Max(1, PageNumber);
 
         var query = _db.QAEntries
@@ -276,18 +316,84 @@ public class QAModel : PageModel
             query = query.Where(x => x.Status == StatusFilter);
         }
 
+        if (!string.IsNullOrWhiteSpace(MachineFilter))
+        {
+            query = query.Where(x => x.MachineModel == MachineFilter);
+        }
+
+        if (!string.IsNullOrWhiteSpace(SerialFilter))
+        {
+            query = query.Where(x => x.SerialNumber == SerialFilter);
+        }
+
+        IReadOnlyList<int>? semanticIds = null;
+        var search = SearchQuery?.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            if (string.Equals(SearchMode, "Rag", StringComparison.OrdinalIgnoreCase))
+            {
+                semanticIds = await _qa.SearchSimilarIdsAsync(search, MachineFilter, SerialFilter, 150, HttpContext.RequestAborted);
+                query = query.Where(x => semanticIds.Contains(x.Id));
+            }
+            else if (_db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var pattern = $"%{search}%";
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.Question, pattern)
+                    || EF.Functions.ILike(x.Answer, pattern)
+                    || (x.AlternativeQuestions != null && EF.Functions.ILike(x.AlternativeQuestions, pattern))
+                    || (x.Keywords != null && EF.Functions.ILike(x.Keywords, pattern))
+                    || (x.NodeName != null && EF.Functions.ILike(x.NodeName, pattern)));
+            }
+            else
+            {
+                var lower = search.ToLowerInvariant();
+                query = query.Where(x =>
+                    x.Question.ToLower().Contains(lower)
+                    || x.Answer.ToLower().Contains(lower)
+                    || (x.AlternativeQuestions != null && x.AlternativeQuestions.ToLower().Contains(lower))
+                    || (x.Keywords != null && x.Keywords.ToLower().Contains(lower))
+                    || (x.NodeName != null && x.NodeName.ToLower().Contains(lower)));
+            }
+        }
+
         var totalCount = await query.CountAsync();
         TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
         PageNumber = Math.Min(PageNumber, TotalPages);
 
-        Entries = await query
-            .OrderByDescending(x => x.UpdatedAt)
-            .Skip((PageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        if (semanticIds != null)
+        {
+            var rank = semanticIds.Select((id, index) => new { id, index }).ToDictionary(x => x.id, x => x.index);
+            var semanticEntries = await query.ToListAsync();
+            Entries = semanticEntries
+                .OrderBy(x => rank.GetValueOrDefault(x.Id, int.MaxValue))
+                .Skip((PageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
+        else
+        {
+            Entries = await query
+                .OrderByDescending(x => x.UpdatedAt)
+                .Skip((PageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
 
         Categories = await _db.KnowledgeCategories.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         Machines = await _db.Machines.AsNoTracking().OrderBy(x => x.Model).ThenBy(x => x.Name).ToListAsync();
+        MachineFilterOptions = await _db.QAEntries.AsNoTracking()
+            .Where(x => x.MachineModel != null && x.MachineModel != "")
+            .Select(x => x.MachineModel!)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync();
+        SerialFilterOptions = await _db.QAEntries.AsNoTracking()
+            .Where(x => x.SerialNumber != null && x.SerialNumber != "")
+            .Select(x => x.SerialNumber!)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync();
         if (EditId.HasValue && EditAttachments.Count == 0)
         {
             EditAttachments = await _db.QAAttachments
@@ -304,6 +410,40 @@ public class QAModel : PageModel
             x.Model,
             x.SerialNumber
         }), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+    }
+
+    private int ResolvePageSize()
+    {
+        var requested = PageSize;
+        var cookieName = GetPageSizeCookieName();
+        if (!requested.HasValue &&
+            Request.Cookies.TryGetValue(cookieName, out var cookieValue) &&
+            int.TryParse(cookieValue, out var cookiePageSize))
+        {
+            requested = cookiePageSize;
+        }
+
+        var pageSize = AllowedPageSizes.Contains(requested.GetValueOrDefault())
+            ? requested!.Value
+            : DefaultPageSize;
+
+        PageSize = pageSize;
+        Response.Cookies.Append(cookieName, pageSize.ToString(), new CookieOptions
+        {
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddYears(1)
+        });
+
+        return pageSize;
+    }
+
+    private string GetPageSizeCookieName()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return string.IsNullOrWhiteSpace(userId)
+            ? PageSizeCookiePrefix
+            : $"{PageSizeCookiePrefix}-{userId}";
     }
 
     private QAEntry ToEntry(QAInput input, string source)

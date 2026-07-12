@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
@@ -15,11 +16,16 @@ public class TimeTrackingModel : PageModel
     private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
     private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AccessProfileService _access;
 
-    public TimeTrackingModel(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+    public TimeTrackingModel(
+        ApplicationDbContext db,
+        UserManager<ApplicationUser> userManager,
+        AccessProfileService access)
     {
         _db = db;
         _userManager = userManager;
+        _access = access;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -94,7 +100,7 @@ public class TimeTrackingModel : PageModel
                 Period = PeriodKey(x.StartedAt),
                 x.OperatorUserId,
                 OperatorName = x.OperatorUser!.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId,
-                MachineModel = x.Machine!.Model
+                MachineModel = x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model
             })
             .Select(x => new TimeReportRow(
                 x.Key.Period,
@@ -115,12 +121,12 @@ public class TimeTrackingModel : PageModel
             .ToList();
 
         MachineChart = entries
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.Machine!.Model) ? "Без модели" : x.Machine.Model)
+            .GroupBy(x => x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model)
             .Select(x => new ChartRow(x.Key, x.Sum(e => e.WorkSeconds), x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.TotalSeconds)
             .ToList();
 
-        var operators = await _userManager.GetUsersInRoleAsync("Operator");
+        var operators = await GetTimeTrackedUsersAsync();
         OperatorOptions = new SelectList(
             operators.OrderBy(x => x.FullName ?? x.UserName).Select(x => new
             {
@@ -139,6 +145,32 @@ public class TimeTrackingModel : PageModel
             .OrderBy(x => x)
             .ToListAsync();
         MachineModelOptions = new SelectList(models, MachineModel);
+    }
+
+    private async Task<List<ApplicationUser>> GetTimeTrackedUsersAsync()
+    {
+        var roleOperators = await _userManager.GetUsersInRoleAsync("Operator");
+        var profiles = await _access.GetProfilesAsync(HttpContext.RequestAborted);
+        var operatorProfileKeys = profiles
+            .Where(x =>
+                x.Permissions.TryGetValue("OperatorQueue", out var operatorQueue) && operatorQueue
+                || x.Permissions.TryGetValue("ChatWrite", out var chatWrite) && chatWrite
+                    && x.Permissions.TryGetValue("Tickets", out var tickets) && tickets)
+            .Select(x => x.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var profileOperators = operatorProfileKeys.Count == 0
+            ? new List<ApplicationUser>()
+            : await _db.Users
+                .AsNoTracking()
+                .Where(x => x.AccessProfile != null && operatorProfileKeys.Contains(x.AccessProfile))
+                .ToListAsync(HttpContext.RequestAborted);
+
+        return roleOperators
+            .Concat(profileOperators)
+            .GroupBy(x => x.Id)
+            .Select(x => x.First())
+            .ToList();
     }
 
     public static string FormatDuration(int seconds)

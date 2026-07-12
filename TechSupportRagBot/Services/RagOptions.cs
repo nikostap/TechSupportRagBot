@@ -37,9 +37,38 @@ public class DeepSeekOptions
     public string ChatModel { get; set; } = "deepseek-chat";
 }
 
+public class QwenOptions
+{
+    public string BaseUrl { get; set; } = "https://ws-am1n1jqyhug10mfy.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
+
+    public string ApiKey { get; set; } = string.Empty;
+
+    public string EmbeddingModel { get; set; } = "text-embedding-v4";
+
+    public int EmbeddingDimensions { get; set; } = 1024;
+}
+
+public class AiTunnelOptions
+{
+    public string BaseUrl { get; set; } = "https://api.aitunnel.ru/v1";
+
+    public string ApiKey { get; set; } = string.Empty;
+
+    public string ChatModel { get; set; } = "auto";
+
+    public string EmbeddingModel { get; set; } = "text-embedding-v4";
+}
+
 public class LibreTranslateOptions
 {
     public string BaseUrl { get; set; } = "http://localhost:5000";
 
     public string ApiKey { get; set; } = string.Empty;
+}
+
+public class FastTextLanguageOptions
+{
+    public string ModelPath { get; set; } = "Resources/fasttext/lid.176.ftz";
+
+    public float MinConfidence { get; set; } = 0.35f;
 }

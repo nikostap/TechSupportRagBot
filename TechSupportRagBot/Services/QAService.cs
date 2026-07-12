@@ -278,6 +278,52 @@ public class QAService
         return true;
     }
 
+    public async Task<IReadOnlyList<int>> SearchSimilarIdsAsync(
+        string query,
+        string? machineModel,
+        string? serialNumber,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<int>();
+        }
+
+        var vector = await _ollama.EmbedAsync(query.Trim(), cancellationToken);
+        if (vector == null)
+        {
+            return Array.Empty<int>();
+        }
+
+        var hits = await _qdrant.DenseSearchAsync(vector, new RagSearchRequest
+        {
+            Question = query.Trim(),
+            MachineModel = string.IsNullOrWhiteSpace(machineModel) ? null : machineModel,
+            SerialNumber = string.IsNullOrWhiteSpace(serialNumber) ? null : serialNumber,
+            DenseTopK = Math.Clamp(limit, 10, 200)
+        }, cancellationToken);
+
+        var chunkIds = hits.Select(x => x.ChunkId).ToList();
+        if (chunkIds.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var qaByChunk = await _db.KnowledgeChunks
+            .AsNoTracking()
+            .Where(x => chunkIds.Contains(x.Id) && x.QAEntryId != null && x.DocumentType == "QA")
+            .Select(x => new { x.Id, QAEntryId = x.QAEntryId!.Value })
+            .ToListAsync(cancellationToken);
+        var lookup = qaByChunk.ToDictionary(x => x.Id, x => x.QAEntryId);
+
+        return chunkIds
+            .Where(lookup.ContainsKey)
+            .Select(x => lookup[x])
+            .Distinct()
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<QAEntry>> ImportAsync(string fileName, Stream stream, bool autoParse, string? createdBy, CancellationToken cancellationToken = default)
     {
         var entries = await PreviewImportAsync(fileName, stream, autoParse, cancellationToken);
@@ -463,6 +509,9 @@ public class QAService
     public static string BuildTxtTemplate()
     {
         return """
+        # Кодировка файла: UTF-8
+        # Каждая запись начинается с поля «Вопрос:» и отделяется строкой ---
+
         Вопрос:
         Почему не подается ремешок на АЛФ-033?
 
@@ -482,6 +531,9 @@ public class QAService
 
         Узел:
         Ремешковый узел
+
+        Тип проблемы:
+        Настройка
 
         Ключевые слова:
         ремешок, ремень, подача, натяжение
@@ -504,6 +556,12 @@ public class QAService
         АЛФ-033
 
         Серийный номер или диапазон:
+
+        Узел:
+        Пневмосистема
+
+        Тип проблемы:
+        Диагностика
 
         Ключевые слова:
         давление, воздух, пневмосистема
@@ -804,7 +862,11 @@ public class QAService
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
         if (extension is ".txt" or ".md")
         {
-            using var reader = new StreamReader(stream, leaveOpen: true);
+            using var reader = new StreamReader(
+                stream,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
+                detectEncodingFromByteOrderMarks: true,
+                leaveOpen: true);
             return await reader.ReadToEndAsync(cancellationToken);
         }
 

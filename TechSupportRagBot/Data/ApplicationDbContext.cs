@@ -88,6 +88,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<OperatorChatTimeEntry> OperatorChatTimeEntries => Set<OperatorChatTimeEntry>();
 
+    public DbSet<WorkCalendarDay> WorkCalendarDays => Set<WorkCalendarDay>();
+
     public DbSet<EmailNotificationLog> EmailNotificationLogs => Set<EmailNotificationLog>();
 
     /// <summary>
@@ -277,6 +279,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(500);
 
         builder.Entity<KnowledgeChunk>()
+            .Property(x => x.SearchQuestions)
+            .HasMaxLength(3000);
+
+        builder.Entity<KnowledgeChunk>()
+            .Property(x => x.Operations)
+            .HasMaxLength(1000);
+
+        builder.Entity<KnowledgeChunk>()
             .Property(x => x.FileName)
             .HasMaxLength(255);
 
@@ -349,6 +359,34 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .Property(x => x.SerialNumber)
             .HasMaxLength(100);
 
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.EnrichmentMode)
+            .HasMaxLength(30);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.Title)
+            .HasMaxLength(300);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.Summary)
+            .HasMaxLength(2000);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.Tags)
+            .HasMaxLength(3000);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.NodeName)
+            .HasMaxLength(300);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.DetectedDocumentType)
+            .HasMaxLength(80);
+
+        builder.Entity<KnowledgeDocument>()
+            .Property(x => x.EnrichmentModel)
+            .HasMaxLength(200);
+
         // Ограничиваем длину категории чанка.
         builder.Entity<KnowledgeChunk>()
             .Property(x => x.Category)
@@ -363,6 +401,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(x => x.ResolvedAnswerId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ResolvedAnswer>().Property(x => x.Title).HasMaxLength(300);
+        builder.Entity<ResolvedAnswer>().Property(x => x.AlternativeQuestions).HasMaxLength(3000);
+        builder.Entity<ResolvedAnswer>().Property(x => x.Tags).HasMaxLength(1000);
+        builder.Entity<ResolvedAnswer>().Property(x => x.NodeName).HasMaxLength(200);
+        builder.Entity<ResolvedAnswer>().Property(x => x.ProblemType).HasMaxLength(100);
+        builder.Entity<ResolvedAnswer>().Property(x => x.Status).HasMaxLength(30);
 
         builder.Entity<KnowledgeChunk>()
             .HasOne(x => x.QAEntry)
@@ -484,5 +529,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(x => x.MachineId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<WorkCalendarDay>()
+            .HasIndex(x => x.Date)
+            .IsUnique();
+
+        builder.Entity<WorkCalendarDay>()
+            .Property(x => x.Source)
+            .HasMaxLength(40);
+
+        builder.Entity<WorkCalendarDay>()
+            .Property(x => x.Name)
+            .HasMaxLength(200);
     }
 }

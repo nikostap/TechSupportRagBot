@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Models;
 using TechSupportRagBot.Services;
 
@@ -71,7 +72,7 @@ public class OperatorsModel : PageModel
     public async Task<IActionResult> OnPostDeleteAsync(string id)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user != null && await _userManager.IsInRoleAsync(user, "Operator"))
+        if (user != null && !await _userManager.IsInRoleAsync(user, "Client"))
         {
             await _userManager.DeleteAsync(user);
         }
@@ -82,7 +83,7 @@ public class OperatorsModel : PageModel
     public async Task<IActionResult> OnPostUpdateAsync(string id, OperatorInput input)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user == null || !await _userManager.IsInRoleAsync(user, "Operator"))
+        if (user == null || await _userManager.IsInRoleAsync(user, "Client"))
         {
             return RedirectToPage();
         }
@@ -111,7 +112,7 @@ public class OperatorsModel : PageModel
     public async Task<IActionResult> OnPostResetPasswordAsync(string id, string password)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user != null && await _userManager.IsInRoleAsync(user, "Operator") && !string.IsNullOrWhiteSpace(password))
+        if (user != null && !await _userManager.IsInRoleAsync(user, "Client") && !string.IsNullOrWhiteSpace(password))
         {
             await _userManager.RemovePasswordAsync(user);
             var result = await _userManager.AddPasswordAsync(user, password);
@@ -128,7 +129,14 @@ public class OperatorsModel : PageModel
 
     private async Task LoadAsync()
     {
-        Operators = await _userManager.GetUsersInRoleAsync("Operator");
+        var clients = await _userManager.GetUsersInRoleAsync("Client");
+        var clientIds = clients.Select(x => x.Id).ToHashSet();
+        Operators = await _userManager.Users
+            .AsNoTracking()
+            .Where(x => !clientIds.Contains(x.Id))
+            .OrderBy(x => x.FullName)
+            .ThenBy(x => x.UserName)
+            .ToListAsync();
     }
 
     public class OperatorInput

@@ -89,6 +89,14 @@ public class KnowledgeChunk
 
     public string? Tags { get; set; }
 
+    /// <summary>
+    /// Альтернативные вопросы, по которым должен находиться этот фрагмент.
+    /// Хранятся построчно и участвуют в FTS и embedding, но не подменяют источник.
+    /// </summary>
+    public string? SearchQuestions { get; set; }
+
+    public string? Operations { get; set; }
+
     public string? FileName { get; set; }
 
     public string? SectionTitle { get; set; }

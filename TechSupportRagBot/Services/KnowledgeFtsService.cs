@@ -231,6 +231,8 @@ public class KnowledgeFtsService
             chunk.Topic,
             chunk.SourceChat,
             chunk.Tags,
+            chunk.SearchQuestions,
+            chunk.Operations,
             chunk.NormalizedText,
             chunk.Text
         }.Where(x => !string.IsNullOrWhiteSpace(x)));

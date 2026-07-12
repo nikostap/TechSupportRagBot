@@ -44,11 +44,16 @@ public class ChatTranslationService
 
     private readonly HttpClient _httpClient;
     private readonly LibreTranslateOptions _options;
+    private readonly LanguageDetectionService _languageDetection;
 
-    public ChatTranslationService(HttpClient httpClient, IOptions<LibreTranslateOptions> options)
+    public ChatTranslationService(
+        HttpClient httpClient,
+        IOptions<LibreTranslateOptions> options,
+        LanguageDetectionService languageDetection)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _languageDetection = languageDetection;
     }
 
     public async Task<string?> TranslateAsync(
@@ -56,8 +61,9 @@ public class ChatTranslationService
         string? viewerLanguage,
         CancellationToken cancellationToken = default)
     {
-        var sourceLanguage = DetectMessageLanguage(text);
-        return await TranslateAsync(text, sourceLanguage, viewerLanguage, cancellationToken);
+        var sourceCode = _languageDetection.DetectLanguageCode(text);
+        var targetCode = LanguageToLibreTranslateCode(NormalizeLanguage(viewerLanguage));
+        return await TranslateIfNeededAsync(text, sourceCode, targetCode, cancellationToken);
     }
 
     public async Task<string?> TranslateAsync(
@@ -71,14 +77,9 @@ public class ChatTranslationService
             return null;
         }
 
-        var sourceCode = LanguageToLibreTranslateCode(NormalizeLanguage(sourceLanguage));
+        var sourceCode = _languageDetection.DetectLanguageCode(text, sourceLanguage);
         var targetCode = LanguageToLibreTranslateCode(NormalizeLanguage(targetLanguage));
-        if (string.IsNullOrWhiteSpace(sourceCode) || string.IsNullOrWhiteSpace(targetCode) || sourceCode == targetCode)
-        {
-            return null;
-        }
-
-        return await TranslateByCodesAsync(text, sourceCode, targetCode, cancellationToken);
+        return await TranslateIfNeededAsync(text, sourceCode, targetCode, cancellationToken);
     }
 
     public async Task<string> TranslateToRussianForSearchAsync(
@@ -91,22 +92,28 @@ public class ChatTranslationService
             return string.Empty;
         }
 
-        var detectedSource = DetectMessageLanguage(text, sourceLanguage);
-        if (NormalizeLanguage(detectedSource) == "Russian")
-        {
-            return text;
-        }
-
-        var normalizedSource = NormalizeLanguage(detectedSource);
-        var sourceCode = LanguageToLibreTranslateCode(normalizedSource);
+        var sourceCode = _languageDetection.DetectLanguageCode(text, sourceLanguage);
         if (sourceCode == "ru")
         {
             return text;
         }
 
-        sourceCode ??= LanguageToLibreTranslateCode(DetectMessageLanguage(text));
         var translated = await TranslateByCodesAsync(text, sourceCode ?? "en", "ru", cancellationToken);
         return string.IsNullOrWhiteSpace(translated) ? text : translated;
+    }
+
+    public bool NeedsTranslationByText(string? text, string? senderLanguage, string? viewerLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var sourceCode = _languageDetection.DetectLanguageCode(text, senderLanguage);
+        var targetCode = LanguageToLibreTranslateCode(NormalizeLanguage(viewerLanguage));
+        return !string.IsNullOrWhiteSpace(sourceCode)
+            && !string.IsNullOrWhiteSpace(targetCode)
+            && !sourceCode.Equals(targetCode, StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool NeedsTranslation(string? senderLanguage, string? viewerLanguage, string? text)
@@ -222,6 +229,22 @@ public class ChatTranslationService
         {
             return null;
         }
+    }
+
+    private async Task<string?> TranslateIfNeededAsync(
+        string text,
+        string? sourceCode,
+        string? targetCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(sourceCode)
+            || string.IsNullOrWhiteSpace(targetCode)
+            || sourceCode.Equals(targetCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return await TranslateByCodesAsync(text, sourceCode, targetCode, cancellationToken);
     }
 
     public static string? LanguageToLibreTranslateCode(string? language)

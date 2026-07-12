@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Collections.Concurrent;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -12,6 +13,8 @@ namespace TechSupportRagBot.Pages.Client;
 [Authorize(Roles = "Client,Admin")]
 public class TicketModel : PageModel
 {
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> BotAnswerLocks = new();
+
     private readonly ApplicationDbContext _db;
     private readonly IWebHostEnvironment _environment;
     private readonly SupportBotService _bot;
@@ -54,6 +57,8 @@ public class TicketModel : PageModel
 
     public bool CanWriteChat { get; private set; }
 
+    public List<string> ActiveOperatorNames { get; private set; } = new();
+
     [BindProperty]
     public string? MessageText { get; set; }
 
@@ -85,12 +90,15 @@ public class TicketModel : PageModel
             .OrderByDescending(x => x.Id)
             .Select(x => (int?)x.Id)
             .FirstOrDefaultAsync();
+        var activeOperators = await LoadActiveOperatorNamesAsync(id);
 
         return new JsonResult(new
         {
             ok = true,
             status = ticket.Status,
             operatorUserId = ticket.OperatorUserId,
+            activeOperatorCount = activeOperators.Count,
+            activeOperators,
             messageCount,
             lastMessageId = lastMessageId ?? 0
         });
@@ -232,85 +240,96 @@ public class TicketModel : PageModel
 
     public async Task<IActionResult> OnPostBotAsync(int id)
     {
-        if (!await LoadAsync(id))
+        var answerLock = BotAnswerLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await answerLock.WaitAsync(HttpContext.RequestAborted);
+
+        try
         {
-            return new JsonResult(new { ok = false });
-        }
-
-        if (Ticket == null || Ticket.Status == TicketStatuses.Closed || Ticket.OperatorUserId != null)
-        {
-            return new JsonResult(new { ok = false });
-        }
-
-        var rawMessages = Messages.Select(x => x.Message).ToList();
-        var lastBotMessageAt = rawMessages
-            .Where(x => x.IsBotMessage)
-            .Select(x => (DateTime?)x.CreatedAt)
-            .LastOrDefault();
-
-        var clientQuestion = rawMessages
-            .Where(x => !x.IsBotMessage
-                && x.AuthorUserId == Ticket.ClientUserId
-                && (lastBotMessageAt == null || x.CreatedAt > lastBotMessageAt))
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault();
-
-        if (clientQuestion == null || string.IsNullOrWhiteSpace(clientQuestion.Text))
-        {
-            return new JsonResult(new { ok = false });
-        }
-
-        var currentUser = await _db.Users.FirstOrDefaultAsync(x => x.Id == CurrentUserId);
-        var conversationContext = BuildConversationContext(rawMessages, clientQuestion.Id);
-        var result = await _bot.AnswerAsync(
-            clientQuestion.Text,
-            Ticket.MachineId,
-            currentUser?.Country,
-            conversationContext);
-
-        var botMessage = new ChatMessage
-        {
-            TicketId = id,
-            AuthorUserId = Ticket.ClientUserId,
-            IsBotMessage = true,
-            Text = result.Text,
-            IsReadByClient = true
-        };
-        _db.ChatMessages.Add(botMessage);
-        await _db.SaveChangesAsync();
-
-        foreach (var media in result.Media)
-        {
-            _db.Attachments.Add(new Attachment
+            if (!await LoadAsync(id))
             {
-                PublicId = Guid.NewGuid(),
-                ChatMessageId = botMessage.Id,
-                OriginalFileName = media.OriginalFileName,
-                StoredFileName = media.StoredFileName,
-                FilePath = media.FilePath,
-                ContentType = media.ContentType,
-                SizeBytes = media.SizeBytes,
-                OriginalSize = media.SizeBytes,
-                Status = AttachmentStatuses.Ready
+                return new JsonResult(new { ok = false });
+            }
+
+            if (Ticket == null || Ticket.Status == TicketStatuses.Closed || Ticket.OperatorUserId != null)
+            {
+                return new JsonResult(new { ok = false });
+            }
+
+            var rawMessages = Messages.Select(x => x.Message).ToList();
+            var lastBotMessageAt = rawMessages
+                .Where(x => x.IsBotMessage)
+                .Select(x => (DateTime?)x.CreatedAt)
+                .LastOrDefault();
+
+            var clientQuestion = rawMessages
+                .Where(x => !x.IsBotMessage
+                    && x.AuthorUserId == Ticket.ClientUserId
+                    && (lastBotMessageAt == null || x.CreatedAt > lastBotMessageAt))
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefault();
+
+            if (clientQuestion == null || string.IsNullOrWhiteSpace(clientQuestion.Text))
+            {
+                return new JsonResult(new { ok = false });
+            }
+
+            var currentUser = await _db.Users.FirstOrDefaultAsync(x => x.Id == CurrentUserId);
+            var conversationContext = BuildConversationContext(rawMessages, clientQuestion.Id);
+            var result = await _bot.AnswerAsync(
+                clientQuestion.Text,
+                Ticket.MachineId,
+                currentUser?.Country,
+                conversationContext);
+
+            var botMessage = new ChatMessage
+            {
+                TicketId = id,
+                AuthorUserId = Ticket.ClientUserId,
+                IsBotMessage = true,
+                Text = result.Text,
+                IsReadByClient = true
+            };
+            _db.ChatMessages.Add(botMessage);
+            await _db.SaveChangesAsync();
+
+            foreach (var media in result.Media)
+            {
+                _db.Attachments.Add(new Attachment
+                {
+                    PublicId = Guid.NewGuid(),
+                    ChatMessageId = botMessage.Id,
+                    OriginalFileName = media.OriginalFileName,
+                    StoredFileName = media.StoredFileName,
+                    FilePath = media.FilePath,
+                    ContentType = media.ContentType,
+                    SizeBytes = media.SizeBytes,
+                    OriginalSize = media.SizeBytes,
+                    Status = AttachmentStatuses.Ready
+                });
+            }
+
+            Ticket.Status = result.ShouldEscalate
+                ? TicketStatuses.WaitingForOperator
+                : TicketStatuses.BotAnswered;
+
+            await _db.SaveChangesAsync();
+
+            return new JsonResult(new
+            {
+                ok = true,
+                escalated = result.ShouldEscalate,
+                messageId = botMessage.Id,
+                text = botMessage.Text,
+                authorName = "Бот",
+                createdAt = botMessage.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                lastMessageId = botMessage.Id,
+                hasMedia = result.Media.Count > 0
             });
         }
-
-        Ticket.Status = result.ShouldEscalate
-            ? TicketStatuses.WaitingForOperator
-            : TicketStatuses.BotAnswered;
-
-        await _db.SaveChangesAsync();
-
-        return new JsonResult(new
+        finally
         {
-            ok = true,
-            escalated = result.ShouldEscalate,
-            messageId = botMessage.Id,
-            text = botMessage.Text,
-            authorName = "Бот",
-            createdAt = botMessage.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
-            lastMessageId = botMessage.Id
-        });
+            answerLock.Release();
+        }
     }
 
     public async Task<IActionResult> OnPostTranslateAsync(int id, int messageId)
@@ -332,7 +351,7 @@ public class TicketModel : PageModel
             || currentUser == null
             || !currentUser.AutoTranslateMessages
             || rawMessage.AuthorUserId == CurrentUserId
-            || !ChatTranslationService.NeedsTranslation(rawMessage.AuthorUser?.Country, currentUser.Country, rawMessage.Text))
+            || !_translation.NeedsTranslationByText(rawMessage.Text, rawMessage.AuthorUser?.Country, currentUser.Country))
         {
             return new JsonResult(new { ok = false });
         }
@@ -415,6 +434,8 @@ public class TicketModel : PageModel
             return false;
         }
 
+        ActiveOperatorNames = await LoadActiveOperatorNamesAsync(id);
+
         var rawMessages = await _db.ChatMessages
             .Include(x => x.AuthorUser)
             .Include(x => x.Attachments)
@@ -442,6 +463,21 @@ public class TicketModel : PageModel
             && HasClientMessageAfterLastBot();
 
         return true;
+    }
+
+    private async Task<List<string>> LoadActiveOperatorNamesAsync(int ticketId)
+    {
+        var activeSince = OperatorTimeTrackingService.ActiveSinceUtc;
+        return await _db.OperatorChatPresences
+            .AsNoTracking()
+            .Include(x => x.OperatorUser)
+            .Where(x => x.TicketId == ticketId && x.LastActivityAt >= activeSince)
+            .OrderBy(x => x.OperatorUser!.FullName ?? x.OperatorUser.UserName)
+            .Select(x => x.OperatorUser == null
+                ? "Оператор"
+                : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? "Оператор")
+            .Distinct()
+            .ToListAsync();
     }
 
     private bool HasClientMessageAfterLastBot()
@@ -506,7 +542,7 @@ public class TicketModel : PageModel
                 : null;
             var needsTranslation = targetLanguage != null
                 && message.AuthorUserId != CurrentUserId
-                && ChatTranslationService.NeedsTranslation(message.AuthorUser?.Country, viewerCountry, message.Text);
+                && _translation.NeedsTranslationByText(message.Text, message.AuthorUser?.Country, viewerCountry);
             var translation = needsTranslation
                 ? message.Translations.FirstOrDefault(x => x.TargetLanguage == targetLanguage && x.SourceText == message.Text)?.Text
                 : null;

@@ -7,66 +7,92 @@ namespace TechSupportRagBot.Services;
 public class OperatorTimeTrackingService
 {
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan OnlineWindow = TimeSpan.FromMinutes(2);
     private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
 
     private readonly ApplicationDbContext _db;
+    private readonly WorkCalendarService _workCalendar;
+    private readonly ILogger<OperatorTimeTrackingService> _logger;
 
-    public OperatorTimeTrackingService(ApplicationDbContext db)
+    public OperatorTimeTrackingService(
+        ApplicationDbContext db,
+        WorkCalendarService workCalendar,
+        ILogger<OperatorTimeTrackingService> logger)
     {
         _db = db;
+        _workCalendar = workCalendar;
+        _logger = logger;
     }
 
-    public async Task TrackActivityAsync(string operatorUserId, int ticketId, CancellationToken cancellationToken = default)
+    public async Task<bool> StartSessionAsync(string operatorUserId, int ticketId, CancellationToken cancellationToken = default)
+    {
+        return await TouchAsync(operatorUserId, ticketId, removePresence: false, cancellationToken);
+    }
+
+    public async Task<bool> TrackActivityAsync(string operatorUserId, int ticketId, CancellationToken cancellationToken = default)
+    {
+        return await TouchAsync(operatorUserId, ticketId, removePresence: false, cancellationToken);
+    }
+
+    public async Task<bool> EndSessionAsync(string operatorUserId, int ticketId, CancellationToken cancellationToken = default)
+    {
+        return await TouchAsync(operatorUserId, ticketId, removePresence: true, cancellationToken);
+    }
+
+    public static DateTime ActiveSinceUtc => DateTime.UtcNow.Subtract(OnlineWindow);
+
+    private async Task<bool> TouchAsync(string operatorUserId, int ticketId, bool removePresence, CancellationToken cancellationToken)
     {
         var ticket = await _db.Tickets
             .AsNoTracking()
-            .Include(x => x.OperatorAssignments)
             .FirstOrDefaultAsync(x => x.Id == ticketId, cancellationToken);
 
-        if (ticket == null || ticket.Status == TicketStatuses.Closed)
+        if (ticket == null)
         {
-            return;
-        }
-
-        var isAssigned = ticket.OperatorUserId == operatorUserId
-            || ticket.OperatorAssignments.Any(x => x.OperatorUserId == operatorUserId);
-        if (!isAssigned)
-        {
-            return;
+            _logger.LogDebug("Operator time tracking skipped. Ticket={TicketId}, Reason=TicketMissing", ticketId);
+            return false;
         }
 
         var now = DateTime.UtcNow;
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == operatorUserId, cancellationToken);
         if (user == null)
         {
-            return;
+            _logger.LogDebug("Operator time tracking skipped. Operator={OperatorUserId}, Reason=UserMissing", operatorUserId);
+            return false;
         }
 
         var presence = await _db.OperatorChatPresences
             .FirstOrDefaultAsync(x => x.OperatorUserId == operatorUserId, cancellationToken);
 
-        if (presence != null
-            && presence.TicketId == ticketId
-            && now > presence.LastActivityAt
-            && now - presence.LastActivityAt <= IdleTimeout)
+        if (removePresence && presence?.TicketId != ticketId)
         {
-            var split = SplitWorkAndOvertime(presence.LastActivityAt, now, user.WorkdayStartMinutes, user.WorkdayEndMinutes);
-            if (split.workSeconds > 0 || split.overtimeSeconds > 0)
-            {
-                _db.OperatorChatTimeEntries.Add(new OperatorChatTimeEntry
-                {
-                    OperatorUserId = operatorUserId,
-                    TicketId = ticketId,
-                    MachineId = ticket.MachineId,
-                    StartedAt = presence.LastActivityAt,
-                    EndedAt = now,
-                    WorkSeconds = split.workSeconds,
-                    OvertimeSeconds = split.overtimeSeconds
-                });
-            }
+            _logger.LogDebug(
+                "Operator time end skipped. Ticket={TicketId}, Operator={OperatorUserId}, Reason=PresenceBelongsToAnotherTicket",
+                ticketId,
+                operatorUserId);
+            return false;
         }
 
-        if (presence == null)
+        if (ticket.Status == TicketStatuses.Closed && !removePresence)
+        {
+            _logger.LogDebug("Operator time tracking skipped. Ticket={TicketId}, Reason=TicketClosed", ticketId);
+            return false;
+        }
+
+        var entryCreated = false;
+        if (presence != null)
+        {
+            entryCreated = await ClosePresenceIntervalAsync(presence, user, now, cancellationToken);
+        }
+
+        if (removePresence)
+        {
+            if (presence != null)
+            {
+                _db.OperatorChatPresences.Remove(presence);
+            }
+        }
+        else if (presence == null)
         {
             _db.OperatorChatPresences.Add(new OperatorChatPresence
             {
@@ -82,13 +108,70 @@ public class OperatorTimeTrackingService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Operator time activity tracked. Ticket={TicketId}, Operator={OperatorUserId}, EntryCreated={EntryCreated}, EndSession={EndSession}",
+            ticketId,
+            operatorUserId,
+            entryCreated,
+            removePresence);
+        return entryCreated;
+    }
+
+    private async Task<bool> ClosePresenceIntervalAsync(
+        OperatorChatPresence presence,
+        ApplicationUser user,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        if (now <= presence.LastActivityAt || now - presence.LastActivityAt > IdleTimeout)
+        {
+            return false;
+        }
+
+        var previousTicket = await _db.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == presence.TicketId, cancellationToken);
+        if (previousTicket == null)
+        {
+            return false;
+        }
+
+        var startLocal = ToMoscowTime(presence.LastActivityAt);
+        var endLocal = ToMoscowTime(now);
+        var calendar = await _workCalendar.GetWorkingDaysAsync(
+            DateOnly.FromDateTime(startLocal),
+            DateOnly.FromDateTime(endLocal),
+            cancellationToken);
+        var split = SplitWorkAndOvertime(
+            presence.LastActivityAt,
+            now,
+            user.WorkdayStartMinutes,
+            user.WorkdayEndMinutes,
+            calendar);
+        if (split.workSeconds <= 0 && split.overtimeSeconds <= 0)
+        {
+            return false;
+        }
+
+        _db.OperatorChatTimeEntries.Add(new OperatorChatTimeEntry
+        {
+            OperatorUserId = presence.OperatorUserId,
+            TicketId = presence.TicketId,
+            MachineId = previousTicket.MachineId,
+            StartedAt = presence.LastActivityAt,
+            EndedAt = now,
+            WorkSeconds = split.workSeconds,
+            OvertimeSeconds = split.overtimeSeconds
+        });
+        return true;
     }
 
     private static (int workSeconds, int overtimeSeconds) SplitWorkAndOvertime(
         DateTime startUtc,
         DateTime endUtc,
         int workdayStartMinutes,
-        int workdayEndMinutes)
+        int workdayEndMinutes,
+        IReadOnlyDictionary<DateOnly, bool> calendar)
     {
         if (endUtc <= startUtc)
         {
@@ -112,7 +195,9 @@ public class OperatorTimeTrackingService
             var midpoint = cursor.AddTicks((next - cursor).Ticks / 2);
             var minuteOfDay = midpoint.Hour * 60 + midpoint.Minute;
             var seconds = (int)Math.Round((next - cursor).TotalSeconds);
-            if (IsInsideWorkday(minuteOfDay, workdayStartMinutes, workdayEndMinutes))
+            var date = DateOnly.FromDateTime(midpoint);
+            if (WorkCalendarService.IsWorkingDay(date, calendar)
+                && IsInsideWorkday(minuteOfDay, workdayStartMinutes, workdayEndMinutes))
             {
                 work += seconds;
             }
@@ -150,4 +235,7 @@ public class OperatorTimeTrackingService
             return TimeZoneInfo.Local;
         }
     }
+
+    private static DateTime ToMoscowTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), MoscowTimeZone);
 }

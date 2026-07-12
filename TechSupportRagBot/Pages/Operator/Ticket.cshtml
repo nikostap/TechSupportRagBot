@@ -27,7 +27,7 @@
         <span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, Model.Ticket.Status)</span>
     </section>
 
-    @if (Model.Ticket.OperatorUserId == null && Model.Ticket.Status != TicketStatuses.Closed)
+    @if (Model.CanAssignOperatorsToTickets && Model.Ticket.OperatorUserId == null && Model.Ticket.Status != TicketStatuses.Closed)
     {
         <form method="post" asp-page-handler="Assign" class="inline-form">
             <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "TakeToWork")</button>
@@ -160,10 +160,7 @@
         {
             <form method="post" asp-page-handler="Close" class="panel narrow close-form">
                 <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</h2>
-                <label class="check-line">
-                    <input asp-for="QuestionResolved" />
-                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AddToKnowledgeBase")</span>
-                </label>
+                <p class="muted-text">После закрытия LLM подготовит русскоязычный структурированный черновик. Индексация выполняется после проверки в разделе «Завершённые чаты».</p>
                 <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</button>
             </form>
         }

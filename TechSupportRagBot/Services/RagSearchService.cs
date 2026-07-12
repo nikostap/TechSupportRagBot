@@ -567,6 +567,9 @@ public class RagSearchService : IRagSearchService
                 Cause = chunk.Cause,
                 Solution = chunk.Solution,
                 NodeName = chunk.NodeName,
+                Tags = chunk.Tags,
+                SearchQuestions = chunk.SearchQuestions,
+                Operations = chunk.Operations,
                 SheetName = chunk.SheetName,
                 RowNumber = chunk.RowNumber,
                 ColumnNames = chunk.ColumnNames,
@@ -631,9 +634,15 @@ public class RagSearchService : IRagSearchService
                 candidate.Solution,
                 candidate.SectionTitle,
                 candidate.SubsectionTitle,
-                candidate.SheetName);
+                candidate.SheetName,
+                candidate.Tags,
+                candidate.SearchQuestions,
+                candidate.Operations);
 
             var exactMatches = terms.Count(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var entityTerms = ExtractEntityTerms(question);
+            var hasEntityMatch = entityTerms.Any(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var isExactQaQuestion = false;
             var score = candidate.RrfScore + exactMatches * 0.08;
             if (exactMatches > 0)
             {
@@ -649,9 +658,16 @@ public class RagSearchService : IRagSearchService
                         || normalizedQuestion.Contains(normalizedTitle, StringComparison.OrdinalIgnoreCase)
                         || normalizedTitle.Contains(normalizedQuestion, StringComparison.OrdinalIgnoreCase)))
                 {
+                    isExactQaQuestion = true;
                     score += 0.80;
                     reasons.Add("QA exact question match +0.80");
                 }
+            }
+
+            if (string.Equals(candidate.SourceType, "ResolvedTicket", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 0.25;
+                reasons.Add("human-reviewed resolved chat +0.25");
             }
 
             if (!string.IsNullOrWhiteSpace(candidate.ErrorName) && exactMatches > 0)
@@ -668,6 +684,14 @@ public class RagSearchService : IRagSearchService
             }
 
             var intentBoost = GetIntentDocumentTypeBoost(queryIntent, candidate.DocumentType);
+            if (string.Equals(candidate.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
+                && !hasEntityMatch
+                && !isExactQaQuestion)
+            {
+                intentBoost = 0;
+                score -= 0.15;
+                reasons.Add("QA has no matching technical entity -0.15");
+            }
             if (Math.Abs(intentBoost) > 0.0001)
             {
                 score += intentBoost;
@@ -678,8 +702,9 @@ public class RagSearchService : IRagSearchService
             {
                 if (string.Equals(candidate.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase))
                 {
-                    score += 0.45;
-                    reasons.Add("QA Verified +0.45");
+                    var verifiedBoost = hasEntityMatch || isExactQaQuestion ? 0.45 : 0.05;
+                    score += verifiedBoost;
+                    reasons.Add($"QA Verified +{verifiedBoost:F2}");
                 }
                 else if (string.Equals(candidate.QAStatus, "NeedsReview", StringComparison.OrdinalIgnoreCase))
                 {
@@ -701,6 +726,22 @@ public class RagSearchService : IRagSearchService
             .OrderByDescending(x => x.RerankScore)
             .ThenByDescending(x => x.KeywordScore)
             .ThenByDescending(x => x.DenseScore)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> ExtractEntityTerms(string question)
+    {
+        var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "как", "что", "где", "для", "или", "при", "надо", "нужно", "можно",
+            "настроить", "настройка", "настройки", "установить", "регулировать", "регулировка",
+            "проверить", "сделать", "работает", "работать", "setup", "adjust", "configure"
+        };
+
+        return Regex.Matches(question.ToLowerInvariant(), @"[\p{L}\p{N}][\p{L}\p{N}_-]{2,}")
+            .Select(x => x.Value)
+            .Where(x => !ignored.Contains(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -998,6 +1039,7 @@ public class RagSearchService : IRagSearchService
         return queryIntent switch
         {
             _ when string.Equals(documentType, "QA", StringComparison.OrdinalIgnoreCase) => 0.20,
+            _ when string.Equals(documentType, "ChatLog", StringComparison.OrdinalIgnoreCase) => 0.20,
             QueryIntent.Instruction or QueryIntent.Setup => documentType switch
             {
                 "Manual" => 0.30,
@@ -1028,10 +1070,10 @@ public class RagSearchService : IRagSearchService
     {
         return queryIntent switch
         {
-            QueryIntent.Instruction or QueryIntent.Setup => new[] { "QA", "Manual", "Instruction" },
-            QueryIntent.ErrorDiagnostic => new[] { "QA", "ErrorTable", "ServiceReport" },
-            QueryIntent.Maintenance => new[] { "QA", "Manual", "Instruction", "ServiceReport" },
-            _ => new[] { "QA" }
+            QueryIntent.Instruction or QueryIntent.Setup => new[] { "QA", "ChatLog", "Manual", "Instruction" },
+            QueryIntent.ErrorDiagnostic => new[] { "QA", "ChatLog", "ErrorTable", "ServiceReport" },
+            QueryIntent.Maintenance => new[] { "QA", "ChatLog", "Manual", "Instruction", "ServiceReport" },
+            _ => new[] { "QA", "ChatLog" }
         };
     }
 

@@ -14,17 +14,23 @@ public class SettingsModel : PageModel
     private readonly SystemSettingsService _settings;
     private readonly OpenAiOptions _openAiOptions;
     private readonly DeepSeekOptions _deepSeekOptions;
+    private readonly QwenOptions _qwenOptions;
+    private readonly AiTunnelOptions _aiTunnelOptions;
 
     public SettingsModel(
         OllamaClient ollama,
         SystemSettingsService settings,
         IOptions<OpenAiOptions> openAiOptions,
-        IOptions<DeepSeekOptions> deepSeekOptions)
+        IOptions<DeepSeekOptions> deepSeekOptions,
+        IOptions<QwenOptions> qwenOptions,
+        IOptions<AiTunnelOptions> aiTunnelOptions)
     {
         _ollama = ollama;
         _settings = settings;
         _openAiOptions = openAiOptions.Value;
         _deepSeekOptions = deepSeekOptions.Value;
+        _qwenOptions = qwenOptions.Value;
+        _aiTunnelOptions = aiTunnelOptions.Value;
     }
 
     [BindProperty]
@@ -35,6 +41,10 @@ public class SettingsModel : PageModel
     public bool HasOpenAiKey => !string.IsNullOrWhiteSpace(_openAiOptions.ApiKey);
 
     public bool HasDeepSeekKey => !string.IsNullOrWhiteSpace(_deepSeekOptions.ApiKey);
+
+    public bool HasQwenKey => !string.IsNullOrWhiteSpace(_qwenOptions.ApiKey);
+
+    public bool HasAiTunnelKey => !string.IsNullOrWhiteSpace(_aiTunnelOptions.ApiKey);
 
     public string? StatusMessage { get; private set; }
 

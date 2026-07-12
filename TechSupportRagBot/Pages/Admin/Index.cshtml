@@ -52,8 +52,8 @@
     @if (canClients) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</a> }
     @if (canMachines) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</a> }
     @if (canLicenses) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</a> }
-    @if (await Access.IsAllowedAsync(User, "ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators")</a> }
-    @if (await Access.IsAllowedAsync(User, "KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</a> }
+    @if (await Access.IsAllowedAsync(User, "QA")) { <a asp-page="/Admin/BotTest">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTest", "Тест бота")</a> }
+    @if (await Access.IsAllowedAsync(User, "QA")) { <a asp-page="/Admin/IndexedChats">@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChats", "Завершённые чаты")</a> }
     @if (await Access.IsAllowedAsync(User, "QA")) { <a asp-page="/Admin/QA">QA</a> }
     @if (canTickets) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
     @if (await Access.IsAllowedAsync(User, "TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }

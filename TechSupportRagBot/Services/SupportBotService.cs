@@ -109,7 +109,10 @@ public class SupportBotService
                 chunksCount = ragResult.Chunks.Count
             }, traceId, cancellationToken);
 
-            return new BotAnswerResult(BuildClarificationAnswer(ragResult, isEnglish), false, []);
+            return new BotAnswerResult(
+                await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken),
+                false,
+                []);
         }
 
         var answerMedia = await LoadAnswerMediaAsync(ragResult, cancellationToken);
@@ -124,12 +127,19 @@ public class SupportBotService
             context
         }, traceId, cancellationToken);
 
+        var promptHistory = BuildPromptHistoryForAnswer(question, conversationContext);
+        var historyIncluded = IsConversationHistoryIncluded(promptHistory);
+
         var prompt = $"""
         Ты инженер высокой квалификации и специалист технической поддержки станков.
 
         ВАЖНО:
         - Отвечай строго на языке: {language}.
-        - Используй только контекст ниже.
+        - Единственный источник технических фактов: "Контекст базы знаний".
+        - Справочная история обращения не является источником фактов.
+        - Историю используй только для понимания коротких уточнений вроде "да", "нет", "это", "тот датчик".
+        - Если текущий вопрос самостоятельный, игнорируй историю и отвечай только по текущему вопросу и контексту базы знаний.
+        - Если история противоречит найденному контексту, игнорируй историю.
         - Не выдумывай факты, номера ошибок, причины и действия.
         - Если точной информации нет, напиши: "Информация не найдена в документации."
         - Сначала дай пользователю фактическую инструкцию из контекста.
@@ -139,17 +149,17 @@ public class SupportBotService
         - Если нужны шаги, используй короткие абзацы или нумерованный список.
         - Не смешивай разные узлы станка.
 
-        Контекст базы знаний:
-        {context}
-
-        Краткая история текущего обращения:
-        {(string.IsNullOrWhiteSpace(conversationContext) ? "Истории нет." : conversationContext)}
-
         Вопрос клиента:
         {question}
 
         Русский поисковый запрос, по которому был найден контекст:
         {retrievalQuestion}
+
+        Контекст базы знаний:
+        {context}
+
+        Справочная история текущего обращения:
+        {promptHistory}
         """;
 
         await _audit.WriteAsync("Bot.Prompt.Built", new
@@ -158,6 +168,10 @@ public class SupportBotService
             question,
             retrievalQuestion,
             language,
+            historyIncluded,
+            historyPolicy = historyIncluded
+                ? "History is included only as reference for short follow-up clarification; knowledge context remains the only factual source."
+                : "History is excluded because the current question looks standalone.",
             promptLength = prompt.Length,
             prompt
         }, traceId, cancellationToken);
@@ -200,7 +214,7 @@ public class SupportBotService
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
         if (LooksLikeSourceOnlyAnswer(cleanAnswer))
         {
-            cleanAnswer = BuildClarificationAnswer(ragResult, isEnglish);
+            cleanAnswer = await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken);
         }
 
         var mustEscalate = ShouldEscalateFromAnswer(cleanAnswer);
@@ -323,6 +337,84 @@ public class SupportBotService
         return retrievalQuestion;
     }
 
+    private static string BuildPromptHistoryForAnswer(string question, string? conversationContext)
+    {
+        if (string.IsNullOrWhiteSpace(conversationContext))
+        {
+            return "Истории нет.";
+        }
+
+        if (!ShouldIncludeConversationHistory(question))
+        {
+            return "История не используется: текущий вопрос выглядит самостоятельным. Отвечай по текущему вопросу и найденному контексту базы знаний.";
+        }
+
+        return TrimForPrompt(conversationContext, 1800);
+    }
+
+    private static bool IsConversationHistoryIncluded(string promptHistory)
+    {
+        return !promptHistory.StartsWith("Истории нет.", StringComparison.OrdinalIgnoreCase)
+            && !promptHistory.StartsWith("История не используется:", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldIncludeConversationHistory(string question)
+    {
+        var text = (question ?? string.Empty).Trim().ToLowerInvariant();
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        if (IsConfirmationReply(text))
+        {
+            return true;
+        }
+
+        var followUpMarkers = new[]
+        {
+            "это", "этот", "эта", "эти", "того", "тот", "та", "там", "здесь",
+            "он", "она", "оно", "они", "его", "ее", "их", "такой", "такая",
+            "this", "that", "it", "there", "same", "previous"
+        };
+
+        return text.Length <= 120 && followUpMarkers.Any(marker => ContainsWholeWord(text, marker));
+    }
+
+    private static bool ContainsWholeWord(string text, string word)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(word))
+        {
+            return false;
+        }
+
+        var index = text.IndexOf(word, StringComparison.OrdinalIgnoreCase);
+        while (index >= 0)
+        {
+            var beforeOk = index == 0 || !char.IsLetterOrDigit(text[index - 1]);
+            var afterIndex = index + word.Length;
+            var afterOk = afterIndex >= text.Length || !char.IsLetterOrDigit(text[afterIndex]);
+            if (beforeOk && afterOk)
+            {
+                return true;
+            }
+
+            index = text.IndexOf(word, index + word.Length, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static string TrimForPrompt(string text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text[^maxLength..];
+    }
+
     private async Task<BotAnswerResult> AnswerFollowUpConfirmationAsync(
         string question,
         int machineId,
@@ -374,7 +466,11 @@ public class SupportBotService
         return new BotAnswerResult(cleanAnswer, false, []);
     }
 
-    private static string BuildClarificationAnswer(RagSearchResult ragResult, bool isEnglish)
+    private async Task<string> BuildClarificationAnswerAsync(
+        RagSearchResult ragResult,
+        string language,
+        bool isEnglish,
+        CancellationToken cancellationToken)
     {
         var similar = ragResult.Chunks
             .Select(x => FirstNotBlank(x.ErrorName, x.Title, x.SectionTitle, x.NodeName))
@@ -385,10 +481,24 @@ public class SupportBotService
 
         if (isEnglish)
         {
-            var answer = "I did not find exact information in the documentation for this request, so I will not guess.";
-            if (similar.Count > 0)
+            var translatedSimilar = new List<string>();
+            foreach (var item in similar)
             {
-                answer += "\n\nI found something similar: " + string.Join("; ", similar) + ". Do you mean one of these?";
+                var translated = await _translation.TranslateAsync(item!, "Russian", language, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(translated))
+                {
+                    translatedSimilar.Add(translated);
+                }
+                else if (!ContainsCyrillic(item!))
+                {
+                    translatedSimilar.Add(item!);
+                }
+            }
+
+            var answer = "I did not find exact information in the documentation for this request, so I will not guess.";
+            if (translatedSimilar.Count > 0)
+            {
+                answer += "\n\nI found something similar: " + string.Join("; ", translatedSimilar) + ". Do you mean one of these?";
             }
             answer += "\n\nPlease clarify the unit, error text, sensor number, serial number, or what exactly happens on the screen.";
             answer += "\n\nHow else can I help?";
@@ -406,6 +516,8 @@ public class SupportBotService
         russian += "\n\nЕсли нужен оператор, напишите в чат: оператор.";
         return russian;
     }
+
+    private static bool ContainsCyrillic(string value) => value.Any(ch => ch is >= '\u0400' and <= '\u04FF');
 
     private static string? FirstNotBlank(params string?[] values) => values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
 

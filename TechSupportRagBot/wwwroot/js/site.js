@@ -4,6 +4,7 @@
   const translationForm = document.getElementById("translationRequestForm");
   const isEnglish = document.documentElement.lang === "en";
   let chatConnection = null;
+  let botAnswerInFlight = false;
 
   function text(ru, en) {
     return isEnglish ? en : ru;
@@ -64,10 +65,11 @@
   }
 
   async function requestBotAnswer() {
-    if (!chatShell || !botForm || chatShell.dataset.askBot !== "true") {
+    if (!chatShell || !botForm || chatShell.dataset.askBot !== "true" || botAnswerInFlight) {
       return;
     }
 
+    botAnswerInFlight = true;
     chatShell.dataset.askBot = "false";
     const ticketId = chatShell.dataset.ticketId;
     const token = botForm.querySelector("input[name='__RequestVerificationToken']")?.value;
@@ -92,8 +94,14 @@
         } else {
           chatShell.dataset.ticketStatus = "BotAnswered";
         }
+
+        if (payload.hasMedia) {
+          window.location.reload();
+          return;
+        }
       }
     } finally {
+      botAnswerInFlight = false;
       typing.remove();
     }
   }
@@ -744,6 +752,7 @@
 
         const changed = snapshot.status !== (chatShell.dataset.ticketStatus || initial.status)
           || (snapshot.operatorUserId || "") !== initial.operatorUserId
+          || Number(snapshot.activeOperatorCount || 0) !== Number(chatShell.dataset.activeOperatorCount || 0)
           || Number(snapshot.messageCount || 0) !== Number(chatShell.dataset.messageCount || initial.messageCount)
           || Number(snapshot.lastMessageId || 0) !== Number(chatShell.dataset.lastMessageId || initial.lastMessageId);
 
@@ -769,18 +778,24 @@
     let lastUserActivity = Date.now();
     let lastSentAt = 0;
     let sending = false;
+    let activeDebounce = 0;
 
     const markActive = () => {
       lastUserActivity = Date.now();
+      window.clearTimeout(activeDebounce);
+      activeDebounce = window.setTimeout(() => {
+        sendActivity(true);
+      }, 800);
     };
 
     ["mousemove", "keydown", "scroll", "touchstart", "click"].forEach((eventName) => {
       window.addEventListener(eventName, markActive, { passive: true });
     });
 
-    async function sendActivity() {
+    async function sendActivity(force, keepalive) {
       const now = Date.now();
-      if (sending || document.hidden || now - lastUserActivity > 5 * 60 * 1000 || now - lastSentAt < 25 * 1000) {
+      const minInterval = force ? 8000 : 25000;
+      if (sending || document.hidden || now - lastUserActivity > 5 * 60 * 1000 || now - lastSentAt < minInterval) {
         return;
       }
 
@@ -792,6 +807,7 @@
           headers: {
             "RequestVerificationToken": token || ""
           },
+          keepalive: keepalive === true,
           cache: "no-store"
         });
       } catch {
@@ -801,7 +817,29 @@
       }
     }
 
+    function endActivity() {
+      if (document.hidden && Date.now() - lastUserActivity > 5 * 60 * 1000) {
+        return;
+      }
+
+      try {
+        fetch(`?handler=EndActivity&id=${encodeURIComponent(ticketId)}`, {
+          method: "POST",
+          headers: {
+            "RequestVerificationToken": token || ""
+          },
+          keepalive: true,
+          cache: "no-store"
+        });
+      } catch {
+        // Завершение сессии учета времени не должно блокировать закрытие страницы.
+      }
+    }
+
     window.setInterval(sendActivity, 30000);
+    window.addEventListener("beforeunload", () => {
+      endActivity();
+    });
     sendActivity();
   }
 

@@ -41,8 +41,8 @@ else
         @if (Model.IsInternalUser && Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</a> }
         @if (Model.IsInternalUser && Model.Can("ManageMachines")) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</a> }
         @if (Model.IsInternalUser && Model.Can("ManageLicenses")) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</a> }
-        @if (Model.IsInternalUser && Model.Can("ManageOperators")) { <a asp-page="/Admin/Operators">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operators")</a> }
-        @if (Model.IsInternalUser && Model.Can("KnowledgeBase")) { <a asp-page="/Admin/Knowledge">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</a> }
+        @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/BotTest">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTest", "Тест бота")</a> }
+        @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/IndexedChats">@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChats", "Завершённые чаты")</a> }
         @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/QA">QA</a> }
         @if (Model.IsInternalUser && Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
         @if (Model.IsInternalUser && Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }
@@ -57,7 +57,7 @@ else
     <section class="attention-strip">
         @if (Model.IsInternalUser && Model.Can("Tickets") && Model.WaitingForOperatorCount > 0)
         {
-            <a class="attention-card urgent" asp-page="/Admin/Tickets">
+            <a class="attention-card urgent" asp-page="/Admin/Tickets" asp-route-StatusFilter="WaitingForOperator">
                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "WaitingForOperator")</span>
                 <strong>@Model.WaitingForOperatorCount</strong>
             </a>
@@ -134,20 +134,40 @@ else
                     <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "AssignedTickets")</h2>
                     <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
-                @if (Model.AssignedTickets.Count == 0)
+                @if (Model.AssignedTicketGroups.Count == 0)
                 {
                     <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoAssignedTickets")</p>
                 }
                 else
                 {
-                    <div class="dashboard-list">
-                        @foreach (var ticket in Model.AssignedTickets)
+                    <div class="dashboard-machine-list">
+                        @foreach (var group in Model.AssignedTicketGroups)
                         {
-                            var unread = ticket.Messages.Any(x => x.AuthorUserId != User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value && !x.IsReadByOperator);
-                            <a class="dashboard-row @(unread ? "unread" : "")" asp-page="/Operator/Ticket" asp-route-id="@ticket.Id">
-                                <strong>@ticket.Title</strong>
-                                <span>@ticket.Machine?.Name · @ticket.Machine?.Model · @Model.StatusName(ticket.Status)</span>
-                            </a>
+                            <details class="dashboard-machine-group">
+                                <summary>
+                                    <span class="dashboard-machine-title">
+                                        <strong>@group.MachineName</strong>
+                                        <small>@group.MachineModel &middot; @group.TicketCount @TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</small>
+                                    </span>
+                                    @if (group.UnreadCount > 0)
+                                    {
+                                        <span class="unread-badge inline">+@group.UnreadCount</span>
+                                    }
+                                </summary>
+                                <div class="dashboard-list nested">
+                                    @foreach (var row in group.Rows)
+                                    {
+                                        <a class="dashboard-row @(row.UnreadCount > 0 ? "unread" : "")" href="@row.Url">
+                                            <strong>@row.Ticket.Title</strong>
+                                            <span>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</span>
+                                            @if (row.UnreadCount > 0)
+                                            {
+                                                <span class="unread-badge inline">+@row.UnreadCount</span>
+                                            }
+                                        </a>
+                                    }
+                                </div>
+                            </details>
                         }
                     </div>
                 }
@@ -161,19 +181,41 @@ else
                     <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</h2>
                     <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
-                @if (Model.AttentionTickets.Count == 0)
+                @if (Model.AttentionTicketGroups.Count == 0)
                 {
                     <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoOpenTickets")</p>
                 }
                 else
                 {
-                    <div class="dashboard-list">
-                        @foreach (var ticket in Model.AttentionTickets)
+                    <div class="dashboard-machine-list">
+                        @foreach (var group in Model.AttentionTicketGroups)
                         {
-                            <a class="dashboard-row @(ticket.Status == TechSupportRagBot.Models.TicketStatuses.WaitingForOperator ? "unread" : "")" asp-page="/Admin/Tickets">
-                                <strong>@ticket.Title</strong>
-                                <span>@(ticket.ClientUser?.FullName ?? ticket.ClientUser?.UserName) · @ticket.Machine?.Model · @Model.StatusName(ticket.Status)</span>
-                            </a>
+                            <details class="dashboard-machine-group">
+                                <summary>
+                                    <span class="dashboard-machine-title">
+                                        <strong>@group.MachineName</strong>
+                                        <small>@group.MachineModel &middot; @group.TicketCount @TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</small>
+                                    </span>
+                                    @if (group.UnreadCount > 0)
+                                    {
+                                        <span class="unread-badge inline">+@group.UnreadCount</span>
+                                    }
+                                </summary>
+                                <div class="dashboard-list nested">
+                                    @foreach (var row in group.Rows)
+                                    {
+                                        var waiting = row.Ticket.Status == TechSupportRagBot.Models.TicketStatuses.WaitingForOperator;
+                                        <a class="dashboard-row @(row.UnreadCount > 0 || waiting ? "unread" : "")" href="@row.Url">
+                                            <strong>@row.Ticket.Title</strong>
+                                            <span>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</span>
+                                            @if (row.UnreadCount > 0)
+                                            {
+                                                <span class="unread-badge inline">+@row.UnreadCount</span>
+                                            }
+                                        </a>
+                                    }
+                                </div>
+                            </details>
                         }
                     </div>
                 }
@@ -187,20 +229,40 @@ else
                     <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets")</h2>
                     <a asp-page="/Client/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Open")</a>
                 </div>
-                @if (Model.RecentClientTickets.Count == 0)
+                @if (Model.RecentClientTicketGroups.Count == 0)
                 {
                     <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoTicketsYet")</p>
                 }
                 else
                 {
-                    <div class="dashboard-list">
-                        @foreach (var ticket in Model.RecentClientTickets)
+                    <div class="dashboard-machine-list">
+                        @foreach (var group in Model.RecentClientTicketGroups)
                         {
-                            var unread = Model.ClientTicketsWithUnreadMessages.Contains(ticket.Id);
-                            <a class="dashboard-row @(unread ? "unread" : "")" asp-page="/Client/Ticket" asp-route-id="@ticket.Id">
-                                <strong>@ticket.Title</strong>
-                                <span>@ticket.Machine?.Name · @Model.StatusName(ticket.Status)</span>
-                            </a>
+                            <details class="dashboard-machine-group">
+                                <summary>
+                                    <span class="dashboard-machine-title">
+                                        <strong>@group.MachineName</strong>
+                                        <small>@group.MachineModel &middot; @group.TicketCount @TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</small>
+                                    </span>
+                                    @if (group.UnreadCount > 0)
+                                    {
+                                        <span class="unread-badge inline">+@group.UnreadCount</span>
+                                    }
+                                </summary>
+                                <div class="dashboard-list nested">
+                                    @foreach (var row in group.Rows)
+                                    {
+                                        <a class="dashboard-row @(row.UnreadCount > 0 ? "unread" : "")" href="@row.Url">
+                                            <strong>@row.Ticket.Title</strong>
+                                            <span>@Model.StatusName(row.Ticket.Status)</span>
+                                            @if (row.UnreadCount > 0)
+                                            {
+                                                <span class="unread-badge inline">+@row.UnreadCount</span>
+                                            }
+                                        </a>
+                                    }
+                                </div>
+                            </details>
                         }
                     </div>
                 }
