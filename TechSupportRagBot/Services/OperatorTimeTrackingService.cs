@@ -130,6 +130,7 @@ public class OperatorTimeTrackingService
 
         var previousTicket = await _db.Tickets
             .AsNoTracking()
+            .Include(x => x.Machine)
             .FirstOrDefaultAsync(x => x.Id == presence.TicketId, cancellationToken);
         if (previousTicket == null)
         {
@@ -158,6 +159,9 @@ public class OperatorTimeTrackingService
             OperatorUserId = presence.OperatorUserId,
             TicketId = presence.TicketId,
             MachineId = previousTicket.MachineId,
+            OperatorName = user.FullName ?? user.UserName ?? presence.OperatorUserId,
+            MachineModel = previousTicket.Machine?.Model ?? string.Empty,
+            TicketReference = $"#{previousTicket.Id} {previousTicket.Title}",
             StartedAt = presence.LastActivityAt,
             EndedAt = now,
             WorkSeconds = split.workSeconds,

@@ -65,6 +65,10 @@ public class TimeTrackingModel : PageModel
     {
         DateTo ??= DateTime.Today;
         DateFrom ??= DateTo.Value.AddDays(-30);
+        if (DateFrom.Value.Date > DateTo.Value.Date)
+        {
+            (DateFrom, DateTo) = (DateTo, DateFrom);
+        }
 
         var fromUtc = TimeZoneInfo.ConvertTimeToUtc(
             DateTime.SpecifyKind(DateFrom.Value.Date, DateTimeKind.Unspecified),
@@ -78,7 +82,7 @@ public class TimeTrackingModel : PageModel
             .Include(x => x.OperatorUser)
             .Include(x => x.Machine)
             .Include(x => x.Ticket)
-            .Where(x => x.StartedAt >= fromUtc && x.StartedAt < toUtc);
+            .Where(x => x.EndedAt > fromUtc && x.StartedAt < toUtc);
 
         if (!string.IsNullOrWhiteSpace(OperatorId))
         {
@@ -87,7 +91,7 @@ public class TimeTrackingModel : PageModel
 
         if (!string.IsNullOrWhiteSpace(MachineModel))
         {
-            query = query.Where(x => x.Machine != null && x.Machine.Model == MachineModel);
+            query = query.Where(x => x.MachineModel == MachineModel || (x.Machine != null && x.Machine.Model == MachineModel));
         }
 
         var entries = await query.ToListAsync();
@@ -99,14 +103,14 @@ public class TimeTrackingModel : PageModel
             {
                 Period = PeriodKey(x.StartedAt),
                 x.OperatorUserId,
-                OperatorName = x.OperatorUser!.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId,
-                MachineModel = x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model
+                OperatorName = !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? "Удалённый сотрудник" : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? "Удалённый сотрудник",
+                MachineModel = !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model
             })
             .Select(x => new TimeReportRow(
                 x.Key.Period,
                 x.Key.OperatorName,
                 x.Key.MachineModel,
-                x.Select(e => e.TicketId).Distinct().Count(),
+                x.Where(e => e.TicketId != null || !string.IsNullOrWhiteSpace(e.TicketReference)).Select(e => e.TicketId?.ToString() ?? e.TicketReference).Distinct().Count(),
                 x.Sum(e => e.WorkSeconds),
                 x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.Period)
@@ -115,13 +119,13 @@ public class TimeTrackingModel : PageModel
             .ToList();
 
         OperatorChart = entries
-            .GroupBy(x => x.OperatorUser!.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId)
+            .GroupBy(x => !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? "Удалённый сотрудник" : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? "Удалённый сотрудник")
             .Select(x => new ChartRow(x.Key, x.Sum(e => e.WorkSeconds), x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.TotalSeconds)
             .ToList();
 
         MachineChart = entries
-            .GroupBy(x => x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model)
+            .GroupBy(x => !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model)
             .Select(x => new ChartRow(x.Key, x.Sum(e => e.WorkSeconds), x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.TotalSeconds)
             .ToList();
@@ -205,7 +209,14 @@ public class TimeTrackingModel : PageModel
         }
         catch
         {
-            return TimeZoneInfo.Local;
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            }
+            catch
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("Moscow", TimeSpan.FromHours(3), "Moscow", "Moscow");
+            }
         }
     }
 

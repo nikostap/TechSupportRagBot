@@ -516,19 +516,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(x => x.OperatorUser)
             .WithMany()
             .HasForeignKey(x => x.OperatorUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<OperatorChatTimeEntry>()
             .HasOne(x => x.Ticket)
             .WithMany()
             .HasForeignKey(x => x.TicketId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<OperatorChatTimeEntry>()
             .HasOne(x => x.Machine)
             .WithMany()
             .HasForeignKey(x => x.MachineId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<OperatorChatTimeEntry>().Property(x => x.OperatorName).HasMaxLength(256);
+        builder.Entity<OperatorChatTimeEntry>().Property(x => x.MachineModel).HasMaxLength(100);
+        builder.Entity<OperatorChatTimeEntry>().Property(x => x.TicketReference).HasMaxLength(300);
 
         builder.Entity<WorkCalendarDay>()
             .HasIndex(x => x.Date)
