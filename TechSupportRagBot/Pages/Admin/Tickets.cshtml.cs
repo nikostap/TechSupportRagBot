@@ -159,6 +159,7 @@ public class TicketsModel : PageModel
             })
             .OrderBy(x => x.Key.Name)
             .Select(clientGroup => new ClientTicketGroup(
+                clientGroup.Key.ClientId?.ToString() ?? clientGroup.Key.Name,
                 clientGroup.Key.Name,
                 clientGroup.Sum(x => x.UnreadCount),
                 clientGroup
@@ -169,6 +170,7 @@ public class TicketsModel : PageModel
                     })
                     .OrderBy(x => x.Key.Name)
                     .Select(machineGroup => new MachineTicketGroup(
+                        machineGroup.Key.MachineId.ToString(),
                         machineGroup.Key.Name,
                         machineGroup.Sum(x => x.UnreadCount),
                         machineGroup.OrderByDescending(x => x.Ticket.CreatedAt).ToList()))
@@ -191,8 +193,8 @@ public class TicketsModel : PageModel
 
     public sealed record OperatorOption(string Id, string Name);
     public sealed record TicketRow(Ticket Ticket, int UnreadCount);
-    public sealed record MachineTicketGroup(string MachineName, int UnreadCount, List<TicketRow> Rows);
-    public sealed record ClientTicketGroup(string ClientName, int UnreadCount, List<MachineTicketGroup> Machines)
+    public sealed record MachineTicketGroup(string Key, string MachineName, int UnreadCount, List<TicketRow> Rows);
+    public sealed record ClientTicketGroup(string Key, string ClientName, int UnreadCount, List<MachineTicketGroup> Machines)
     {
         public int TicketCount => Machines.Sum(x => x.Rows.Count);
     }

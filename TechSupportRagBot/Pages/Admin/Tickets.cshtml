@@ -27,7 +27,7 @@
 <div class="ticket-group-list">
 @foreach (var client in Model.ClientGroups)
 {
-    <details class="ticket-client-group panel">
+    <details class="ticket-client-group panel" data-details-key="client-@client.Key">
         <summary class="ticket-accordion-summary">
             <div><p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</p><h2>@client.ClientName</h2></div>
             <div class="ticket-summary-counts">
@@ -39,7 +39,7 @@
         <div class="ticket-machine-list">
         @foreach (var machine in client.Machines)
         {
-            <details class="ticket-machine-group">
+            <details class="ticket-machine-group" data-details-key="client-@client.Key-machine-@machine.Key">
                 <summary class="ticket-accordion-summary machine-summary">
                     <div><p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p><h3>@machine.MachineName</h3></div>
                     <div class="ticket-summary-counts">
@@ -119,3 +119,43 @@
     </details>
 }
 </div>
+
+<script>
+    (() => {
+        const pageKey = `${location.pathname}${location.search}`;
+        const detailsStateKey = `tickets:open-details:${pageKey}`;
+        const scrollStateKey = `tickets:scroll:${pageKey}`;
+        const details = [...document.querySelectorAll("details[data-details-key]")];
+
+        function readOpenKeys() {
+            try {
+                return new Set(JSON.parse(sessionStorage.getItem(detailsStateKey) ?? "[]"));
+            } catch {
+                return new Set();
+            }
+        }
+
+        function saveState() {
+            const openKeys = details
+                .filter(item => item.open)
+                .map(item => item.dataset.detailsKey);
+            sessionStorage.setItem(detailsStateKey, JSON.stringify(openKeys));
+            sessionStorage.setItem(scrollStateKey, String(window.scrollY));
+        }
+
+        const openKeys = readOpenKeys();
+        for (const item of details) {
+            item.open = openKeys.has(item.dataset.detailsKey);
+            item.addEventListener("toggle", saveState);
+        }
+
+        const savedScroll = Number(sessionStorage.getItem(scrollStateKey));
+        if (Number.isFinite(savedScroll) && savedScroll > 0) {
+            requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "auto" }));
+        }
+
+        for (const form of document.querySelectorAll("form[method='post']")) {
+            form.addEventListener("submit", saveState);
+        }
+    })();
+</script>

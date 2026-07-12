@@ -162,6 +162,16 @@
                                 <form method="post" asp-page-handler="Reindex" asp-route-id="@answer.Id" asp-route-MachineId="@Model.MachineId" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" class="row-action">
                                     <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
                                 </form>
+                                <form method="post"
+                                      asp-page-handler="DeleteIndexed"
+                                      asp-route-id="@answer.Id"
+                                      asp-route-MachineId="@Model.MachineId"
+                                      asp-route-PageNumber="@Model.PageNumber"
+                                      asp-route-PageSize="@Model.PageSize"
+                                      class="row-action"
+                                      onsubmit="return confirm('Удалить проиндексированный чат из базы знаний? Исходный чат обращения останется доступен.');">
+                                    <button class="btn-danger" type="submit">Удалить из индекса</button>
+                                </form>
                             }
                         </div>
                     </div>

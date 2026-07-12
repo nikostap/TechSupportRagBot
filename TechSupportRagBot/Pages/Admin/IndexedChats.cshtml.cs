@@ -107,6 +107,28 @@ public class IndexedChatsModel : PageModel
         return RedirectToPage(new { MachineId, PageNumber, PageSize });
     }
 
+    public async Task<IActionResult> OnPostDeleteIndexedAsync(int id, CancellationToken cancellationToken)
+    {
+        var answer = await _db.ResolvedAnswers
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (answer == null)
+        {
+            return NotFound();
+        }
+
+        if (answer.Status != ResolvedAnswerStatuses.Draft)
+        {
+            await _ingestion.DeleteResolvedAnswerAsync(answer, cancellationToken);
+        }
+
+        return RedirectToPage(new
+        {
+            MachineId,
+            PageNumber,
+            PageSize
+        });
+    }
+
     private void ApplyEdit(ResolvedAnswer answer)
     {
         answer.Title = EditInput.Title?.Trim();
