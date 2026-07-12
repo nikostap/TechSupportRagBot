@@ -176,12 +176,17 @@ namespace TechSupportRagBot.Pages
                 ? 0
                 : await _db.Users.CountAsync(x => x.ClientId == clientId, HttpContext.RequestAborted);
 
-            ClientOpenTicketCount = await _db.Tickets.CountAsync(x => x.ClientUserId == userId && x.Status != TicketStatuses.Closed, HttpContext.RequestAborted);
+            ClientOpenTicketCount = await _db.Tickets.CountAsync(x =>
+                clientId != null &&
+                _db.Users.Any(user => user.Id == x.ClientUserId && user.ClientId == clientId) &&
+                x.Status != TicketStatuses.Closed,
+                HttpContext.RequestAborted);
 
             UnreadMessageCount = await _db.ChatMessages
                 .Include(x => x.Ticket)
                 .CountAsync(x =>
-                    x.Ticket!.ClientUserId == userId &&
+                    clientId != null &&
+                    _db.Users.Any(user => user.Id == x.Ticket!.ClientUserId && user.ClientId == clientId) &&
                     x.AuthorUserId != userId &&
                     !x.IsReadByClient,
                     HttpContext.RequestAborted);
@@ -189,7 +194,8 @@ namespace TechSupportRagBot.Pages
             RecentClientTickets = await _db.Tickets
                 .Include(x => x.Machine)
                 .Include(x => x.Messages)
-                .Where(x => x.ClientUserId == userId)
+                .Where(x => clientId != null && _db.Users.Any(user =>
+                    user.Id == x.ClientUserId && user.ClientId == clientId))
                 .OrderByDescending(x => x.CreatedAt)
                 .Take(12)
                 .ToListAsync(HttpContext.RequestAborted);
@@ -197,7 +203,8 @@ namespace TechSupportRagBot.Pages
             ClientTicketsWithUnreadMessages = await _db.ChatMessages
                 .Include(x => x.Ticket)
                 .Where(x =>
-                    x.Ticket!.ClientUserId == userId &&
+                    clientId != null &&
+                    _db.Users.Any(user => user.Id == x.Ticket!.ClientUserId && user.ClientId == clientId) &&
                     x.AuthorUserId != userId &&
                     !x.IsReadByClient)
                 .Select(x => x.TicketId)

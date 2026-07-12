@@ -59,6 +59,8 @@ public class TicketModel : PageModel
 
     public List<string> ActiveOperatorNames { get; private set; } = new();
 
+    private HashSet<string> CompanyUserIds { get; set; } = new();
+
     [BindProperty]
     public string? MessageText { get; set; }
 
@@ -263,7 +265,7 @@ public class TicketModel : PageModel
 
             var clientQuestion = rawMessages
                 .Where(x => !x.IsBotMessage
-                    && x.AuthorUserId == Ticket.ClientUserId
+                    && CompanyUserIds.Contains(x.AuthorUserId)
                     && (lastBotMessageAt == null || x.CreatedAt > lastBotMessageAt))
                 .OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefault();
@@ -400,8 +402,10 @@ public class TicketModel : PageModel
 
     private async Task<Ticket?> LoadTicketForCurrentClientAsync(int id)
     {
+        var clientId = await GetCurrentClientIdAsync();
         var ticket = await _db.Tickets
-            .FirstOrDefaultAsync(x => x.Id == id && x.ClientUserId == CurrentUserId);
+            .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
+                user.Id == x.ClientUserId && user.ClientId == clientId));
 
         if (ticket == null && User.IsInRole("Admin"))
         {
@@ -415,11 +419,13 @@ public class TicketModel : PageModel
     {
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         CanWriteChat = await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted);
+        var clientId = await GetCurrentClientIdAsync();
 
         Ticket = await _db.Tickets
             .Include(x => x.Machine)
             .Include(x => x.OperatorUser)
-            .FirstOrDefaultAsync(x => x.Id == id && x.ClientUserId == CurrentUserId);
+            .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
+                user.Id == x.ClientUserId && user.ClientId == clientId));
 
         if (Ticket == null && User.IsInRole("Admin"))
         {
@@ -433,6 +439,13 @@ public class TicketModel : PageModel
         {
             return false;
         }
+
+        CompanyUserIds = clientId == null
+            ? new HashSet<string> { Ticket.ClientUserId }
+            : await _db.Users
+                .Where(x => x.ClientId == clientId)
+                .Select(x => x.Id)
+                .ToHashSetAsync();
 
         ActiveOperatorNames = await LoadActiveOperatorNamesAsync(id);
 
@@ -494,7 +507,7 @@ public class TicketModel : PageModel
             .LastOrDefault();
 
         return rawMessages.Any(x => !x.IsBotMessage
-            && x.AuthorUserId == Ticket.ClientUserId
+            && CompanyUserIds.Contains(x.AuthorUserId)
             && !string.IsNullOrWhiteSpace(x.Text)
             && (lastBotMessageAt == null || x.CreatedAt > lastBotMessageAt));
     }
@@ -515,7 +528,7 @@ public class TicketModel : PageModel
             {
                 var role = x.IsBotMessage
                     ? "Бот"
-                    : x.AuthorUserId == Ticket.ClientUserId
+                    : CompanyUserIds.Contains(x.AuthorUserId)
                         ? "Клиент"
                         : "Оператор";
                 return $"{role}: {TrimForContext(x.Text)}";
@@ -551,6 +564,14 @@ public class TicketModel : PageModel
         }
 
         return result;
+    }
+
+    private Task<int?> GetCurrentClientIdAsync()
+    {
+        return _db.Users
+            .Where(x => x.Id == CurrentUserId)
+            .Select(x => x.ClientId)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<Attachment?> SaveAttachmentAsync(ChatMessage message)

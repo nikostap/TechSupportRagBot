@@ -21,10 +21,15 @@ public class TicketsModel : PageModel
     public async Task OnGetAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var clientId = await _db.Users
+            .Where(x => x.Id == userId)
+            .Select(x => x.ClientId)
+            .FirstOrDefaultAsync();
         var tickets = await _db.Tickets
             .Include(x => x.Machine)
             .Include(x => x.Messages)
-            .Where(x => x.ClientUserId == userId)
+            .Where(x => clientId != null && _db.Users.Any(user =>
+                user.Id == x.ClientUserId && user.ClientId == clientId))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 

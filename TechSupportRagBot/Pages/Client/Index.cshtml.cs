@@ -32,12 +32,16 @@ public class IndexModel : PageModel
             ? 0
             : await _db.ClientMachines.CountAsync(x => x.ClientId == clientId);
 
-        OpenTicketCount = await _db.Tickets.CountAsync(x => x.ClientUserId == userId && x.Status != TicketStatuses.Closed);
+        OpenTicketCount = await _db.Tickets.CountAsync(x =>
+            clientId != null &&
+            _db.Users.Any(user => user.Id == x.ClientUserId && user.ClientId == clientId) &&
+            x.Status != TicketStatuses.Closed);
 
         UnreadMessageCount = await _db.ChatMessages
             .Include(x => x.Ticket)
             .CountAsync(x =>
-                x.Ticket!.ClientUserId == userId &&
+                clientId != null &&
+                _db.Users.Any(user => user.Id == x.Ticket!.ClientUserId && user.ClientId == clientId) &&
                 x.AuthorUserId != userId &&
                 !x.IsReadByClient);
 
@@ -47,7 +51,8 @@ public class IndexModel : PageModel
 
         RecentTickets = await _db.Tickets
             .Include(x => x.Machine)
-            .Where(x => x.ClientUserId == userId)
+            .Where(x => clientId != null && _db.Users.Any(user =>
+                user.Id == x.ClientUserId && user.ClientId == clientId))
             .OrderByDescending(x => x.CreatedAt)
             .Take(8)
             .ToListAsync();
@@ -55,7 +60,8 @@ public class IndexModel : PageModel
         TicketsWithUnreadMessages = await _db.ChatMessages
             .Include(x => x.Ticket)
             .Where(x =>
-                x.Ticket!.ClientUserId == userId &&
+                clientId != null &&
+                _db.Users.Any(user => user.Id == x.Ticket!.ClientUserId && user.ClientId == clientId) &&
                 x.AuthorUserId != userId &&
                 !x.IsReadByClient)
             .Select(x => x.TicketId)
