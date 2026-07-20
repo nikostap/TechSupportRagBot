@@ -24,6 +24,6 @@
         <div class="table-wrap"><table><thead><tr><th>Модель</th><th>Запросы</th><th>Ввод</th><th>Вывод</th><th>Стоимость</th></tr></thead><tbody>
         @foreach (var row in Model.Models) { <tr><td>@row.Name</td><td>@row.RequestCount</td><td>@row.InputTokens</td><td>@row.OutputTokens</td><td>@ApiStatisticsModel.Money(row.CostRub)</td></tr> }
         </tbody></table></div>
-        <p class="muted-text">Оценка по верхней цене AITUNNEL: deepseek-chat — 28 ₽/1M входных и 56 ₽/1M выходных токенов; text-embedding-v4 — 14,4 ₽/1M токенов.</p>
+        <p class="muted-text">Сумма берётся из фактического списания AITUNNEL, если оно есть в ответе API; иначе применяется тарифная оценка. Для embeddings учитывается минимум 0,01 ₽ за запрос.</p>
     </section>
 </div>

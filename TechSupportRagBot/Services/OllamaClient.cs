@@ -450,7 +450,8 @@ public class OllamaClient
     {
         var inputTokens = usage?.InputTokens ?? usage?.PromptTokens ?? Math.Max(1, input.Length / 4);
         var outputTokens = usage?.OutputTokens ?? usage?.CompletionTokens ?? (string.IsNullOrEmpty(output) ? 0 : Math.Max(1, output.Length / 4));
-        return _usage.RecordAsync(provider, model, category, operation, inputTokens, outputTokens, usage?.CostRub, cancellationToken);
+        return _usage.RecordAsync(provider, model, category, operation, inputTokens, outputTokens,
+            usage?.CostRub ?? usage?.TotalCostRub ?? usage?.Cost, cancellationToken);
     }
 
     public sealed class OllamaModelInfo
@@ -548,6 +549,12 @@ public class OllamaClient
         public int? OutputTokens { get; set; }
         [JsonPropertyName("cost_rub")]
         public decimal? CostRub { get; set; }
+
+        [JsonPropertyName("total_cost")]
+        public decimal? TotalCostRub { get; set; }
+
+        [JsonPropertyName("cost")]
+        public decimal? Cost { get; set; }
     }
 
     private sealed class OpenAiResponsesOutput

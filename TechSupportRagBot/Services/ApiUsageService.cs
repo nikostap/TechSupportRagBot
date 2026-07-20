@@ -29,9 +29,9 @@ public sealed class ApiUsageService
                 Operation = operation,
                 InputTokens = Math.Max(0, inputTokens),
                 OutputTokens = Math.Max(0, outputTokens),
-                EstimatedCostRub = Estimate(model, inputTokens, outputTokens) is var estimate && estimate > 0
-                    ? estimate
-                    : reportedCostRub ?? 0
+                // AITUNNEL возвращает фактическое списание в usage.cost_rub. Оно важнее
+                // расчёта по тарифу: у провайдера есть минимальная стоимость запроса.
+                EstimatedCostRub = CalculateCost(model, operation, inputTokens, outputTokens, reportedCostRub)
             });
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -39,6 +39,21 @@ public sealed class ApiUsageService
         {
             _logger.LogWarning(ex, "Failed to persist API usage statistics.");
         }
+    }
+
+    private static decimal CalculateCost(string model, string operation, int inputTokens, int outputTokens, decimal? reportedCostRub)
+    {
+        var cost = reportedCostRub is > 0
+            ? reportedCostRub.Value
+            : Estimate(model, inputTokens, outputTokens);
+
+        // В API AITUNNEL для embeddings действует минимальное списание 0,01 ₽ за запрос.
+        if (string.Equals(operation, "Embedding", StringComparison.OrdinalIgnoreCase))
+        {
+            cost = Math.Max(0.01m, cost);
+        }
+
+        return Math.Round(cost, 6);
     }
 
     private static decimal Estimate(string model, int inputTokens, int outputTokens)

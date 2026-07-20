@@ -40,6 +40,7 @@ public class QAService
 
     public async Task<QAEntry> CreateAsync(QAEntry entry, CancellationToken cancellationToken = default)
     {
+        NormalizeScope(entry);
         entry.CreatedAt = DateTime.UtcNow;
         entry.UpdatedAt = DateTime.UtcNow;
         _db.QAEntries.Add(entry);
@@ -50,6 +51,7 @@ public class QAService
 
     public async Task<bool> UpdateAsync(int id, QAEntry input, CancellationToken cancellationToken = default)
     {
+        NormalizeScope(input);
         var entry = await _db.QAEntries.FindAsync([id], cancellationToken);
         if (entry == null)
         {
@@ -353,6 +355,7 @@ public class QAService
         var saved = new List<QAEntry>();
         foreach (var entry in entries.Where(x => !string.IsNullOrWhiteSpace(x.Question) && !string.IsNullOrWhiteSpace(x.Answer)))
         {
+            NormalizeScope(entry);
             entry.Source = string.IsNullOrWhiteSpace(entry.Source) ? source : entry.Source;
             entry.Status = string.IsNullOrWhiteSpace(entry.Status) ? QAEntryStatuses.NeedsReview : entry.Status;
             entry.CreatedBy = createdBy;
@@ -489,6 +492,27 @@ public class QAService
         Append(builder, "Категория", entry.Category);
         Append(builder, "Тип проблемы", entry.ProblemType);
         return builder.ToString();
+    }
+
+    private static void NormalizeScope(QAEntry entry)
+    {
+        entry.MachineModel = NormalizeOptionalValue(entry.MachineModel);
+        entry.SerialNumber = NormalizeOptionalValue(entry.SerialNumber);
+    }
+
+    private static string? NormalizeOptionalValue(string? value)
+    {
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "не указан" or "не указано" or "нет" or "н/д" or "n/a" or "na" or "-" or "—" or "–" => null,
+            _ => normalized
+        };
     }
 
     private void DeletePhysicalFile(string? relativePath)
