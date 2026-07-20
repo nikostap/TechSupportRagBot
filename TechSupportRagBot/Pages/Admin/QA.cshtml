@@ -39,7 +39,7 @@
                 <input asp-for="EditInput.MachineModel" list="qa-models" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")" />
             </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
-                <input asp-for="EditInput.SerialNumber" list="qa-serials-edit" placeholder="5-30" />
+                <input asp-for="EditInput.SerialNumber" list="qa-serials-edit" placeholder="5-30" inputmode="numeric" pattern="[0-9]+(-[0-9]+)?" data-serial-rule />
                 <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QASerialHelp")</small>
             </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")
@@ -117,7 +117,7 @@
                 <input asp-for="Input.MachineModel" list="qa-models" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")" />
             </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
-                <input asp-for="Input.SerialNumber" list="qa-serials-create" placeholder="5-30" />
+                <input asp-for="Input.SerialNumber" list="qa-serials-create" placeholder="5-30" inputmode="numeric" pattern="[0-9]+(-[0-9]+)?" data-serial-rule />
                 <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QASerialHelp")</small>
             </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")
@@ -235,7 +235,7 @@
                             <input class="qa-import-model" name="ConfirmEntries[@i].MachineModel" value="@Model.PreviewEntries[i].MachineModel" list="qa-models" data-serial-list="qa-serials-import-@i" />
                         </label>
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
-                            <input name="ConfirmEntries[@i].SerialNumber" value="@Model.PreviewEntries[i].SerialNumber" list="qa-serials-import-@i" placeholder="5-30" />
+                            <input name="ConfirmEntries[@i].SerialNumber" value="@Model.PreviewEntries[i].SerialNumber" list="qa-serials-import-@i" placeholder="5-30" inputmode="numeric" pattern="[0-9]+(-[0-9]+)?" data-serial-rule />
                             <datalist id="qa-serials-import-@i"></datalist>
                         </label>
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")
@@ -511,6 +511,16 @@
 
     bind("Input_MachineModel", "qa-serials-create");
     bind("EditInput_MachineModel", "qa-serials-edit");
+
+    function normalizeSerialRule(input) {
+        const match = input.value.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+        input.value = match ? (match[2] ? `${match[1]}-${match[2]}` : match[1]) : "";
+    }
+
+    document.querySelectorAll("[data-serial-rule]").forEach(input => {
+        input.addEventListener("blur", () => normalizeSerialRule(input));
+        input.form?.addEventListener("submit", () => normalizeSerialRule(input));
+    });
 
     document.querySelectorAll(".qa-import-model[data-serial-list]").forEach(modelInput => {
         const listId = modelInput.dataset.serialList;

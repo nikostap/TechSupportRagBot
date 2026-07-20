@@ -2,7 +2,7 @@
 @model TechSupportRagBot.Pages.Admin.ApiStatisticsModel
 @{ ViewData["Title"] = "Статистика API и расходов"; }
 <section class="page-head"><div><p class="eyebrow">AITUNNEL</p><h1>Статистика запросов и стоимости</h1></div></section>
-<form method="get" class="panel time-filter">
+<form method="get" class="panel time-filter api-statistics-filter">
     <label>С даты<input asp-for="DateFrom" type="date" /></label>
     <label>По дату<input asp-for="DateTo" type="date" /></label>
     <button class="btn-secondary small" type="submit">Показать</button>

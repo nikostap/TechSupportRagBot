@@ -1997,10 +1997,10 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 }
 
 .qa-card-summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) max-content 20px;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  column-gap: 12px;
   min-height: 68px;
   padding: 14px 16px;
   cursor: pointer;
@@ -2019,6 +2019,8 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   font-weight: 900;
   line-height: 1;
   transition: transform .16s ease;
+  grid-column: 4;
+  grid-row: 1;
 }
 
 .qa-compact-card[open] .qa-card-summary {
@@ -2032,6 +2034,7 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 
 .qa-summary-main {
   display: flex;
+  grid-column: 2;
   min-width: 0;
   align-items: center;
   gap: 10px;
@@ -2048,6 +2051,7 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 
 .qa-summary-meta {
   display: flex;
+  grid-column: 3;
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
@@ -2056,6 +2060,9 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   font-weight: 750;
   white-space: nowrap;
 }
+
+.qa-select-entry { margin: 0; }
+.qa-summary-meta time { min-width: 128px; text-align: right; }
 
 .qa-card-body {
   padding: 0 16px 16px;
@@ -2300,6 +2307,15 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   grid-template-columns: repeat(5, minmax(140px, 1fr)) auto;
   gap: 10px;
   align-items: end;
+}
+
+.api-statistics-filter {
+  grid-template-columns: repeat(2, minmax(170px, 220px)) max-content;
+}
+
+.api-statistics-filter .btn-secondary {
+  align-self: end;
+  min-height: 42px;
 }
 
 .bar-list {

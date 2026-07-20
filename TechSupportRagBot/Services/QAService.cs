@@ -497,7 +497,7 @@ public class QAService
     private static void NormalizeScope(QAEntry entry)
     {
         entry.MachineModel = NormalizeOptionalValue(entry.MachineModel);
-        entry.SerialNumber = NormalizeOptionalValue(entry.SerialNumber);
+        entry.SerialNumber = NormalizeSerialNumber(entry.SerialNumber);
     }
 
     private static string? NormalizeOptionalValue(string? value)
@@ -513,6 +513,25 @@ public class QAService
             "не указан" or "не указано" or "нет" or "н/д" or "n/a" or "na" or "-" or "—" or "–" => null,
             _ => normalized
         };
+    }
+
+    private static string? NormalizeSerialNumber(string? value)
+    {
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var match = Regex.Match(normalized, @"^(\d+)(?:\s*-\s*(\d+))?$");
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        return match.Groups[2].Success
+            ? $"{match.Groups[1].Value}-{match.Groups[2].Value}"
+            : match.Groups[1].Value;
     }
 
     private void DeletePhysicalFile(string? relativePath)
