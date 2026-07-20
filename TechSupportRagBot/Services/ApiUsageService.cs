@@ -31,7 +31,7 @@ public sealed class ApiUsageService
                 OutputTokens = Math.Max(0, outputTokens),
                 // AITUNNEL возвращает фактическое списание в usage.cost_rub. Оно важнее
                 // расчёта по тарифу: у провайдера есть минимальная стоимость запроса.
-                EstimatedCostRub = CalculateCost(model, operation, inputTokens, outputTokens, reportedCostRub)
+                EstimatedCostRub = CalculateCost(provider, model, operation, inputTokens, outputTokens, reportedCostRub)
             });
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -41,11 +41,20 @@ public sealed class ApiUsageService
         }
     }
 
-    private static decimal CalculateCost(string model, string operation, int inputTokens, int outputTokens, decimal? reportedCostRub)
+    private static decimal CalculateCost(string provider, string model, string operation, int inputTokens, int outputTokens, decimal? reportedCostRub)
     {
         var cost = reportedCostRub is > 0
             ? reportedCostRub.Value
             : Estimate(model, inputTokens, outputTokens);
+
+        // Закладываем резерв 10% на AiTunnel deepseek-chat. Пример фактического
+        // списания: 2 820 входных + 159 выходных токенов = 0,14 ₽;
+        // с резервом в статистике получится около 0,15 ₽.
+        if (provider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase)
+            && model.Contains("deepseek-chat", StringComparison.OrdinalIgnoreCase))
+        {
+            cost *= 1.10m;
+        }
 
         // В API AITUNNEL для embeddings действует минимальное списание 0,01 ₽ за запрос.
         if (string.Equals(operation, "Embedding", StringComparison.OrdinalIgnoreCase))
@@ -62,7 +71,8 @@ public sealed class ApiUsageService
         var (inputRate, outputRate) = normalized switch
         {
             var x when x.Contains("text-embedding-v4") => (14.4m, 0m),
-            var x when x.Contains("deepseek-chat") => (28m, 56m),
+            // Откалибровано по фактическому списанию AiTunnel (42 ₽ / 140 ₽ за 1M).
+            var x when x.Contains("deepseek-chat") => (42m, 140m),
             _ => (0m, 0m)
         };
         return Math.Round(inputTokens * inputRate / 1_000_000m + outputTokens * outputRate / 1_000_000m, 6);
