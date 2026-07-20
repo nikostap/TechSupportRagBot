@@ -141,7 +141,7 @@ public sealed class DocumentEnrichmentService
             cancellationToken.ThrowIfCancellationRequested();
             var text = chunk.Text.Length <= LlmPartMaxChars ? chunk.Text : chunk.Text[..LlmPartMaxChars];
             var prompt = BuildChunkPrompt(draft, chunk, text);
-            var response = await _ollama.GenerateAsync(prompt, cancellationToken);
+            var response = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.KnowledgeFilling);
             if (!TryReadJson(response, out LlmChunkMetadata? metadata) || metadata == null)
             {
                 chunk.Warnings.Add("LLM не вернула корректный JSON; оставлены автоматически извлечённые метаданные.");

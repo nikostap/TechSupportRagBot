@@ -218,6 +218,7 @@ public class AccessProfileService
         if (value.StartsWith("/Admin/QA", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/Tickets", StringComparison.OrdinalIgnoreCase)) return "Tickets";
         if (value.StartsWith("/Admin/TimeTracking", StringComparison.OrdinalIgnoreCase)) return "TimeTracking";
+        if (value.StartsWith("/Admin/ApiStatistics", StringComparison.OrdinalIgnoreCase)) return "Settings";
         if (value.StartsWith("/Admin/Settings", StringComparison.OrdinalIgnoreCase)) return "Settings";
         if (value.Equals("/Admin", StringComparison.OrdinalIgnoreCase) || value.StartsWith("/Admin/Index", StringComparison.OrdinalIgnoreCase)) return "AdminDashboard";
         if (value.StartsWith("/Client/NewTicket", StringComparison.OrdinalIgnoreCase)) return "CreateTickets";

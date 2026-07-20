@@ -297,17 +297,41 @@
                     <option value="@size">@size</option>
                 }
             </select>
+            <select asp-for="SortOrder" id="qa-sort-order" aria-label="Сортировка">
+                <option value="updated-desc">Сначала обновлённые</option>
+                <option value="updated-asc">Сначала старые</option>
+                <option value="question-asc">Вопрос: А–Я</option>
+                <option value="question-desc">Вопрос: Я–А</option>
+                <option value="status-asc">По статусу</option>
+                <option value="model-asc">По модели</option>
+            </select>
             <input type="hidden" name="PageNumber" value="1" />
             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
             <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
         </form>
     </div>
 
-    <div class="qa-list">
+    <form method="post" asp-page-handler="Bulk" id="qa-bulk-form" class="qa-bulk-bar">
+        <input type="hidden" asp-for="PageNumber" />
+        <input type="hidden" asp-for="PageSize" />
+        <input type="hidden" asp-for="StatusFilter" />
+        <input type="hidden" asp-for="MachineFilter" />
+        <input type="hidden" asp-for="SerialFilter" />
+        <input type="hidden" asp-for="SearchQuery" />
+        <input type="hidden" asp-for="SearchMode" />
+        <input type="hidden" asp-for="SortOrder" />
+        <label><input type="checkbox" id="qa-select-all" /> Выбрать все на странице</label>
+        <span id="qa-selected-count">Выбрано: 0</span>
+        <button class="btn-secondary small" name="bulkAction" value="verify" type="submit">Верифицировать</button>
+        <button class="btn-danger small" name="bulkAction" value="delete" type="submit">Удалить выбранные</button>
+    </form>
+
+    <div class="qa-list" id="qa-entry-list">
         @foreach (var entry in Model.Entries)
         {
-            <details class="qa-card qa-compact-card">
+            <details class="qa-card qa-compact-card" data-updated="@entry.UpdatedAt.Ticks" data-question="@entry.Question" data-status="@entry.Status" data-model="@entry.MachineModel">
                 <summary class="qa-card-summary">
+                    <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="Выбрать QA" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
                         <span class="status-pill">@entry.Status</span>
                         <strong>@entry.Question</strong>
@@ -358,7 +382,7 @@
                         </div>
                     }
                     <div class="form-actions">
-                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
+                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
                         <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
                             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Verify")</button>
                         </form>
@@ -377,15 +401,41 @@
     <div class="pagination">
         @if (Model.PageNumber > 1)
         {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
         }
         <span>@Model.PageNumber / @Model.TotalPages</span>
         @if (Model.PageNumber < Model.TotalPages)
         {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
+            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
         }
     </div>
 </section>
+
+<script>
+(() => {
+    const list = document.getElementById('qa-entry-list');
+    const sort = document.getElementById('qa-sort-order');
+    const all = document.getElementById('qa-select-all');
+    const count = document.getElementById('qa-selected-count');
+    const checks = () => [...document.querySelectorAll('.qa-select-entry')];
+    const updateCount = () => count.textContent = `Выбрано: ${checks().filter(x => x.checked).length}`;
+    all?.addEventListener('change', () => { checks().forEach(x => x.checked = all.checked); updateCount(); });
+    checks().forEach(x => x.addEventListener('change', updateCount));
+    sort?.addEventListener('change', () => {
+        const cards = [...list.querySelectorAll('.qa-card')];
+        const mode = sort.value;
+        cards.sort((a, b) => {
+            if (mode === 'updated-desc') return Number(b.dataset.updated) - Number(a.dataset.updated);
+            if (mode === 'updated-asc') return Number(a.dataset.updated) - Number(b.dataset.updated);
+            const key = mode.startsWith('question') ? 'question' : mode.startsWith('status') ? 'status' : 'model';
+            const result = (a.dataset[key] || '').localeCompare(b.dataset[key] || '', 'ru');
+            return mode === 'question-desc' ? -result : result;
+        });
+        cards.forEach(card => list.appendChild(card));
+        document.querySelectorAll('input[name="SortOrder"]').forEach(x => x.value = mode);
+    });
+})();
+</script>
 
 <datalist id="qa-categories">
     @foreach (var category in Model.Categories)

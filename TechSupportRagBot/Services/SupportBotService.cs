@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
+using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
@@ -176,7 +177,7 @@ public class SupportBotService
             prompt
         }, traceId, cancellationToken);
 
-        var answer = await _ollama.GenerateAsync(prompt, cancellationToken);
+        var answer = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         if (string.IsNullOrWhiteSpace(answer))
         {
             var deterministicAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
@@ -438,7 +439,7 @@ public class SupportBotService
         - В конце добавь, что если нужен оператор, можно написать "оператор".
         """;
 
-        var answer = await _ollama.GenerateAsync(prompt, cancellationToken);
+        var answer = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         var cleanAnswer = string.IsNullOrWhiteSpace(answer)
             ? (isEnglish
                 ? "Please clarify the unit, error text, sensor number, or visible symptom. If you need an operator, write \"operator\" in the chat."

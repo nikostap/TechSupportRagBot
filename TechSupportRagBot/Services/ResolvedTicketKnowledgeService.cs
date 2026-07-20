@@ -40,7 +40,7 @@ public sealed class ResolvedTicketKnowledgeService
 
         foreach (var batch in batches)
         {
-            var raw = await _ollama.GenerateAsync(BuildPrompt(ticket, string.Join("\n", batch)), cancellationToken);
+            var raw = await _ollama.GenerateAsync(BuildPrompt(ticket, string.Join("\n", batch)), cancellationToken, ApiUsageCategories.KnowledgeFilling);
             extracted.AddRange(TryParse(raw));
         }
 

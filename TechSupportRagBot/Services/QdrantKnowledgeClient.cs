@@ -161,10 +161,9 @@ public class QdrantKnowledgeClient
                 filterItems.Add(new { is_empty = new { key = "machineId" } });
             }
 
-            if (!string.IsNullOrWhiteSpace(request.MachineModel))
-            {
-                filterItems.Add(new { key = "machineModel", match = new { value = request.MachineModel } });
-            }
+            // Совместимость модели (включая серии) и правила серийных номеров
+            // проверяются после dense-поиска. Точный фильтр здесь исключал QA,
+            // заданные только для модели, а также глобальные QA без модели.
 
             var payload = new
             {

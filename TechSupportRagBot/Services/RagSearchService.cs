@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
+using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
@@ -53,7 +54,7 @@ public class RagSearchService : IRagSearchService
             normalizedQuestion = request.Question
         }, request.TraceId, cancellationToken);
 
-        var vector = await _ollama.EmbedAsync(request.Question, cancellationToken);
+        var vector = await _ollama.EmbedAsync(request.Question, cancellationToken, ApiUsageCategories.RagSearch);
         if (vector == null)
         {
             await _audit.WriteAsync("Rag.Embedding.Failed", new

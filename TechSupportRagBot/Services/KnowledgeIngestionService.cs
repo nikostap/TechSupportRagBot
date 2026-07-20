@@ -162,7 +162,7 @@ public class KnowledgeIngestionService
                 await _db.SaveChangesAsync(cancellationToken);
                 await _fts.UpsertChunkAsync(chunk, cancellationToken);
 
-                var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, enrichmentDraft), cancellationToken);
+                var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, enrichmentDraft), cancellationToken, ApiUsageCategories.Vectorization);
                 var qdrantUpserted = vector != null && await _qdrant.UpsertAsync(chunk, vector, "Document", cancellationToken);
                 if (qdrantUpserted)
                 {
@@ -309,7 +309,7 @@ public class KnowledgeIngestionService
         {
             chunk.Title, chunk.NodeName, chunk.Topic, chunk.Tags, chunk.SearchQuestions, chunk.Text
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        var vector = await _ollama.EmbedAsync(embeddingText, cancellationToken);
+        var vector = await _ollama.EmbedAsync(embeddingText, cancellationToken, ApiUsageCategories.Vectorization);
         var qdrantUpserted = vector != null && await _qdrant.UpsertAsync(chunk, vector, "ResolvedTicket", cancellationToken);
         if (qdrantUpserted)
         {
@@ -460,7 +460,7 @@ public class KnowledgeIngestionService
 
     public async Task EnsureVectorIndexCompatibleAsync(CancellationToken cancellationToken = default)
     {
-        var probe = await _ollama.EmbedAsync("embedding dimension compatibility check", cancellationToken);
+        var probe = await _ollama.EmbedAsync("embedding dimension compatibility check", cancellationToken, ApiUsageCategories.Vectorization);
         if (probe == null)
         {
             return;
@@ -491,7 +491,7 @@ public class KnowledgeIngestionService
         {
             cancellationToken.ThrowIfCancellationRequested();
             chunk.QdrantPointId = null;
-            var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, null), cancellationToken);
+            var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, null), cancellationToken, ApiUsageCategories.Vectorization);
             if (vector != null && vector.Length == probe.Length
                 && await _qdrant.UpsertAsync(chunk, vector, chunk.Source, cancellationToken))
             {

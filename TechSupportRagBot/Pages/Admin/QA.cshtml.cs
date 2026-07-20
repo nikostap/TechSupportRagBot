@@ -69,6 +69,12 @@ public class QAModel : PageModel
     [BindProperty(SupportsGet = true)]
     public int? PageSize { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string SortOrder { get; set; } = "updated-desc";
+
+    [BindProperty]
+    public List<int> SelectedIds { get; set; } = new();
+
     public int[] PageSizeOptions => AllowedPageSizes;
 
     public List<QAEntry> Entries { get; private set; } = new();
@@ -296,6 +302,27 @@ public class QAModel : PageModel
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostBulkAsync(string bulkAction, CancellationToken cancellationToken)
+    {
+        var ids = SelectedIds.Distinct().ToArray();
+        if (bulkAction == "verify")
+        {
+            foreach (var id in ids)
+            {
+                await _qa.VerifyAsync(id, cancellationToken);
+            }
+        }
+        else if (bulkAction == "delete")
+        {
+            foreach (var id in ids)
+            {
+                await _qa.DeleteAsync(id, cancellationToken);
+            }
+        }
+
+        return RedirectToPage(new { PageNumber, PageSize, StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
+    }
+
     public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId, CancellationToken cancellationToken)
     {
         await _qa.DeleteAttachmentAsync(attachmentId, cancellationToken);
@@ -373,8 +400,16 @@ public class QAModel : PageModel
         }
         else
         {
-            Entries = await query
-                .OrderByDescending(x => x.UpdatedAt)
+            var ordered = SortOrder switch
+            {
+                "updated-asc" => query.OrderBy(x => x.UpdatedAt),
+                "question-asc" => query.OrderBy(x => x.Question),
+                "question-desc" => query.OrderByDescending(x => x.Question),
+                "status-asc" => query.OrderBy(x => x.Status).ThenByDescending(x => x.UpdatedAt),
+                "model-asc" => query.OrderBy(x => x.MachineModel).ThenByDescending(x => x.UpdatedAt),
+                _ => query.OrderByDescending(x => x.UpdatedAt)
+            };
+            Entries = await ordered
                 .Skip((PageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

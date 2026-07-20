@@ -260,7 +260,7 @@ public class QAService
         await _db.SaveChangesAsync(cancellationToken);
         await _fts.UpsertChunkAsync(chunk, cancellationToken);
 
-        var vector = await _ollama.EmbedAsync(searchText, cancellationToken);
+        var vector = await _ollama.EmbedAsync(searchText, cancellationToken, ApiUsageCategories.Vectorization);
         if (vector != null && await _qdrant.UpsertAsync(chunk, vector, "QA", cancellationToken))
         {
             await _db.SaveChangesAsync(cancellationToken);
@@ -290,7 +290,7 @@ public class QAService
             return Array.Empty<int>();
         }
 
-        var vector = await _ollama.EmbedAsync(query.Trim(), cancellationToken);
+        var vector = await _ollama.EmbedAsync(query.Trim(), cancellationToken, ApiUsageCategories.RagSearch);
         if (vector == null)
         {
             return Array.Empty<int>();
@@ -437,7 +437,7 @@ public class QAService
         {{entry.Answer}}
         """;
 
-        var raw = await _ollama.GenerateAsync(prompt, cancellationToken);
+        var raw = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.KnowledgeFilling);
         var metadata = TryParseMetadata(raw);
         if (metadata == null)
         {
@@ -649,7 +649,7 @@ public class QAService
         {{text}}
         """;
 
-        var raw = await _ollama.GenerateAsync(prompt, cancellationToken);
+        var raw = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.KnowledgeFilling);
         return TryParseEntries(raw);
     }
 

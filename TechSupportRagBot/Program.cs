@@ -124,6 +124,7 @@ builder.Services.AddScoped<AccessProfileService>();
 builder.Services.AddScoped<IVideoProcessingService, VideoProcessingService>();
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 builder.Services.AddSingleton<RagAuditLogger>();
+builder.Services.AddScoped<ApiUsageService>();
 builder.Services.AddScoped<IRagSearchService, RagSearchService>();
 builder.Services.AddHostedService<TicketAutoCloseService>();
 builder.Services.AddHostedService<VideoProcessingBackgroundService>();

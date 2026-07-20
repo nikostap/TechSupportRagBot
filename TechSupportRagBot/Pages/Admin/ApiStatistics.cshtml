@@ -1,0 +1,29 @@
+@page
+@model TechSupportRagBot.Pages.Admin.ApiStatisticsModel
+@{ ViewData["Title"] = "Статистика API и расходов"; }
+<section class="page-head"><div><p class="eyebrow">AITUNNEL</p><h1>Статистика запросов и стоимости</h1></div></section>
+<form method="get" class="panel time-filter">
+    <label>С даты<input asp-for="DateFrom" type="date" /></label>
+    <label>По дату<input asp-for="DateTo" type="date" /></label>
+    <button class="btn-secondary small" type="submit">Показать</button>
+</form>
+<div class="metric-grid">
+    <div class="metric-card blue"><span>Всего запросов</span><strong>@Model.TotalRequests</strong></div>
+    <div class="metric-card attention"><span>Оценка расходов</span><strong>@ApiStatisticsModel.Money(Model.TotalCost)</strong></div>
+</div>
+<div class="split-layout usage-layout">
+    <section class="panel usage-donut-panel">
+        <h2>На что расходуются средства</h2>
+        <div class="usage-donut" style="--usage-sectors: @Model.DonutStyle"><span>@ApiStatisticsModel.Money(Model.TotalCost)</span></div>
+        <div class="usage-legend">
+        @foreach (var row in Model.Categories) { <div><strong>@row.Name</strong><span>@row.RequestCount запросов · @ApiStatisticsModel.Money(row.CostRub)</span></div> }
+        </div>
+    </section>
+    <section class="panel">
+        <h2>По моделям</h2>
+        <div class="table-wrap"><table><thead><tr><th>Модель</th><th>Запросы</th><th>Ввод</th><th>Вывод</th><th>Стоимость</th></tr></thead><tbody>
+        @foreach (var row in Model.Models) { <tr><td>@row.Name</td><td>@row.RequestCount</td><td>@row.InputTokens</td><td>@row.OutputTokens</td><td>@ApiStatisticsModel.Money(row.CostRub)</td></tr> }
+        </tbody></table></div>
+        <p class="muted-text">Оценка по верхней цене AITUNNEL: deepseek-chat — 28 ₽/1M входных и 56 ₽/1M выходных токенов; text-embedding-v4 — 14,4 ₽/1M токенов.</p>
+    </section>
+</div>

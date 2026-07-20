@@ -876,6 +876,18 @@ a:hover {
   white-space: nowrap;
 }
 
+.qa-bulk-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:14px 0; }
+.qa-bulk-bar label { margin:0; flex-direction:row; align-items:center; }
+.qa-select-entry { flex:0 0 auto; width:18px; height:18px; margin-right:10px; }
+.app-version { margin-left:8px; color:var(--muted); font-size:11px; }
+.usage-donut-panel { display:grid; justify-items:center; gap:18px; }
+.usage-donut { width:min(260px, 70vw); aspect-ratio:1; display:grid; place-items:center; border-radius:50%; background:conic-gradient(var(--usage-sectors)); position:relative; }
+.usage-donut::after { content:""; position:absolute; inset:25%; border-radius:50%; background:white; }
+.usage-donut span { z-index:1; font-size:20px; font-weight:850; color:#153e5b; }
+.usage-legend { width:100%; display:grid; gap:8px; }
+.usage-legend div { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); }
+.usage-legend span { color:var(--muted); text-align:right; }
+
 .split-layout,
 .knowledge-layout {
   display: grid;

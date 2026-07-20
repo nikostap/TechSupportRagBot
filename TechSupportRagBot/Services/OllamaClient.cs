@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
@@ -14,6 +15,7 @@ public class OllamaClient
     private readonly AiTunnelOptions _aiTunnelOptions;
     private readonly SystemSettingsService _settings;
     private readonly ILogger<OllamaClient> _logger;
+    private readonly ApiUsageService _usage;
 
     public OllamaClient(
         HttpClient httpClient,
@@ -23,7 +25,8 @@ public class OllamaClient
         IOptions<QwenOptions> qwenOptions,
         IOptions<AiTunnelOptions> aiTunnelOptions,
         SystemSettingsService settings,
-        ILogger<OllamaClient> logger)
+        ILogger<OllamaClient> logger,
+        ApiUsageService usage)
     {
         _httpClient = httpClient;
         _options = options.Value;
@@ -33,6 +36,7 @@ public class OllamaClient
         _aiTunnelOptions = aiTunnelOptions.Value;
         _settings = settings;
         _logger = logger;
+        _usage = usage;
     }
 
     public async Task<IReadOnlyList<OllamaModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default)
@@ -60,23 +64,23 @@ public class OllamaClient
         }
     }
 
-    public async Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default, string usageCategory = ApiUsageCategories.Other)
     {
         var embeddingProvider = await _settings.GetEmbeddingProviderAsync(cancellationToken);
 
         if (embeddingProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
         {
-            return await EmbedOpenAiAsync(text, cancellationToken);
+            return await EmbedOpenAiAsync(text, cancellationToken, usageCategory);
         }
 
         if (embeddingProvider.Equals("Qwen", StringComparison.OrdinalIgnoreCase))
         {
-            return await EmbedQwenAsync(text, cancellationToken);
+            return await EmbedQwenAsync(text, cancellationToken, usageCategory);
         }
 
         if (embeddingProvider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase))
         {
-            return await EmbedAiTunnelAsync(text, cancellationToken);
+            return await EmbedAiTunnelAsync(text, cancellationToken, usageCategory);
         }
 
         if (embeddingProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
@@ -112,7 +116,7 @@ public class OllamaClient
         }
     }
 
-    public async Task<string?> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+    public async Task<string?> GenerateAsync(string prompt, CancellationToken cancellationToken = default, string usageCategory = ApiUsageCategories.Other)
     {
         var chatProvider = await _settings.GetChatProviderAsync(cancellationToken);
         var chatModel = await _settings.GetChatModelAsync(cancellationToken);
@@ -124,7 +128,9 @@ public class OllamaClient
                 _openAiOptions.ApiKey,
                 chatModel,
                 prompt,
-                cancellationToken);
+                cancellationToken,
+                usageCategory,
+                "OpenAI");
         }
 
         if (chatProvider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
@@ -134,7 +140,9 @@ public class OllamaClient
                 _deepSeekOptions.ApiKey,
                 chatModel,
                 prompt,
-                cancellationToken);
+                cancellationToken,
+                usageCategory,
+                "DeepSeek");
         }
 
         if (chatProvider.Equals("AiTunnel", StringComparison.OrdinalIgnoreCase))
@@ -144,7 +152,9 @@ public class OllamaClient
                 _aiTunnelOptions.ApiKey,
                 chatModel,
                 prompt,
-                cancellationToken);
+                cancellationToken,
+                usageCategory,
+                "AiTunnel");
         }
 
         try
@@ -179,7 +189,9 @@ public class OllamaClient
         string apiKey,
         string model,
         string prompt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string usageCategory,
+        string provider)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -214,6 +226,7 @@ public class OllamaClient
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiChatResponse>(cancellationToken);
+            await RecordUsageAsync(payload?.Usage, provider, model, usageCategory, "Chat", prompt, payload?.Choices?.FirstOrDefault()?.Message?.Content, cancellationToken);
             var content = payload?.Choices?.FirstOrDefault()?.Message?.Content;
             if (string.IsNullOrWhiteSpace(content))
             {
@@ -233,7 +246,9 @@ public class OllamaClient
         string apiKey,
         string model,
         string prompt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string usageCategory,
+        string provider)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -269,6 +284,7 @@ public class OllamaClient
                     .SelectMany(x => x.Content ?? new List<OpenAiResponsesContent>())
                     .Select(x => x.Text)
                     .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            await RecordUsageAsync(payload?.Usage, provider, model, usageCategory, "Chat", prompt, text, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -283,7 +299,7 @@ public class OllamaClient
         }
     }
 
-    private async Task<float[]?> EmbedOpenAiAsync(string text, CancellationToken cancellationToken)
+    private async Task<float[]?> EmbedOpenAiAsync(string text, CancellationToken cancellationToken, string usageCategory)
     {
         if (string.IsNullOrWhiteSpace(_openAiOptions.ApiKey))
         {
@@ -308,6 +324,7 @@ public class OllamaClient
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken);
+            await RecordUsageAsync(payload?.Usage, "OpenAI", embeddingModel, usageCategory, "Embedding", text, null, cancellationToken);
             return payload?.Data?.FirstOrDefault()?.Embedding;
         }
         catch
@@ -316,7 +333,7 @@ public class OllamaClient
         }
     }
 
-    private async Task<float[]?> EmbedQwenAsync(string text, CancellationToken cancellationToken)
+    private async Task<float[]?> EmbedQwenAsync(string text, CancellationToken cancellationToken, string usageCategory)
     {
         if (string.IsNullOrWhiteSpace(_qwenOptions.ApiKey))
         {
@@ -350,6 +367,7 @@ public class OllamaClient
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken);
+            await RecordUsageAsync(payload?.Usage, "Qwen", embeddingModel, usageCategory, "Embedding", text, null, cancellationToken);
             var embedding = payload?.Data?.FirstOrDefault()?.Embedding;
             if (embedding != null && embedding.Length != _qwenOptions.EmbeddingDimensions)
             {
@@ -369,7 +387,7 @@ public class OllamaClient
         }
     }
 
-    private async Task<float[]?> EmbedAiTunnelAsync(string text, CancellationToken cancellationToken)
+    private async Task<float[]?> EmbedAiTunnelAsync(string text, CancellationToken cancellationToken, string usageCategory)
     {
         if (string.IsNullOrWhiteSpace(_aiTunnelOptions.ApiKey))
         {
@@ -402,6 +420,7 @@ public class OllamaClient
             }
 
             var payload = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken);
+            await RecordUsageAsync(payload?.Usage, "AiTunnel", embeddingModel, usageCategory, "Embedding", text, null, cancellationToken);
             return payload?.Data?.FirstOrDefault()?.Embedding;
         }
         catch (Exception ex)
@@ -424,6 +443,14 @@ public class OllamaClient
             || value.Contains("bge")
             || value.Contains("nomic")
             || value.Contains("mxbai");
+    }
+
+    private Task RecordUsageAsync(ApiUsage? usage, string provider, string model, string category,
+        string operation, string input, string? output, CancellationToken cancellationToken)
+    {
+        var inputTokens = usage?.InputTokens ?? usage?.PromptTokens ?? Math.Max(1, input.Length / 4);
+        var outputTokens = usage?.OutputTokens ?? usage?.CompletionTokens ?? (string.IsNullOrEmpty(output) ? 0 : Math.Max(1, output.Length / 4));
+        return _usage.RecordAsync(provider, model, category, operation, inputTokens, outputTokens, usage?.CostRub, cancellationToken);
     }
 
     public sealed class OllamaModelInfo
@@ -465,6 +492,9 @@ public class OllamaClient
     {
         [JsonPropertyName("choices")]
         public List<OpenAiChoice>? Choices { get; set; }
+
+        [JsonPropertyName("usage")]
+        public ApiUsage? Usage { get; set; }
     }
 
     private sealed class OpenAiChoice
@@ -483,6 +513,9 @@ public class OllamaClient
     {
         [JsonPropertyName("data")]
         public List<OpenAiEmbeddingItem>? Data { get; set; }
+
+        [JsonPropertyName("usage")]
+        public ApiUsage? Usage { get; set; }
     }
 
     private sealed class OpenAiEmbeddingItem
@@ -498,6 +531,23 @@ public class OllamaClient
 
         [JsonPropertyName("output")]
         public List<OpenAiResponsesOutput>? Output { get; set; }
+
+        [JsonPropertyName("usage")]
+        public ApiUsage? Usage { get; set; }
+    }
+
+    private sealed class ApiUsage
+    {
+        [JsonPropertyName("prompt_tokens")]
+        public int? PromptTokens { get; set; }
+        [JsonPropertyName("completion_tokens")]
+        public int? CompletionTokens { get; set; }
+        [JsonPropertyName("input_tokens")]
+        public int? InputTokens { get; set; }
+        [JsonPropertyName("output_tokens")]
+        public int? OutputTokens { get; set; }
+        [JsonPropertyName("cost_rub")]
+        public decimal? CostRub { get; set; }
     }
 
     private sealed class OpenAiResponsesOutput

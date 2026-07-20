@@ -92,6 +92,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<EmailNotificationLog> EmailNotificationLogs => Set<EmailNotificationLog>();
 
+    public DbSet<ApiUsageRecord> ApiUsageRecords => Set<ApiUsageRecord>();
+
     /// <summary>
     /// Настройка структуры базы данных.
     /// 
@@ -533,6 +535,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<OperatorChatTimeEntry>().Property(x => x.OperatorName).HasMaxLength(256);
         builder.Entity<OperatorChatTimeEntry>().Property(x => x.MachineModel).HasMaxLength(100);
         builder.Entity<OperatorChatTimeEntry>().Property(x => x.TicketReference).HasMaxLength(300);
+
+        builder.Entity<ApiUsageRecord>().HasIndex(x => x.CreatedAt);
+        builder.Entity<ApiUsageRecord>().HasIndex(x => new { x.Category, x.CreatedAt });
+        builder.Entity<ApiUsageRecord>().Property(x => x.Provider).HasMaxLength(40);
+        builder.Entity<ApiUsageRecord>().Property(x => x.Model).HasMaxLength(120);
+        builder.Entity<ApiUsageRecord>().Property(x => x.Category).HasMaxLength(40);
+        builder.Entity<ApiUsageRecord>().Property(x => x.Operation).HasMaxLength(40);
+        builder.Entity<ApiUsageRecord>().Property(x => x.EstimatedCostRub).HasPrecision(18, 6);
 
         builder.Entity<WorkCalendarDay>()
             .HasIndex(x => x.Date)

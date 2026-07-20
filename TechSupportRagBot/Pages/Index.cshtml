@@ -47,6 +47,7 @@ else
         @if (Model.IsInternalUser && Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
         @if (Model.IsInternalUser && Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }
         @if (Model.IsInternalUser && Model.Can("Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a> }
+        @if (Model.IsInternalUser && Model.Can("Settings")) { <a asp-page="/Admin/ApiStatistics">Статистика API</a> }
         @if (Model.IsInternalUser && Model.Can("AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles")</a> }
         @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea) { <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</a> }
         @if (Model.Can("ClientCabinet") && Model.HasClientAccount) { <a asp-page="/Client/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "AvailableMachines")</a> }
