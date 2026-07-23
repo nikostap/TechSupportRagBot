@@ -60,7 +60,7 @@
         <input type="hidden" asp-for="EditInput.Source" />
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
-                <input asp-for="EditMediaFiles" type="file" multiple accept="image/*,video/*" />
+                <input asp-for="EditMediaFiles" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx,.xlsx,.txt,.mp4,.mov,.avi" />
                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseMedia")</span>
             </span>
             <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAMediaEditHelp")</small>
@@ -73,11 +73,15 @@
                     <article class="qa-media-item">
                         @if (IsVideo(media))
                         {
-                            <video controls src="@FileUrl(media.FilePath)"></video>
+                            <video controls src="@FileUrl(media)"></video>
+                        }
+                        else if (IsImage(media))
+                        {
+                            <img src="@FileUrl(media)" alt="@media.OriginalFileName" />
                         }
                         else
                         {
-                            <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
+                            <a href="@FileUrl(media)" target="_blank" rel="noopener">@media.OriginalFileName</a>
                         }
                         <span>@media.OriginalFileName</span>
                         <button class="btn-danger small" type="submit" asp-page-handler="DeleteAttachment" asp-route-id="@Model.EditId" asp-route-attachmentId="@media.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteFile")</button>
@@ -137,7 +141,7 @@
         </div>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
-                <input asp-for="MediaFiles" type="file" multiple accept="image/*,video/*" />
+                <input asp-for="MediaFiles" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx,.xlsx,.txt,.mp4,.mov,.avi" />
                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseMedia")</span>
             </span>
             <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAMediaCreateHelp")</small>
@@ -155,7 +159,7 @@
         <form method="post" asp-page-handler="PreviewImport" enctype="multipart/form-data">
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "File")
                 <span class="file-picker">
-                    <input asp-for="Import.File" type="file" accept=".docx,.txt,.md" />
+                    <input asp-for="Import.File" type="file" accept=".docx,.txt" />
                     <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile")</span>
                 </span>
             </label>
@@ -387,11 +391,15 @@
                                 <article class="qa-media-item">
                                     @if (IsVideo(media))
                                     {
-                                        <video controls src="@FileUrl(media.FilePath)"></video>
+                                        <video controls src="@FileUrl(media)"></video>
+                                    }
+                                    else if (IsImage(media))
+                                    {
+                                        <img src="@FileUrl(media)" alt="@media.OriginalFileName" />
                                     }
                                     else
                                     {
-                                        <img src="@FileUrl(media.FilePath)" alt="@media.OriginalFileName" />
+                                        <a href="@FileUrl(media)" target="_blank" rel="noopener">@media.OriginalFileName</a>
                                     }
                                     <span>@media.OriginalFileName</span>
                                 </article>
@@ -506,12 +514,14 @@
 <datalist id="qa-serials-edit"></datalist>
 @functions {
     private string Display(string? value) => string.IsNullOrWhiteSpace(value) ? TechSupportRagBot.Services.UiText.T(ViewContext.HttpContext, "NotSpecified") : value;
-    private static string FileUrl(string? path) => string.IsNullOrWhiteSpace(path) ? "" : "/" + path.Replace("\\", "/").TrimStart('/');
+    private static string FileUrl(TechSupportRagBot.Models.QAAttachment attachment) => $"/attachments/{attachment.PublicId:D}";
+    private static bool IsImage(TechSupportRagBot.Models.QAAttachment attachment) =>
+        attachment.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
     private static bool IsVideo(TechSupportRagBot.Models.QAAttachment attachment)
     {
         var extension = System.IO.Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
         return attachment.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
-            || extension is ".mp4" or ".mov" or ".webm" or ".mkv";
+            || extension is ".mp4" or ".mov" or ".avi";
     }
 }
 

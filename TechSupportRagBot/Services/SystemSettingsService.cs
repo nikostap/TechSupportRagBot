@@ -9,11 +9,16 @@ public class SystemSettingsService
 {
     private readonly ApplicationDbContext _db;
     private readonly RagOptions _ragOptions;
+    private readonly StorageOptions _storageOptions;
 
-    public SystemSettingsService(ApplicationDbContext db, IOptions<RagOptions> ragOptions)
+    public SystemSettingsService(
+        ApplicationDbContext db,
+        IOptions<RagOptions> ragOptions,
+        IOptions<StorageOptions> storageOptions)
     {
         _db = db;
         _ragOptions = ragOptions.Value;
+        _storageOptions = storageOptions.Value;
     }
 
     public async Task<string> GetChatModelAsync(CancellationToken cancellationToken = default)
@@ -57,6 +62,18 @@ public class SystemSettingsService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<string> GetStorageProviderAsync(CancellationToken cancellationToken = default)
+    {
+        var fallback = NormalizeStorageProvider(_storageOptions.Provider);
+        return NormalizeStorageProvider(await GetValueAsync(SystemSettingKeys.StorageProvider, fallback, cancellationToken));
+    }
+
+    public async Task SaveStorageProviderAsync(string provider, CancellationToken cancellationToken = default)
+    {
+        await SetValueAsync(SystemSettingKeys.StorageProvider, NormalizeStorageProvider(provider), cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task SeedDefaultsAsync(CancellationToken cancellationToken = default)
     {
         if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.RagChatProvider, cancellationToken))
@@ -82,6 +99,15 @@ public class SystemSettingsService
         if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.UnreadEmailDelayMinutes, cancellationToken))
         {
             _db.SystemSettings.Add(new SystemSetting { Key = SystemSettingKeys.UnreadEmailDelayMinutes, Value = "60" });
+        }
+
+        if (!await _db.SystemSettings.AnyAsync(x => x.Key == SystemSettingKeys.StorageProvider, cancellationToken))
+        {
+            _db.SystemSettings.Add(new SystemSetting
+            {
+                Key = SystemSettingKeys.StorageProvider,
+                Value = NormalizeStorageProvider(_storageOptions.Provider)
+            });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -111,6 +137,9 @@ public class SystemSettingsService
 
         return "Ollama";
     }
+
+    private static string NormalizeStorageProvider(string? provider) =>
+        string.Equals(provider, "S3", StringComparison.OrdinalIgnoreCase) ? "S3" : "Local";
 
     private async Task<string> GetValueAsync(string key, string fallback, CancellationToken cancellationToken)
     {

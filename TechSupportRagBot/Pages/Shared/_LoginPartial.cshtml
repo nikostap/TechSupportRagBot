@@ -110,9 +110,9 @@
     </li>
     <li>
         <a class="profile-link" asp-area="" asp-page="/Profile" title="@TechSupportRagBot.Services.UiText.T(Context, "Profile", "Профиль")">
-            @if (!string.IsNullOrWhiteSpace(currentUser?.AvatarPath))
+            @if (currentUser?.AvatarPublicId != null)
             {
-                <img class="avatar" src="/@currentUser.AvatarPath.Replace("\\", "/")" alt="avatar" />
+                <img class="avatar" src="/attachments/@currentUser.AvatarPublicId.Value.ToString("D")" alt="avatar" />
             }
             else
             {

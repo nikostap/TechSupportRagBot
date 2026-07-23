@@ -15,39 +15,39 @@ public class TicketModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly KnowledgeIngestionService _ingestion;
     private readonly ResolvedTicketKnowledgeService _resolvedTicketKnowledge;
-    private readonly IWebHostEnvironment _environment;
     private readonly ChatTranslationService _translation;
     private readonly OperatorTimeTrackingService _timeTracking;
     private readonly IBackgroundTaskQueue _videoQueue;
-    private readonly VideoProcessingOptions _videoOptions;
     private readonly RagAuditLogger _auditLogger;
     private readonly ChatMessageDeletionService _messageDeletion;
     private readonly AccessProfileService _access;
+    private readonly FileStorageService _storage;
+    private readonly FileUploadValidationService _uploads;
 
     public TicketModel(
         ApplicationDbContext db,
         KnowledgeIngestionService ingestion,
         ResolvedTicketKnowledgeService resolvedTicketKnowledge,
-        IWebHostEnvironment environment,
         ChatTranslationService translation,
         OperatorTimeTrackingService timeTracking,
         IBackgroundTaskQueue videoQueue,
         RagAuditLogger auditLogger,
         ChatMessageDeletionService messageDeletion,
         AccessProfileService access,
-        Microsoft.Extensions.Options.IOptions<VideoProcessingOptions> videoOptions)
+        FileStorageService storage,
+        FileUploadValidationService uploads)
     {
         _db = db;
         _ingestion = ingestion;
         _resolvedTicketKnowledge = resolvedTicketKnowledge;
-        _environment = environment;
         _translation = translation;
         _timeTracking = timeTracking;
         _videoQueue = videoQueue;
         _auditLogger = auditLogger;
         _messageDeletion = messageDeletion;
         _access = access;
-        _videoOptions = videoOptions.Value;
+        _storage = storage;
+        _uploads = uploads;
     }
 
     public Ticket? Ticket { get; private set; }
@@ -275,8 +275,8 @@ public class TicketModel : PageModel
             attachmentId = attachment.Id,
             messageId = attachment.ChatMessageId,
             status = attachment.Status,
-            finalPath = ToUrl(attachment.FinalFilePath ?? attachment.FilePath),
-            previewPath = ToUrl(attachment.PreviewFilePath),
+            finalPath = AttachmentUrl(attachment.PublicId),
+            previewPath = AttachmentPreviewUrl(attachment.PublicId),
             errorMessage = attachment.ErrorMessage
         });
     }
@@ -508,40 +508,36 @@ public class TicketModel : PageModel
             return null;
         }
 
-        var webRoot = _environment.WebRootPath
-            ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-
-        var extension = Path.GetExtension(AttachmentFile.FileName);
-        var isVideo = IsVideoUpload(AttachmentFile, extension);
-        ValidateVideoUploadIfNeeded(isVideo, extension);
-
+        await using var upload = await _uploads.ValidateAsync(
+            AttachmentFile,
+            UploadPurpose.Chat,
+            HttpContext.RequestAborted);
+        var isVideo = upload.Kind == UploadKind.Video;
+        var provider = await _storage.GetSelectedProviderAsync(HttpContext.RequestAborted);
         var publicId = Guid.NewGuid();
-        var relativeDir = isVideo
-            ? Path.Combine("uploads", "temp")
-            : Path.Combine("uploads", "chat", message.TicketId.ToString());
-        var absoluteDir = Path.Combine(webRoot, relativeDir);
-        Directory.CreateDirectory(absoluteDir);
-
-        var storedName = isVideo ? $"{publicId:N}.source{extension}" : $"{publicId:N}{extension}";
-        var absolutePath = Path.Combine(absoluteDir, storedName);
-
-        await using (var stream = System.IO.File.Create(absolutePath))
-        {
-            await AttachmentFile.CopyToAsync(stream);
-        }
-
-        var relativePath = Path.Combine(relativeDir, storedName);
+        var storedName = isVideo ? $"{publicId:N}.source{upload.Extension}" : $"{publicId:N}{upload.Extension}";
+        var storageKey = isVideo
+            ? $"temp/{message.TicketId}/{storedName}"
+            : $"chat/{message.TicketId}/{storedName}";
+        await _storage.SaveAsync(
+            provider,
+            storageKey,
+            upload.Content,
+            upload.ContentType,
+            HttpContext.RequestAborted);
         var attachment = new Attachment
         {
             PublicId = publicId,
             ChatMessageId = message.Id,
-            OriginalFileName = AttachmentFile.FileName,
+            OriginalFileName = upload.OriginalFileName,
             StoredFileName = storedName,
-            FilePath = isVideo ? string.Empty : relativePath,
-            TempFilePath = isVideo ? relativePath : null,
-            ContentType = AttachmentFile.ContentType,
-            SizeBytes = AttachmentFile.Length,
-            OriginalSize = AttachmentFile.Length,
+            FilePath = isVideo ? string.Empty : storageKey,
+            StorageProvider = provider,
+            TempFilePath = isVideo ? storageKey : null,
+            TempStorageProvider = isVideo ? provider : null,
+            ContentType = upload.ContentType,
+            SizeBytes = upload.Length,
+            OriginalSize = upload.Length,
             Status = isVideo ? AttachmentStatuses.Processing : AttachmentStatuses.Ready
         };
 
@@ -561,41 +557,9 @@ public class TicketModel : PageModel
         return string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string? ToUrl(string? path)
-    {
-        return string.IsNullOrWhiteSpace(path) ? null : "/" + path.Replace("\\", "/").TrimStart('/');
-    }
+    private static string AttachmentUrl(Guid publicId) => $"/attachments/{publicId:D}";
 
-    private static bool IsVideoUpload(IFormFile file, string extension)
-    {
-        return file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
-            || extension.ToLowerInvariant() is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm";
-    }
-
-    private void ValidateVideoUploadIfNeeded(bool isVideo, string extension)
-    {
-        if (!isVideo)
-        {
-            return;
-        }
-
-        var allowed = extension.ToLowerInvariant() is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm";
-        var contentType = AttachmentFile!.ContentType ?? string.Empty;
-        var allowedContentType = contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
-            || contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase)
-            || contentType.Equals("application/mp4", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(contentType);
-        if (!allowed || !allowedContentType)
-        {
-            throw new InvalidOperationException($"Поддерживаются только видеофайлы MP4, MOV, AVI, MKV и WEBM. Получен тип: {contentType}.");
-        }
-
-        var maxBytes = _videoOptions.MaxUploadSizeMb * 1024L * 1024L;
-        if (AttachmentFile.Length > maxBytes)
-        {
-            throw new InvalidOperationException($"Видео не должно быть больше {_videoOptions.MaxUploadSizeMb} MB.");
-        }
-    }
+    private static string AttachmentPreviewUrl(Guid publicId) => $"/attachments/{publicId:D}/preview";
 
     private Task LogVideoUploadRejectedAsync(int ticketId, string reason)
     {
@@ -605,7 +569,6 @@ public class TicketModel : PageModel
             fileName = AttachmentFile?.FileName,
             contentType = AttachmentFile?.ContentType,
             sizeBytes = AttachmentFile?.Length,
-            maxUploadMb = _videoOptions.MaxUploadSizeMb,
             reason
         }, HttpContext.TraceIdentifier);
     }

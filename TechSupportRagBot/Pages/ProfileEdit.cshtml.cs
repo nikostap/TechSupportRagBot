@@ -12,12 +12,17 @@ namespace TechSupportRagBot.Pages;
 public class ProfileEditModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IWebHostEnvironment _environment;
+    private readonly FileStorageService _storage;
+    private readonly FileUploadValidationService _uploads;
 
-    public ProfileEditModel(UserManager<ApplicationUser> userManager, IWebHostEnvironment environment)
+    public ProfileEditModel(
+        UserManager<ApplicationUser> userManager,
+        FileStorageService storage,
+        FileUploadValidationService uploads)
     {
         _userManager = userManager;
-        _environment = environment;
+        _storage = storage;
+        _uploads = uploads;
     }
 
     [BindProperty]
@@ -67,29 +72,57 @@ public class ProfileEditModel : PageModel
         user.WorkdayStartMinutes = TimeToMinutes(Input.WorkdayStart, 8 * 60);
         user.WorkdayEndMinutes = TimeToMinutes(Input.WorkdayEnd, 17 * 60);
 
-        if (Input.Avatar != null && Input.Avatar.Length > 0)
+        string? previousAvatarPath = null;
+        string? previousAvatarProvider = null;
+        if (Input.Avatar is { Length: > 0 })
         {
-            var extension = Path.GetExtension(Input.Avatar.FileName).ToLowerInvariant();
-            if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
+            try
             {
-                ModelState.AddModelError(string.Empty, "Поддерживаются JPG, PNG и WEBP.");
+                await using var upload = await _uploads.ValidateAsync(
+                    Input.Avatar,
+                    UploadPurpose.Avatar,
+                    HttpContext.RequestAborted);
+                var publicId = Guid.NewGuid();
+                var provider = await _storage.GetSelectedProviderAsync(HttpContext.RequestAborted);
+                var key = $"avatars/{user.Id}/{publicId:N}{upload.Extension}";
+                await _storage.SaveAsync(
+                    provider,
+                    key,
+                    upload.Content,
+                    upload.ContentType,
+                    HttpContext.RequestAborted);
+
+                previousAvatarPath = user.AvatarPath;
+                previousAvatarProvider = user.AvatarStorageProvider;
+                user.AvatarPath = key;
+                user.AvatarPublicId = publicId;
+                user.AvatarStorageProvider = provider;
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
                 Fill(user);
                 return Page();
             }
-
-            var relativeDir = Path.Combine("uploads", "avatars");
-            var absoluteDir = Path.Combine(_environment.WebRootPath, relativeDir);
-            Directory.CreateDirectory(absoluteDir);
-
-            var storedName = $"{user.Id}{extension}";
-            var absolutePath = Path.Combine(absoluteDir, storedName);
-
-            await using var stream = System.IO.File.Create(absolutePath);
-            await Input.Avatar.CopyToAsync(stream);
-            user.AvatarPath = Path.Combine(relativeDir, storedName);
         }
 
-        await _userManager.UpdateAsync(user);
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            foreach (var error in updateResult.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
+
+            Fill(user);
+            return Page();
+        }
+
+        if (!string.IsNullOrWhiteSpace(previousAvatarPath))
+        {
+            await _storage.DeleteAsync(previousAvatarProvider, previousAvatarPath, HttpContext.RequestAborted);
+        }
+
         return RedirectToPage("/Profile");
     }
 
@@ -132,7 +165,9 @@ public class ProfileEditModel : PageModel
 
     private void Fill(ApplicationUser user)
     {
-        CurrentAvatarPath = user.AvatarPath;
+        CurrentAvatarPath = user.AvatarPublicId.HasValue
+            ? $"attachments/{user.AvatarPublicId.Value:D}"
+            : null;
         FullName = user.FullName;
         UserName = user.UserName;
         Initials = string.Join("", (user.FullName ?? user.UserName ?? "CE")

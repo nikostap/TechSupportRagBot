@@ -5,11 +5,14 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Amazon.Runtime;
+using Amazon.S3;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Hubs;
 using TechSupportRagBot.Models;
 using TechSupportRagBot.Services;
 
+DotEnvLoader.LoadForLocalDevelopment();
 var builder = WebApplication.CreateBuilder(args);
 
 StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
@@ -101,6 +104,20 @@ builder.Services.Configure<AiTunnelOptions>(builder.Configuration.GetSection("Ai
 builder.Services.Configure<LibreTranslateOptions>(builder.Configuration.GetSection("LibreTranslate"));
 builder.Services.Configure<FastTextLanguageOptions>(builder.Configuration.GetSection("FastTextLanguage"));
 builder.Services.Configure<VideoProcessingOptions>(builder.Configuration.GetSection("VideoProcessing"));
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
+builder.Services.AddSingleton<IAmazonS3>(services =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value.S3;
+    AWSCredentials credentials = string.IsNullOrWhiteSpace(options.AccessKey) || string.IsNullOrWhiteSpace(options.SecretKey)
+        ? new AnonymousAWSCredentials()
+        : new BasicAWSCredentials(options.AccessKey, options.SecretKey);
+    return new AmazonS3Client(credentials, new AmazonS3Config
+    {
+        ServiceURL = options.ServiceUrl,
+        AuthenticationRegion = options.Region,
+        ForcePathStyle = true
+    });
+});
 builder.Services.AddHttpClient<OllamaClient>();
 builder.Services.AddHttpClient<QdrantKnowledgeClient>();
 builder.Services.AddHttpClient<ChatTranslationService>();
@@ -122,6 +139,9 @@ builder.Services.AddScoped<OperatorTimeTrackingService>();
 builder.Services.AddHttpClient<WorkCalendarService>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<AccessProfileService>();
+builder.Services.AddScoped<FileStorageService>();
+builder.Services.AddSingleton<FileUploadValidationService>();
+builder.Services.AddScoped<LegacyFileStorageMigrationService>();
 builder.Services.AddScoped<ChatTicketAccessService>();
 builder.Services.AddScoped<IVideoProcessingService, VideoProcessingService>();
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
@@ -158,6 +178,18 @@ if (builder.Configuration.GetValue("Security:UseHttpsRedirection", true))
 {
     app.UseHttpsRedirection();
 }
+
+// Старое публичное хранилище больше никогда не должно обслуживаться как статика.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/uploads"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
 
 // Подключаем маршрутизацию.
 app.UseStaticFiles();
@@ -276,6 +308,7 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
 
     await services.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+    await services.GetRequiredService<LegacyFileStorageMigrationService>().MigrateAsync();
     await TechSupportRagBot.Services.DbInitializer.SeedAsync(services);
     await services.GetRequiredService<SystemSettingsService>().SeedDefaultsAsync();
     var accessProfiles = services.GetRequiredService<AccessProfileService>();

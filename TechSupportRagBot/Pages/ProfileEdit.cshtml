@@ -47,7 +47,7 @@
     </label>
     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Avatar")
         <span class="file-picker">
-            <input asp-for="Input.Avatar" type="file" accept="image/*" data-avatar-crop-input />
+            <input asp-for="Input.Avatar" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" data-avatar-crop-input />
             <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseFile")</span>
         </span>
     </label>

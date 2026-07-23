@@ -16,9 +16,9 @@
 <div class="profile-admin-layout">
     <section class="panel profile-card">
         <div class="profile-head">
-            @if (!string.IsNullOrWhiteSpace(Model.EditedUser?.AvatarPath))
+            @if (Model.EditedUser?.AvatarPublicId != null)
             {
-                <img class="avatar avatar-large" src="/@Model.EditedUser.AvatarPath.Replace("\\", "/")" alt="avatar" />
+                <img class="avatar avatar-large" src="/attachments/@Model.EditedUser.AvatarPublicId.Value.ToString("D")" alt="avatar" />
             }
             else
             {

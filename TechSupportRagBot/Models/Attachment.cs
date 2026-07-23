@@ -19,11 +19,19 @@ public class Attachment
 
     public string FilePath { get; set; } = string.Empty;
 
+    public string StorageProvider { get; set; } = StorageProviderNames.Local;
+
+    public bool OwnsStoredFile { get; set; } = true;
+
     public string? TempFilePath { get; set; }
+
+    public string? TempStorageProvider { get; set; }
 
     public string? FinalFilePath { get; set; }
 
     public string? PreviewFilePath { get; set; }
+
+    public string? PreviewStorageProvider { get; set; }
 
     public string ContentType { get; set; } = string.Empty;
 
@@ -42,6 +50,12 @@ public class Attachment
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? ProcessedAt { get; set; }
+}
+
+public static class StorageProviderNames
+{
+    public const string Local = "Local";
+    public const string S3 = "S3";
 }
 
 public static class AttachmentStatuses

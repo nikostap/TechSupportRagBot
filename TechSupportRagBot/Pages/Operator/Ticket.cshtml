@@ -14,7 +14,8 @@
         return attachment.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
             || ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm";
     }
-    string FileUrl(string? path) => string.IsNullOrWhiteSpace(path) ? "" : "/" + path.Replace("\\", "/").TrimStart('/');
+    string FileUrl(Attachment attachment) => $"/attachments/{attachment.PublicId:D}";
+    string PreviewUrl(Attachment attachment) => $"/attachments/{attachment.PublicId:D}/preview";
 }
 
 @if (Model.Ticket != null)
@@ -96,8 +97,8 @@
                     <div class="attachments">
                     @foreach (var attachment in message.Attachments)
                     {
-                        var fileUrl = FileUrl(attachment.FinalFilePath ?? attachment.FilePath);
-                        var previewUrl = FileUrl(attachment.PreviewFilePath);
+                        var fileUrl = FileUrl(attachment);
+                        var previewUrl = PreviewUrl(attachment);
                         if (IsVideo(attachment))
                         {
                             <div class="video-card" data-video-attachment-id="@attachment.Id" data-video-status="@attachment.Status">

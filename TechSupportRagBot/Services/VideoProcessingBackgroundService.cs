@@ -64,6 +64,8 @@ public class VideoProcessingBackgroundService : BackgroundService
             attachment.FinalFilePath = result.FinalFilePath;
             attachment.PreviewFilePath = result.PreviewFilePath;
             attachment.FilePath = result.FinalFilePath;
+            attachment.StorageProvider = result.StorageProvider;
+            attachment.PreviewStorageProvider = result.StorageProvider;
             attachment.StoredFileName = Path.GetFileName(result.FinalFilePath);
             attachment.ContentType = "video/mp4";
             attachment.CompressedSize = result.CompressedSize;
@@ -96,8 +98,8 @@ public class VideoProcessingBackgroundService : BackgroundService
                 publicId = attachment.PublicId,
                 messageId = attachment.ChatMessageId,
                 status = attachment.Status,
-                finalPath = ToUrl(attachment.FinalFilePath ?? attachment.FilePath),
-                previewPath = ToUrl(attachment.PreviewFilePath)
+                finalPath = $"/attachments/{attachment.PublicId:D}",
+                previewPath = $"/attachments/{attachment.PublicId:D}/preview"
             });
     }
 
@@ -116,8 +118,4 @@ public class VideoProcessingBackgroundService : BackgroundService
             });
     }
 
-    private static string? ToUrl(string? path)
-    {
-        return string.IsNullOrWhiteSpace(path) ? null : "/" + path.Replace("\\", "/").TrimStart('/');
-    }
 }

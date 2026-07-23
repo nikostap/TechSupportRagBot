@@ -8,11 +8,16 @@ public class VideoProcessingService : IVideoProcessingService
 {
     private readonly IWebHostEnvironment _environment;
     private readonly VideoProcessingOptions _options;
+    private readonly FileStorageService _storage;
 
-    public VideoProcessingService(IWebHostEnvironment environment, IOptions<VideoProcessingOptions> options)
+    public VideoProcessingService(
+        IWebHostEnvironment environment,
+        IOptions<VideoProcessingOptions> options,
+        FileStorageService storage)
     {
         _environment = environment;
         _options = options.Value;
+        _storage = storage;
     }
 
     public async Task<VideoProcessingResult> ProcessAsync(
@@ -25,35 +30,60 @@ public class VideoProcessingService : IVideoProcessingService
             throw new InvalidOperationException("Не указан временный файл видео.");
         }
 
-        // Сначала создаем итоговое видео и превью, и только после успеха удаляем исходник.
-        var inputPath = ToAbsolutePath(attachment.TempFilePath);
-        if (progress != null)
+        var inputPath = await _storage.MaterializeToWorkFileAsync(
+            attachment.TempStorageProvider ?? attachment.StorageProvider,
+            attachment.TempFilePath,
+            Path.GetExtension(attachment.OriginalFileName),
+            cancellationToken);
+        string? finalPath = null;
+        string? previewPath = null;
+        try
         {
-            await progress(20, "Видео преобразовывается в MP4");
-        }
+            if (progress != null)
+            {
+                await progress(20, "Видео преобразовывается в MP4");
+            }
 
-        var finalPath = await ConvertToMp4Async(inputPath, attachment.PublicId, cancellationToken);
-        if (progress != null)
+            finalPath = await ConvertToMp4Async(inputPath, attachment.PublicId, cancellationToken);
+            if (progress != null)
+            {
+                await progress(80, "Создаётся превью");
+            }
+
+            previewPath = await CreatePreviewAsync(inputPath, attachment.PublicId, cancellationToken);
+            var provider = attachment.StorageProvider;
+            var finalKey = $"videos/{attachment.PublicId:N}.mp4";
+            var previewKey = $"previews/{attachment.PublicId:N}.jpg";
+            await using (var finalStream = File.OpenRead(finalPath))
+            {
+                await _storage.SaveAsync(provider, finalKey, finalStream, "video/mp4", cancellationToken);
+            }
+            await using (var previewStream = File.OpenRead(previewPath))
+            {
+                await _storage.SaveAsync(provider, previewKey, previewStream, "image/jpeg", cancellationToken);
+            }
+
+            if (_options.DeleteOriginalAfterSuccess)
+            {
+                await _storage.DeleteAsync(
+                    attachment.TempStorageProvider ?? attachment.StorageProvider,
+                    attachment.TempFilePath,
+                    cancellationToken);
+            }
+
+            return new VideoProcessingResult(provider, finalKey, previewKey, new FileInfo(finalPath).Length);
+        }
+        finally
         {
-            await progress(80, "Создаётся превью");
+            DeleteWorkFile(inputPath);
+            DeleteWorkFile(finalPath);
+            DeleteWorkFile(previewPath);
         }
-
-        var previewPath = await CreatePreviewAsync(inputPath, attachment.PublicId, cancellationToken);
-
-        if (_options.DeleteOriginalAfterSuccess && File.Exists(inputPath))
-        {
-            File.Delete(inputPath);
-        }
-
-        var finalRelative = ToRelativePath(finalPath);
-        var previewRelative = ToRelativePath(previewPath);
-        var size = new FileInfo(finalPath).Length;
-        return new VideoProcessingResult(finalRelative, previewRelative, size);
     }
 
     public async Task<string> ConvertToMp4Async(string inputPath, Guid attachmentId, CancellationToken cancellationToken)
     {
-        var outputDir = EnsureWebFolder("uploads", "videos");
+        var outputDir = EnsureWorkFolder();
         var outputPath = Path.Combine(outputDir, $"{attachmentId:N}.mp4");
         var scale = $"scale='min({_options.MaxWidth},iw)':-2";
         var args = $"-y -i {Quote(inputPath)} -c:v libx264 -preset {_options.Preset} -crf {_options.Crf} -vf {Quote(scale)} -c:a aac -b:a {_options.AudioBitrate} -movflags +faststart {Quote(outputPath)}";
@@ -63,7 +93,7 @@ public class VideoProcessingService : IVideoProcessingService
 
     public async Task<string> CreatePreviewAsync(string inputPath, Guid attachmentId, CancellationToken cancellationToken)
     {
-        var outputDir = EnsureWebFolder("uploads", "previews");
+        var outputDir = EnsureWorkFolder();
         var outputPath = Path.Combine(outputDir, $"{attachmentId:N}.jpg");
         var args = $"-y -ss 00:00:01 -i {Quote(inputPath)} -frames:v 1 {Quote(outputPath)}";
         try
@@ -128,24 +158,19 @@ public class VideoProcessingService : IVideoProcessingService
         return string.IsNullOrWhiteSpace(output) ? error : output;
     }
 
-    private string EnsureWebFolder(params string[] parts)
+    private string EnsureWorkFolder()
     {
-        var root = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        var path = Path.Combine(new[] { root }.Concat(parts).ToArray());
+        var path = Path.Combine(_environment.ContentRootPath, "App_Data", "VideoWork");
         Directory.CreateDirectory(path);
         return path;
     }
 
-    private string ToAbsolutePath(string relativePath)
+    private static void DeleteWorkFile(string? path)
     {
-        var root = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        return Path.Combine(root, relativePath);
-    }
-
-    private string ToRelativePath(string absolutePath)
-    {
-        var root = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        return Path.GetRelativePath(root, absolutePath).Replace("\\", "/");
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 
     private static string Quote(string value) => $"\"{value}\"";

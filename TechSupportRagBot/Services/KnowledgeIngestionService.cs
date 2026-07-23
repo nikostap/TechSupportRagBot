@@ -14,6 +14,7 @@ public class KnowledgeIngestionService
     private readonly RagAuditLogger _audit;
     private readonly DocumentTypeDetector _typeDetector;
     private readonly DocumentEnrichmentService _enrichment;
+    private readonly FileStorageService _storage;
 
     public KnowledgeIngestionService(
         ApplicationDbContext db,
@@ -23,7 +24,8 @@ public class KnowledgeIngestionService
         KnowledgeFtsService fts,
         RagAuditLogger audit,
         DocumentTypeDetector typeDetector,
-        DocumentEnrichmentService enrichment)
+        DocumentEnrichmentService enrichment,
+        FileStorageService storage)
     {
         _db = db;
         _extractor = extractor;
@@ -33,6 +35,7 @@ public class KnowledgeIngestionService
         _audit = audit;
         _typeDetector = typeDetector;
         _enrichment = enrichment;
+        _storage = storage;
     }
 
     public async Task IndexDocumentAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
@@ -55,7 +58,20 @@ public class KnowledgeIngestionService
 
         try
         {
-            var extracted = await _extractor.ExtractDocumentAsync(document.FilePath, document.Category, cancellationToken);
+            var localPath = await _storage.MaterializeToWorkFileAsync(
+                document.StorageProvider,
+                document.FilePath,
+                Path.GetExtension(document.OriginalFileName),
+                cancellationToken);
+            ExtractedDocument extracted;
+            try
+            {
+                extracted = await _extractor.ExtractDocumentAsync(localPath, document.Category, cancellationToken);
+            }
+            finally
+            {
+                File.Delete(localPath);
+            }
             extracted.DocumentType = _typeDetector.Detect(document.OriginalFileName, document.Category, extracted.FullText);
             DocumentEnrichmentDraft? enrichmentDraft = null;
             if (!string.IsNullOrWhiteSpace(document.EnrichmentJson))
@@ -357,10 +373,7 @@ public class KnowledgeIngestionService
         await _qdrant.DeletePointsAsync(document.Chunks.Select(x => x.QdrantPointId), cancellationToken);
         await _fts.DeleteChunksAsync(document.Chunks.Select(x => x.Id), cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(document.FilePath) && File.Exists(document.FilePath))
-        {
-            File.Delete(document.FilePath);
-        }
+        await _storage.DeleteAsync(document.StorageProvider, document.FilePath, cancellationToken);
 
         _db.KnowledgeDocuments.Remove(document);
         await _db.SaveChangesAsync(cancellationToken);

@@ -41,7 +41,9 @@ public class ProfileModel : PageModel
 
     private void Fill(ApplicationUser user)
     {
-        CurrentAvatarPath = user.AvatarPath;
+        CurrentAvatarPath = user.AvatarPublicId.HasValue
+            ? $"attachments/{user.AvatarPublicId.Value:D}"
+            : null;
         FullName = user.FullName;
         UserName = user.UserName;
         Email = user.Email;

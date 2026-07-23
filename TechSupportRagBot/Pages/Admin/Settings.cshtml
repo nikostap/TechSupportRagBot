@@ -160,6 +160,24 @@
             <input asp-for="Input.UnreadEmailDelayMinutes" type="number" min="5" max="1440" step="5" />
         </label>
 
+        <h2>Хранилище файлов</h2>
+        <label>Провайдер для новых файлов
+            <select asp-for="Input.StorageProvider">
+                <option value="Local">Локальное закрытое хранилище</option>
+                <option value="S3">Yandex Object Storage (S3)</option>
+            </select>
+        </label>
+        <p class="field-hint">
+            Переключение влияет только на новые файлы. Ранее сохранённые объекты продолжают читаться из своего провайдера.
+        </p>
+        @if (!Model.IsS3Configured)
+        {
+            <div class="notice-soft">
+                Для S3 задайте <code>Storage__S3__Bucket</code>, <code>Storage__S3__AccessKey</code>
+                и <code>Storage__S3__SecretKey</code> в <code>.env</code>.
+            </div>
+        }
+
         <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
         <div asp-validation-summary="All" class="text-danger"></div>
     </form>

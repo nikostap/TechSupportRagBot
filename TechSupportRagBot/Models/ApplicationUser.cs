@@ -38,6 +38,10 @@ public class ApplicationUser : IdentityUser
 
     public string? AvatarPath { get; set; }
 
+    public Guid? AvatarPublicId { get; set; }
+
+    public string? AvatarStorageProvider { get; set; }
+
     public int WorkdayStartMinutes { get; set; } = 8 * 60;
 
     public int WorkdayEndMinutes { get; set; } = 17 * 60;

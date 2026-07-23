@@ -16,11 +16,16 @@ public class QAModel : PageModel
 {
     private readonly ApplicationDbContext _db;
     private readonly QAService _qa;
+    private readonly FileUploadValidationService _uploads;
 
-    public QAModel(ApplicationDbContext db, QAService qa)
+    public QAModel(
+        ApplicationDbContext db,
+        QAService qa,
+        FileUploadValidationService uploads)
     {
         _db = db;
         _qa = qa;
+        _uploads = uploads;
     }
 
     [BindProperty]
@@ -217,20 +222,27 @@ public class QAModel : PageModel
         }
 
         var extension = Path.GetExtension(Import.File.FileName).ToLowerInvariant();
-        if (extension is not ".docx" and not ".txt" and not ".md")
+        if (extension is not ".docx" and not ".txt")
         {
             ModelState.AddModelError(string.Empty, ValidationText("QAValidationImportFileType"));
             await LoadAsync();
             return Page();
         }
 
-        await using var stream = Import.File.OpenReadStream();
         IReadOnlyList<QAEntry> parsed;
         try
         {
-            parsed = await _qa.PreviewImportAsync(Import.File.FileName, stream, Import.AutoParse, cancellationToken);
+            await using var upload = await _uploads.ValidateAsync(
+                Import.File,
+                UploadPurpose.Knowledge,
+                cancellationToken);
+            parsed = await _qa.PreviewImportAsync(
+                upload.OriginalFileName,
+                upload.Content,
+                Import.AutoParse,
+                cancellationToken);
         }
-        catch (DecoderFallbackException)
+        catch (Exception ex) when (ex is DecoderFallbackException or InvalidOperationException or InvalidDataException)
         {
             ModelState.AddModelError(string.Empty, ValidationText("QAValidationImportUtf8"));
             await LoadAsync();

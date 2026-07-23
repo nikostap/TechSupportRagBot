@@ -16,6 +16,7 @@ public class SettingsModel : PageModel
     private readonly DeepSeekOptions _deepSeekOptions;
     private readonly QwenOptions _qwenOptions;
     private readonly AiTunnelOptions _aiTunnelOptions;
+    private readonly StorageOptions _storageOptions;
 
     public SettingsModel(
         OllamaClient ollama,
@@ -23,7 +24,8 @@ public class SettingsModel : PageModel
         IOptions<OpenAiOptions> openAiOptions,
         IOptions<DeepSeekOptions> deepSeekOptions,
         IOptions<QwenOptions> qwenOptions,
-        IOptions<AiTunnelOptions> aiTunnelOptions)
+        IOptions<AiTunnelOptions> aiTunnelOptions,
+        IOptions<StorageOptions> storageOptions)
     {
         _ollama = ollama;
         _settings = settings;
@@ -31,6 +33,7 @@ public class SettingsModel : PageModel
         _deepSeekOptions = deepSeekOptions.Value;
         _qwenOptions = qwenOptions.Value;
         _aiTunnelOptions = aiTunnelOptions.Value;
+        _storageOptions = storageOptions.Value;
     }
 
     [BindProperty]
@@ -45,6 +48,11 @@ public class SettingsModel : PageModel
     public bool HasQwenKey => !string.IsNullOrWhiteSpace(_qwenOptions.ApiKey);
 
     public bool HasAiTunnelKey => !string.IsNullOrWhiteSpace(_aiTunnelOptions.ApiKey);
+
+    public bool IsS3Configured =>
+        !string.IsNullOrWhiteSpace(_storageOptions.S3.Bucket)
+        && !string.IsNullOrWhiteSpace(_storageOptions.S3.AccessKey)
+        && !string.IsNullOrWhiteSpace(_storageOptions.S3.SecretKey);
 
     public string? StatusMessage { get; private set; }
 
@@ -62,6 +70,12 @@ public class SettingsModel : PageModel
             return Page();
         }
 
+        if (Input.StorageProvider == "S3" && !IsS3Configured)
+        {
+            ModelState.AddModelError(nameof(Input.StorageProvider), "S3 нельзя включить, пока bucket, access key и secret key не заданы в .env.");
+            return Page();
+        }
+
         await _settings.SaveModelsAsync(
             Input.ChatProvider,
             Input.EmbeddingProvider,
@@ -70,6 +84,7 @@ public class SettingsModel : PageModel
             HttpContext.RequestAborted);
 
         await _settings.SaveNotificationsAsync(Input.UnreadEmailDelayMinutes, HttpContext.RequestAborted);
+        await _settings.SaveStorageProviderAsync(Input.StorageProvider, HttpContext.RequestAborted);
         StatusMessage = "Настройки сохранены.";
         await LoadAsync();
         return Page();
@@ -86,6 +101,7 @@ public class SettingsModel : PageModel
             Input.ChatModel = await _settings.GetChatModelAsync(HttpContext.RequestAborted);
             Input.EmbeddingModel = await _settings.GetEmbeddingModelAsync(HttpContext.RequestAborted);
             Input.UnreadEmailDelayMinutes = await _settings.GetUnreadEmailDelayMinutesAsync(HttpContext.RequestAborted);
+            Input.StorageProvider = await _settings.GetStorageProviderAsync(HttpContext.RequestAborted);
         }
     }
 
@@ -124,5 +140,8 @@ public class SettingsModel : PageModel
 
         [Range(5, 1440)]
         public int UnreadEmailDelayMinutes { get; set; } = 60;
+
+        [Required]
+        public string StorageProvider { get; set; } = "Local";
     }
 }

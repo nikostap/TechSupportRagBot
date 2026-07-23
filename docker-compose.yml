@@ -9,7 +9,7 @@ services:
       - "5028:8080"
     volumes:
       - app_data:/app/App_Data
-      - app_uploads:/app/wwwroot/uploads
+      - app_uploads:/app/App_Data/Uploads
     depends_on:
       postgres:
         condition: service_healthy

@@ -20,7 +20,8 @@ public class QAService
     private readonly QdrantKnowledgeClient _qdrant;
     private readonly KnowledgeFtsService _fts;
     private readonly RagAuditLogger _audit;
-    private readonly IWebHostEnvironment _environment;
+    private readonly FileStorageService _storage;
+    private readonly FileUploadValidationService _uploads;
 
     public QAService(
         ApplicationDbContext db,
@@ -28,14 +29,16 @@ public class QAService
         QdrantKnowledgeClient qdrant,
         KnowledgeFtsService fts,
         RagAuditLogger audit,
-        IWebHostEnvironment environment)
+        FileStorageService storage,
+        FileUploadValidationService uploads)
     {
         _db = db;
         _ollama = ollama;
         _qdrant = qdrant;
         _fts = fts;
         _audit = audit;
-        _environment = environment;
+        _storage = storage;
+        _uploads = uploads;
     }
 
     public async Task<QAEntry> CreateAsync(QAEntry entry, CancellationToken cancellationToken = default)
@@ -94,7 +97,7 @@ public class QAService
 
         foreach (var attachment in entry.Attachments)
         {
-            DeletePhysicalFile(attachment.FilePath);
+            await _storage.DeleteAsync(attachment.StorageProvider, attachment.FilePath, cancellationToken);
         }
 
         _db.QAEntries.Remove(entry);
@@ -118,50 +121,42 @@ public class QAService
             return 0;
         }
 
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        var relativeDir = Path.Combine("uploads", "qa", qaEntryId.ToString());
-        var absoluteDir = Path.Combine(webRoot, relativeDir);
-        Directory.CreateDirectory(absoluteDir);
-
         var saved = 0;
         var skipped = new List<object>();
         foreach (var file in fileList.Where(x => x.Length > 0))
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var allowed = extension is ".jpg" or ".jpeg" or ".jfif" or ".png" or ".gif" or ".webp" or ".bmp" or ".heic" or ".heif" or ".tif" or ".tiff"
-                or ".mp4" or ".mov" or ".webm" or ".mkv";
-            var isMedia = file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
-                || file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
-                || file.ContentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase);
-            if (!allowed || !isMedia)
+            try
+            {
+                await using var upload = await _uploads.ValidateAsync(file, UploadPurpose.QA, cancellationToken);
+                var publicId = Guid.NewGuid();
+                var storedName = $"{publicId:N}{upload.Extension}";
+                var key = $"qa/{qaEntryId}/{storedName}";
+                var provider = await _storage.GetSelectedProviderAsync(cancellationToken);
+                await _storage.SaveAsync(provider, key, upload.Content, upload.ContentType, cancellationToken);
+
+                _db.QAAttachments.Add(new QAAttachment
+                {
+                    PublicId = publicId,
+                    QAEntryId = qaEntryId,
+                    OriginalFileName = upload.OriginalFileName,
+                    StoredFileName = storedName,
+                    FilePath = key,
+                    StorageProvider = provider,
+                    ContentType = upload.ContentType,
+                    SizeBytes = upload.Length
+                });
+                saved++;
+            }
+            catch (InvalidOperationException ex)
             {
                 skipped.Add(new
                 {
                     file.FileName,
                     file.ContentType,
                     file.Length,
-                    reason = !allowed ? "extension is not allowed" : "content type is not media"
+                    reason = ex.Message
                 });
-                continue;
             }
-
-            var storedName = $"{Guid.NewGuid():N}{extension}";
-            var absolutePath = Path.Combine(absoluteDir, storedName);
-            await using (var stream = File.Create(absolutePath))
-            {
-                await file.CopyToAsync(stream, cancellationToken);
-            }
-
-            _db.QAAttachments.Add(new QAAttachment
-            {
-                QAEntryId = qaEntryId,
-                OriginalFileName = file.FileName,
-                StoredFileName = storedName,
-                FilePath = Path.Combine(relativeDir, storedName),
-                ContentType = file.ContentType,
-                SizeBytes = file.Length
-            });
-            saved++;
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -184,7 +179,7 @@ public class QAService
             return false;
         }
 
-        DeletePhysicalFile(attachment.FilePath);
+        await _storage.DeleteAsync(attachment.StorageProvider, attachment.FilePath, cancellationToken);
         _db.QAAttachments.Remove(attachment);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
@@ -532,21 +527,6 @@ public class QAService
         return match.Groups[2].Success
             ? $"{match.Groups[1].Value}-{match.Groups[2].Value}"
             : match.Groups[1].Value;
-    }
-
-    private void DeletePhysicalFile(string? relativePath)
-    {
-        if (string.IsNullOrWhiteSpace(relativePath))
-        {
-            return;
-        }
-
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        var fullPath = Path.Combine(webRoot, relativePath);
-        if (File.Exists(fullPath))
-        {
-            File.Delete(fullPath);
-        }
     }
 
     public static string BuildTxtTemplate()

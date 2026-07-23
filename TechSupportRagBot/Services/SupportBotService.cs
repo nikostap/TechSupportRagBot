@@ -316,7 +316,14 @@ public class SupportBotService
             .AsNoTracking()
             .Where(x => qaIds.Contains(x.QAEntryId))
             .OrderBy(x => x.Id)
-            .Select(x => new BotAnswerMedia(x.OriginalFileName, x.StoredFileName, x.FilePath, x.ContentType, x.SizeBytes))
+            .Select(x => new BotAnswerMedia(
+                x.PublicId,
+                x.OriginalFileName,
+                x.StoredFileName,
+                x.FilePath,
+                x.StorageProvider,
+                x.ContentType,
+                x.SizeBytes))
             .ToListAsync(cancellationToken);
     }
 
@@ -605,8 +612,10 @@ public sealed record BotAnswerResult(string Text, bool ShouldEscalate, IReadOnly
 }
 
 public sealed record BotAnswerMedia(
+    Guid PublicId,
     string OriginalFileName,
     string StoredFileName,
     string FilePath,
+    string StorageProvider,
     string ContentType,
     long SizeBytes);

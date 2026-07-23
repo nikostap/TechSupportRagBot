@@ -254,6 +254,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .Property(x => x.Status)
             .HasMaxLength(40);
 
+        builder.Entity<Attachment>()
+            .HasIndex(x => x.PublicId)
+            .IsUnique();
+
+        builder.Entity<Attachment>().Property(x => x.StorageProvider).HasMaxLength(20);
+        builder.Entity<Attachment>().Property(x => x.TempStorageProvider).HasMaxLength(20);
+        builder.Entity<Attachment>().Property(x => x.PreviewStorageProvider).HasMaxLength(20);
+
         builder.Entity<ChatMessageTranslation>()
             .HasIndex(x => new { x.ChatMessageId, x.TargetLanguage })
             .IsUnique();
@@ -389,6 +397,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .Property(x => x.EnrichmentModel)
             .HasMaxLength(200);
 
+        builder.Entity<KnowledgeDocument>()
+            .HasIndex(x => x.PublicId)
+            .IsUnique();
+
+        builder.Entity<KnowledgeDocument>().Property(x => x.StorageProvider).HasMaxLength(20);
+
         // Ограничиваем длину категории чанка.
         builder.Entity<KnowledgeChunk>()
             .Property(x => x.Category)
@@ -485,6 +499,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<QAAttachment>()
             .Property(x => x.StoredFileName)
             .HasMaxLength(255);
+
+        builder.Entity<QAAttachment>()
+            .HasIndex(x => x.PublicId)
+            .IsUnique();
+
+        builder.Entity<QAAttachment>().Property(x => x.StorageProvider).HasMaxLength(20);
+
+        builder.Entity<ApplicationUser>()
+            .HasIndex(x => x.AvatarPublicId)
+            .IsUnique();
+
+        builder.Entity<ApplicationUser>().Property(x => x.AvatarStorageProvider).HasMaxLength(20);
 
         builder.Entity<QAEntry>()
             .HasOne(x => x.CreatedByUser)

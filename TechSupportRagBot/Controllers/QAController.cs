@@ -15,11 +15,16 @@ public class QAController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly QAService _qa;
+    private readonly FileUploadValidationService _uploads;
 
-    public QAController(ApplicationDbContext db, QAService qa)
+    public QAController(
+        ApplicationDbContext db,
+        QAService qa,
+        FileUploadValidationService uploads)
     {
         _db = db;
         _qa = qa;
+        _uploads = uploads;
     }
 
     [HttpGet]
@@ -81,13 +86,18 @@ public class QAController : ControllerBase
         }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (extension is not ".docx" and not ".txt" and not ".md")
+        if (extension is not ".docx" and not ".txt")
         {
-            return BadRequest(new { error = "Supported formats: DOCX, TXT, MD." });
+            return BadRequest(new { error = "Supported formats: DOCX, TXT." });
         }
 
-        await using var stream = file.OpenReadStream();
-        var items = await _qa.ImportAsync(file.FileName, stream, autoParse, User.FindFirstValue(ClaimTypes.NameIdentifier), cancellationToken);
+        await using var upload = await _uploads.ValidateAsync(file, UploadPurpose.Knowledge, cancellationToken);
+        var items = await _qa.ImportAsync(
+            upload.OriginalFileName,
+            upload.Content,
+            autoParse,
+            User.FindFirstValue(ClaimTypes.NameIdentifier),
+            cancellationToken);
         return Ok(new { imported = items.Count, items });
     }
 

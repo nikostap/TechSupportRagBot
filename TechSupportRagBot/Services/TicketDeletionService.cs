@@ -7,16 +7,16 @@ namespace TechSupportRagBot.Services;
 public class TicketDeletionService
 {
     private readonly ApplicationDbContext _db;
-    private readonly IWebHostEnvironment _environment;
+    private readonly FileStorageService _storage;
     private readonly KnowledgeIngestionService _knowledge;
 
     public TicketDeletionService(
         ApplicationDbContext db,
-        IWebHostEnvironment environment,
+        FileStorageService storage,
         KnowledgeIngestionService knowledge)
     {
         _db = db;
-        _environment = environment;
+        _storage = storage;
         _knowledge = knowledge;
     }
 
@@ -44,7 +44,7 @@ public class TicketDeletionService
 
         foreach (var attachment in ticket.Messages.SelectMany(x => x.Attachments))
         {
-            DeletePhysicalAttachment(attachment);
+            await DeletePhysicalAttachmentAsync(attachment, cancellationToken);
         }
 
         _db.Attachments.RemoveRange(ticket.Messages.SelectMany(x => x.Attachments));
@@ -79,25 +79,22 @@ public class TicketDeletionService
         }
     }
 
-    private void DeletePhysicalAttachment(Attachment attachment)
+    private async Task DeletePhysicalAttachmentAsync(Attachment attachment, CancellationToken cancellationToken)
     {
-        var webRoot = _environment.WebRootPath
-            ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-
-        foreach (var path in new[] { attachment.FilePath, attachment.TempFilePath, attachment.FinalFilePath, attachment.PreviewFilePath }
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct())
+        if (!attachment.OwnsStoredFile)
         {
-            if (path!.Replace("\\", "/").StartsWith("uploads/qa/", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var fullPath = Path.Combine(webRoot, path!);
-            if (File.Exists(fullPath))
-            {
-                File.Delete(fullPath);
-            }
+            return;
         }
+
+        await _storage.DeleteAsync(attachment.StorageProvider, attachment.FilePath, cancellationToken);
+        await _storage.DeleteAsync(
+            attachment.TempStorageProvider ?? attachment.StorageProvider,
+            attachment.TempFilePath,
+            cancellationToken);
+        await _storage.DeleteAsync(attachment.StorageProvider, attachment.FinalFilePath, cancellationToken);
+        await _storage.DeleteAsync(
+            attachment.PreviewStorageProvider ?? attachment.StorageProvider,
+            attachment.PreviewFilePath,
+            cancellationToken);
     }
 }

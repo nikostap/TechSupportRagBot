@@ -17,17 +17,20 @@ public sealed class DocumentEnrichmentService
     private readonly OllamaClient _ollama;
     private readonly SystemSettingsService _settings;
     private readonly ILogger<DocumentEnrichmentService> _logger;
+    private readonly FileStorageService _storage;
 
     public DocumentEnrichmentService(
         DocumentTextExtractor extractor,
         OllamaClient ollama,
         SystemSettingsService settings,
-        ILogger<DocumentEnrichmentService> logger)
+        ILogger<DocumentEnrichmentService> logger,
+        FileStorageService storage)
     {
         _extractor = extractor;
         _ollama = ollama;
         _settings = settings;
         _logger = logger;
+        _storage = storage;
     }
 
     public async Task<DocumentEnrichmentDraft> PrepareAsync(
@@ -35,7 +38,7 @@ public sealed class DocumentEnrichmentService
         string mode,
         CancellationToken cancellationToken = default)
     {
-        var extracted = await _extractor.ExtractDocumentAsync(document.FilePath, document.Category, cancellationToken);
+        var extracted = await ExtractAsync(document, cancellationToken);
         var chunks = TextChunker.SplitDetailed(extracted, document.MachineModel);
         var draft = CreateBaseDraft(document, extracted, chunks, mode);
 
@@ -55,7 +58,7 @@ public sealed class DocumentEnrichmentService
 
     public async Task HydrateTextAsync(KnowledgeDocument document, DocumentEnrichmentDraft draft, CancellationToken cancellationToken = default)
     {
-        var extracted = await _extractor.ExtractDocumentAsync(document.FilePath, document.Category, cancellationToken);
+        var extracted = await ExtractAsync(document, cancellationToken);
         var chunks = TextChunker.SplitDetailed(extracted, draft.MachineModel ?? document.MachineModel);
         foreach (var item in draft.Chunks)
         {
@@ -64,6 +67,25 @@ public sealed class DocumentEnrichmentService
     }
 
     public string Serialize(DocumentEnrichmentDraft draft) => JsonSerializer.Serialize(draft, JsonOptions);
+
+    private async Task<ExtractedDocument> ExtractAsync(
+        KnowledgeDocument document,
+        CancellationToken cancellationToken)
+    {
+        var localPath = await _storage.MaterializeToWorkFileAsync(
+            document.StorageProvider,
+            document.FilePath,
+            Path.GetExtension(document.OriginalFileName),
+            cancellationToken);
+        try
+        {
+            return await _extractor.ExtractDocumentAsync(localPath, document.Category, cancellationToken);
+        }
+        finally
+        {
+            File.Delete(localPath);
+        }
+    }
 
     public DocumentEnrichmentDraft Deserialize(string json)
     {

@@ -58,11 +58,11 @@
                 {
                     if (media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                     {
-                        <img src="@media.FilePath" alt="@media.OriginalFileName" />
+                        <img src="/attachments/@media.PublicId.ToString("D")" alt="@media.OriginalFileName" />
                     }
                     else if (media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
                     {
-                        <video src="@media.FilePath" controls></video>
+                        <video src="/attachments/@media.PublicId.ToString("D")" controls></video>
                     }
                 }
             </div>

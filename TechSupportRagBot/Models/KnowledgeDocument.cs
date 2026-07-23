@@ -18,6 +18,8 @@ public class KnowledgeDocument
     /// </summary>
     public int Id { get; set; }
 
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+
     /// <summary>
     /// Оригинальное имя файла, которое загрузил администратор.
     /// Например: manual_alf033.pdf.
@@ -33,10 +35,12 @@ public class KnowledgeDocument
     public string StoredFileName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Путь к файлу на сервере.
-    /// Например: uploads/knowledge/9f7a2c_manual_alf033.pdf.
+    /// Непубличный ключ объекта в выбранном хранилище.
+    /// Например: qa/knowledge/9f7a2c_manual_alf033.pdf.
     /// </summary>
     public string FilePath { get; set; } = string.Empty;
+
+    public string StorageProvider { get; set; } = StorageProviderNames.Local;
 
     /// <summary>
     /// Категория документа.
