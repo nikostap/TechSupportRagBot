@@ -291,12 +291,6 @@
                     <option value="@status">@status</option>
                 }
             </select>
-            <select asp-for="PageSize" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "RowsPerPage", "На странице")">
-                @foreach (var size in Model.PageSizeOptions)
-                {
-                    <option value="@size">@size</option>
-                }
-            </select>
             <select asp-for="SortOrder" id="qa-sort-order" aria-label="Сортировка">
                 <option value="updated-desc">Сначала обновлённые</option>
                 <option value="updated-asc">Сначала старые</option>
@@ -305,15 +299,12 @@
                 <option value="status-asc">По статусу</option>
                 <option value="model-asc">По модели</option>
             </select>
-            <input type="hidden" name="PageNumber" value="1" />
             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
             <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
         </form>
     </div>
 
     <form method="post" asp-page-handler="Bulk" id="qa-bulk-form" class="qa-bulk-bar">
-        <input type="hidden" asp-for="PageNumber" />
-        <input type="hidden" asp-for="PageSize" />
         <input type="hidden" asp-for="StatusFilter" />
         <input type="hidden" asp-for="MachineFilter" />
         <input type="hidden" asp-for="SerialFilter" />
@@ -327,9 +318,31 @@
     </form>
 
     <div class="qa-list" id="qa-entry-list">
-        @foreach (var entry in Model.Entries)
+        @foreach (var modelGroup in Model.Entries
+            .GroupBy(entry => string.IsNullOrWhiteSpace(entry.MachineModel) ? string.Empty : entry.MachineModel!)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
         {
-            <details class="qa-card qa-compact-card" data-updated="@entry.UpdatedAt.Ticks" data-question="@entry.Question" data-status="@entry.Status" data-model="@entry.MachineModel">
+            <details class="qa-model-group" data-model-group data-model="@modelGroup.Key">
+                <summary class="qa-group-summary qa-model-summary">
+                    <input class="qa-select-group qa-select-model" type="checkbox" aria-label="Выбрать все QA модели @Display(modelGroup.Key)" onclick="event.stopPropagation()" />
+                    <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model"): @Display(modelGroup.Key)</strong>
+                    <span>QA: @modelGroup.Count()</span>
+                </summary>
+                <div class="qa-model-group-body">
+                    @foreach (var serialGroup in modelGroup
+                        .GroupBy(entry => string.IsNullOrWhiteSpace(entry.SerialNumber) ? string.Empty : entry.SerialNumber!)
+                        .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <details class="qa-serial-group" data-serial-group data-serial="@serialGroup.Key">
+                            <summary class="qa-group-summary qa-serial-summary">
+                                <input class="qa-select-group qa-select-serial" type="checkbox" aria-label="Выбрать все QA серийного номера @Display(serialGroup.Key)" onclick="event.stopPropagation()" />
+                                <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRangeShort"): @Display(serialGroup.Key)</strong>
+                                <span>QA: @serialGroup.Count()</span>
+                            </summary>
+                            <div class="qa-group-entries">
+                                @foreach (var entry in serialGroup)
+                                {
+            <details class="qa-card qa-compact-card" data-updated="@entry.UpdatedAt.Ticks" data-question="@entry.Question" data-status="@entry.Status" data-model="@entry.MachineModel" data-serial="@entry.SerialNumber">
                 <summary class="qa-card-summary">
                     <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="Выбрать QA" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
@@ -382,7 +395,7 @@
                         </div>
                     }
                     <div class="form-actions">
-                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-PageNumber="@Model.PageNumber" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
+                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
                         <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
                             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Verify")</button>
                         </form>
@@ -395,20 +408,15 @@
                     </div>
                 </div>
             </details>
+                                }
+                            </div>
+                        </details>
+                    }
+                </div>
+            </details>
         }
     </div>
 
-    <div class="pagination">
-        @if (Model.PageNumber > 1)
-        {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber - 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "Previous")</a>
-        }
-        <span>@Model.PageNumber / @Model.TotalPages</span>
-        @if (Model.PageNumber < Model.TotalPages)
-        {
-            <a class="btn-secondary" asp-route-PageNumber="@(Model.PageNumber + 1)" asp-route-PageSize="@Model.PageSize" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "Next")</a>
-        }
-    </div>
 </section>
 
 <script>
@@ -417,21 +425,60 @@
     const sort = document.getElementById('qa-sort-order');
     const all = document.getElementById('qa-select-all');
     const count = document.getElementById('qa-selected-count');
-    const checks = () => [...document.querySelectorAll('.qa-select-entry')];
-    const updateCount = () => count.textContent = `Выбрано: ${checks().filter(x => x.checked).length}`;
-    all?.addEventListener('change', () => { checks().forEach(x => x.checked = all.checked); updateCount(); });
-    checks().forEach(x => x.addEventListener('change', updateCount));
-    sort?.addEventListener('change', () => {
-        const cards = [...list.querySelectorAll('.qa-card')];
-        const mode = sort.value;
-        cards.sort((a, b) => {
-            if (mode === 'updated-desc') return Number(b.dataset.updated) - Number(a.dataset.updated);
-            if (mode === 'updated-asc') return Number(a.dataset.updated) - Number(b.dataset.updated);
-            const key = mode.startsWith('question') ? 'question' : mode.startsWith('status') ? 'status' : 'model';
-            const result = (a.dataset[key] || '').localeCompare(b.dataset[key] || '', 'ru');
-            return mode === 'question-desc' ? -result : result;
+    const checks = (scope = document) => [...scope.querySelectorAll('.qa-select-entry')];
+
+    function syncCheckbox(checkbox, entries) {
+        const selected = entries.filter(entry => entry.checked).length;
+        checkbox.checked = entries.length > 0 && selected === entries.length;
+        checkbox.indeterminate = selected > 0 && selected < entries.length;
+    }
+
+    function updateSelectionState() {
+        document.querySelectorAll('[data-serial-group]').forEach(group => {
+            syncCheckbox(group.querySelector('.qa-select-serial'), checks(group));
         });
-        cards.forEach(card => list.appendChild(card));
+        document.querySelectorAll('[data-model-group]').forEach(group => {
+            syncCheckbox(group.querySelector('.qa-select-model'), checks(group));
+        });
+        const entries = checks();
+        if (all) {
+            syncCheckbox(all, entries);
+        }
+        count.textContent = `Выбрано: ${entries.filter(entry => entry.checked).length}`;
+    }
+
+    all?.addEventListener('change', () => {
+        checks().forEach(entry => entry.checked = all.checked);
+        updateSelectionState();
+    });
+    document.querySelectorAll('.qa-select-model').forEach(groupCheckbox => {
+        groupCheckbox.addEventListener('change', () => {
+            checks(groupCheckbox.closest('[data-model-group]')).forEach(entry => entry.checked = groupCheckbox.checked);
+            updateSelectionState();
+        });
+    });
+    document.querySelectorAll('.qa-select-serial').forEach(groupCheckbox => {
+        groupCheckbox.addEventListener('change', () => {
+            checks(groupCheckbox.closest('[data-serial-group]')).forEach(entry => entry.checked = groupCheckbox.checked);
+            updateSelectionState();
+        });
+    });
+    checks().forEach(entry => entry.addEventListener('change', updateSelectionState));
+    updateSelectionState();
+
+    sort?.addEventListener('change', () => {
+        const mode = sort.value;
+        list.querySelectorAll('.qa-group-entries').forEach(container => {
+            const cards = [...container.querySelectorAll(':scope > .qa-card')];
+            cards.sort((a, b) => {
+                if (mode === 'updated-desc') return Number(b.dataset.updated) - Number(a.dataset.updated);
+                if (mode === 'updated-asc') return Number(a.dataset.updated) - Number(b.dataset.updated);
+                const key = mode.startsWith('question') ? 'question' : mode.startsWith('status') ? 'status' : 'model';
+                const result = (a.dataset[key] || '').localeCompare(b.dataset[key] || '', 'ru');
+                return mode === 'question-desc' ? -result : result;
+            });
+            cards.forEach(card => container.appendChild(card));
+        });
         document.querySelectorAll('input[name="SortOrder"]').forEach(x => x.value = mode);
     });
 })();
@@ -467,6 +514,9 @@
 <script>
 (() => {
     const machines = @Html.Raw(Model.MachineHintsJson);
+    const validationMessages = {
+        serialNumber: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TechSupportRagBot.Services.UiText.T(HttpContext, "QAValidationSerialNumber")))
+    };
 
     function normalize(value) {
         return (value || "").trim().toLowerCase();
@@ -518,6 +568,12 @@
     }
 
     document.querySelectorAll("[data-serial-rule]").forEach(input => {
+        input.addEventListener("invalid", () => {
+            if (input.validity.patternMismatch) {
+                input.setCustomValidity(validationMessages.serialNumber);
+            }
+        });
+        input.addEventListener("input", () => input.setCustomValidity(""));
         input.addEventListener("blur", () => normalizeSerialRule(input));
         input.form?.addEventListener("submit", () => normalizeSerialRule(input));
     });

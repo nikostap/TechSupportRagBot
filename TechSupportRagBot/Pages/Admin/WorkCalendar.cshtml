@@ -24,7 +24,7 @@
         <h2>Календарь на год</h2>
         <form method="get" class="form-inline">
             <label>Год <input asp-for="Year" type="number" min="2000" max="2100" /></label>
-            <button class="btn-soft" type="submit">Показать</button>
+            <button class="btn-secondary" type="submit">Показать</button>
         </form>
         <form method="post" asp-page-handler="Preview" class="form-inline">
             <input type="hidden" asp-for="Year" />

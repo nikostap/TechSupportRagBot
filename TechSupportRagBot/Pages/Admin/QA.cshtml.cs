@@ -14,10 +14,6 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize(Roles = "Admin")]
 public class QAModel : PageModel
 {
-    private static readonly int[] AllowedPageSizes = [10, 20, 50, 100];
-    private const int DefaultPageSize = 10;
-    private const string PageSizeCookiePrefix = "qa-page-size";
-
     private readonly ApplicationDbContext _db;
     private readonly QAService _qa;
 
@@ -61,21 +57,13 @@ public class QAModel : PageModel
     public string? SearchQuery { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string SearchMode { get; set; } = "Keyword";
+    public string? SearchMode { get; set; } = "Keyword";
 
     [BindProperty(SupportsGet = true)]
-    public int PageNumber { get; set; } = 1;
-
-    [BindProperty(SupportsGet = true)]
-    public int? PageSize { get; set; }
-
-    [BindProperty(SupportsGet = true)]
-    public string SortOrder { get; set; } = "updated-desc";
+    public string? SortOrder { get; set; } = "updated-desc";
 
     [BindProperty]
     public List<int> SelectedIds { get; set; } = new();
-
-    public int[] PageSizeOptions => AllowedPageSizes;
 
     public List<QAEntry> Entries { get; private set; } = new();
 
@@ -92,8 +80,6 @@ public class QAModel : PageModel
     public List<QAAttachment> EditAttachments { get; private set; } = new();
 
     public string MachineHintsJson { get; private set; } = "[]";
-
-    public int TotalPages { get; private set; }
 
     public string[] Statuses { get; } =
     [
@@ -138,7 +124,7 @@ public class QAModel : PageModel
     {
         if (string.IsNullOrWhiteSpace(Input.Question) || string.IsNullOrWhiteSpace(Input.Answer))
         {
-            ModelState.AddModelError(string.Empty, "Укажите вопрос и ответ.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationQuestionAndAnswer"));
             await LoadAsync();
             return Page();
         }
@@ -147,7 +133,7 @@ public class QAModel : PageModel
         var savedAttachments = await _qa.AddAttachmentsAsync(entry.Id, MediaFiles, cancellationToken);
         if (MediaFiles.Any(x => x.Length > 0) && savedAttachments == 0)
         {
-            ModelState.AddModelError(string.Empty, "Медиафайлы не сохранены. Проверьте формат: JPG, PNG, GIF, WEBP, MP4, MOV, WEBM или MKV.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationMediaNotSaved"));
             await LoadAsync();
             return Page();
         }
@@ -160,7 +146,7 @@ public class QAModel : PageModel
         var hadSelectedFiles = MediaFiles.Any(x => x.Length > 0);
         if (string.IsNullOrWhiteSpace(Input.Question) || string.IsNullOrWhiteSpace(Input.Answer))
         {
-            ModelState.AddModelError(string.Empty, "Для генерации метаданных укажите вопрос и ответ.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationMetadataQuestionAndAnswer"));
             await LoadAsync();
             return Page();
         }
@@ -170,7 +156,7 @@ public class QAModel : PageModel
         ModelState.Clear();
         if (hadSelectedFiles)
         {
-            ModelState.AddModelError(string.Empty, "После заполнения метаданных через LLM выберите медиафайлы заново перед сохранением.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationReselectMedia"));
         }
         await LoadAsync();
         return Page();
@@ -182,7 +168,7 @@ public class QAModel : PageModel
         var hadSelectedFiles = EditMediaFiles.Any(x => x.Length > 0);
         if (string.IsNullOrWhiteSpace(EditInput.Question) || string.IsNullOrWhiteSpace(EditInput.Answer))
         {
-            ModelState.AddModelError(string.Empty, "Для генерации метаданных укажите вопрос и ответ.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationMetadataQuestionAndAnswer"));
             await LoadAsync();
             return Page();
         }
@@ -192,7 +178,7 @@ public class QAModel : PageModel
         ModelState.Clear();
         if (hadSelectedFiles)
         {
-            ModelState.AddModelError(string.Empty, "После заполнения метаданных через LLM выберите медиафайлы заново перед сохранением.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationReselectMedia"));
         }
         await LoadAsync();
         return Page();
@@ -203,7 +189,7 @@ public class QAModel : PageModel
         if (string.IsNullOrWhiteSpace(EditInput.Question) || string.IsNullOrWhiteSpace(EditInput.Answer))
         {
             EditId = id;
-            ModelState.AddModelError(string.Empty, "Укажите вопрос и ответ.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationQuestionAndAnswer"));
             await LoadAsync();
             return Page();
         }
@@ -213,7 +199,7 @@ public class QAModel : PageModel
         if (EditMediaFiles.Any(x => x.Length > 0) && savedAttachments == 0)
         {
             EditId = id;
-            ModelState.AddModelError(string.Empty, "Медиафайлы не сохранены. Проверьте формат: JPG, PNG, GIF, WEBP, MP4, MOV, WEBM или MKV.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationMediaNotSaved"));
             await LoadAsync();
             return Page();
         }
@@ -225,7 +211,7 @@ public class QAModel : PageModel
     {
         if (Import.File == null)
         {
-            ModelState.AddModelError(string.Empty, "Выберите DOCX, TXT или MD файл.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationSelectImportFile"));
             await LoadAsync();
             return Page();
         }
@@ -233,7 +219,7 @@ public class QAModel : PageModel
         var extension = Path.GetExtension(Import.File.FileName).ToLowerInvariant();
         if (extension is not ".docx" and not ".txt" and not ".md")
         {
-            ModelState.AddModelError(string.Empty, "QA импорт поддерживает DOCX, TXT и MD.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationImportFileType"));
             await LoadAsync();
             return Page();
         }
@@ -246,14 +232,14 @@ public class QAModel : PageModel
         }
         catch (DecoderFallbackException)
         {
-            ModelState.AddModelError(string.Empty, "TXT и MD файлы должны быть сохранены в кодировке UTF-8.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationImportUtf8"));
             await LoadAsync();
             return Page();
         }
         PreviewEntries = parsed.Select(FromEntry).ToList();
         if (PreviewEntries.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "В документе не найдены пары вопрос-ответ.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationNoPairs"));
         }
 
         await LoadAsync();
@@ -269,7 +255,7 @@ public class QAModel : PageModel
 
         if (selected.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "Выберите хотя бы одну QA-запись для импорта.");
+            ModelState.AddModelError(string.Empty, ValidationText("QAValidationSelectEntry"));
             await LoadAsync();
             return Page();
         }
@@ -320,7 +306,7 @@ public class QAModel : PageModel
             }
         }
 
-        return RedirectToPage(new { PageNumber, PageSize, StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
+        return RedirectToPage(new { StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
     }
 
     public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId, CancellationToken cancellationToken)
@@ -331,9 +317,6 @@ public class QAModel : PageModel
 
     private async Task LoadAsync()
     {
-        var pageSize = ResolvePageSize();
-        PageNumber = Math.Max(1, PageNumber);
-
         var query = _db.QAEntries
             .AsNoTracking()
             .Include(x => x.Attachments)
@@ -384,18 +367,12 @@ public class QAModel : PageModel
             }
         }
 
-        var totalCount = await query.CountAsync();
-        TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
-        PageNumber = Math.Min(PageNumber, TotalPages);
-
         if (semanticIds != null)
         {
             var rank = semanticIds.Select((id, index) => new { id, index }).ToDictionary(x => x.id, x => x.index);
             var semanticEntries = await query.ToListAsync();
             Entries = semanticEntries
                 .OrderBy(x => rank.GetValueOrDefault(x.Id, int.MaxValue))
-                .Skip((PageNumber - 1) * pageSize)
-                .Take(pageSize)
                 .ToList();
         }
         else
@@ -409,10 +386,7 @@ public class QAModel : PageModel
                 "model-asc" => query.OrderBy(x => x.MachineModel).ThenByDescending(x => x.UpdatedAt),
                 _ => query.OrderByDescending(x => x.UpdatedAt)
             };
-            Entries = await ordered
-                .Skip((PageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+            Entries = await ordered.ToListAsync();
         }
 
         Categories = await _db.KnowledgeCategories.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
@@ -447,39 +421,7 @@ public class QAModel : PageModel
         }), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 
-    private int ResolvePageSize()
-    {
-        var requested = PageSize;
-        var cookieName = GetPageSizeCookieName();
-        if (!requested.HasValue &&
-            Request.Cookies.TryGetValue(cookieName, out var cookieValue) &&
-            int.TryParse(cookieValue, out var cookiePageSize))
-        {
-            requested = cookiePageSize;
-        }
-
-        var pageSize = AllowedPageSizes.Contains(requested.GetValueOrDefault())
-            ? requested!.Value
-            : DefaultPageSize;
-
-        PageSize = pageSize;
-        Response.Cookies.Append(cookieName, pageSize.ToString(), new CookieOptions
-        {
-            IsEssential = true,
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddYears(1)
-        });
-
-        return pageSize;
-    }
-
-    private string GetPageSizeCookieName()
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return string.IsNullOrWhiteSpace(userId)
-            ? PageSizeCookiePrefix
-            : $"{PageSizeCookiePrefix}-{userId}";
-    }
+    private string ValidationText(string key) => UiText.T(HttpContext, key);
 
     private QAEntry ToEntry(QAInput input, string source)
     {

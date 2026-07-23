@@ -380,6 +380,23 @@
           return;
         }
 
+        const validator = window.jQuery?.(form).data("validator");
+        if (validator && form.classList.contains("bot-test-form")) {
+          validator.settings.messages["Input.MachineId"] = {
+            ...validator.settings.messages["Input.MachineId"],
+            required: text("Выберите станок.", "Select a machine.")
+          };
+          validator.settings.messages["Input.Question"] = {
+            ...validator.settings.messages["Input.Question"],
+            required: text("Введите вопрос.", "Enter a question.")
+          };
+        }
+
+        if (!form.checkValidity() || (validator && !window.jQuery(form).valid())) {
+          event.preventDefault();
+          return;
+        }
+
         if (form.dataset.submitting === "true") {
           event.preventDefault();
           return;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Services;
 
@@ -58,12 +59,12 @@ public class BotTestModel : PageModel
 
         if (Input.MachineId is null)
         {
-            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.MachineId)}", "Выберите станок.");
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.MachineId)}", UiText.T(HttpContext, "MachineRequired"));
         }
 
         if (string.IsNullOrWhiteSpace(Input.Question))
         {
-            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Question)}", "Введите вопрос.");
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Question)}", UiText.T(HttpContext, "QuestionRequired"));
         }
 
         if (!ModelState.IsValid || Input.MachineId is null)
@@ -112,10 +113,12 @@ public class BotTestModel : PageModel
 
     public class BotTestInput
     {
+        [Required(ErrorMessage = "Выберите станок.")]
         public int? MachineId { get; set; }
 
         public string Language { get; set; } = "Russian";
 
+        [Required(ErrorMessage = "Введите вопрос.")]
         public string Question { get; set; } = string.Empty;
     }
 }

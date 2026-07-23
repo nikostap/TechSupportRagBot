@@ -19,7 +19,7 @@
         <h2>На что расходуются средства</h2>
         <div class="usage-donut" style="--usage-sectors: @Model.DonutStyle"><span>@ApiStatisticsModel.Money(Model.TotalCost)</span></div>
         <div class="usage-legend">
-        @foreach (var row in Model.Categories) { <div><strong>@row.Name</strong><span>@row.RequestCount запросов · @ApiStatisticsModel.Money(row.CostRub)</span></div> }
+        @foreach (var row in Model.Categories) { <div><strong class="usage-legend-label"><i class="usage-legend-color" style="--legend-color: @row.Color" aria-hidden="true"></i>@row.Name</strong><span>@row.RequestCount запросов · @ApiStatisticsModel.Money(row.CostRub)</span></div> }
         </div>
     </section>
     <section class="panel">

@@ -12,10 +12,10 @@
 </section>
 
 <section class="panel">
-    <form method="post" asp-page-handler="Ask" class="form-grid bot-test-form">
+    <form id="botTestForm" method="post" asp-page-handler="Ask" class="form-grid bot-test-form">
         <div>
             <label asp-for="Input.MachineId">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</label>
-            <select asp-for="Input.MachineId" asp-items="Model.MachineOptions">
+            <select asp-for="Input.MachineId" asp-items="Model.MachineOptions" required data-required-message="@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineRequired")">
                 <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectMachine", "Выберите станок")</option>
             </select>
             <span asp-validation-for="Input.MachineId" class="text-danger"></span>
@@ -28,12 +28,12 @@
 
         <div class="full-span">
             <label asp-for="Input.Question">@TechSupportRagBot.Services.UiText.T(HttpContext, "Question")</label>
-            <textarea asp-for="Input.Question" rows="4" placeholder="Например: Как настроить щелевой датчик на аппликаторе?"></textarea>
+            <textarea asp-for="Input.Question" rows="4" required data-required-message="@TechSupportRagBot.Services.UiText.T(HttpContext, "QuestionRequired")" placeholder="Например: Как настроить щелевой датчик на аппликаторе?"></textarea>
             <span asp-validation-for="Input.Question" class="text-danger"></span>
         </div>
 
         <div class="form-actions full-span">
-            <button class="btn-primary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "AskBot", "Спросить бота")</button>
+            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "AskBot", "Спросить бота")</button>
         </div>
     </form>
 </section>
@@ -139,4 +139,12 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelectorAll("#botTestForm [data-required-message]").forEach((field) => {
+            const clearError = () => field.setCustomValidity("");
+            field.addEventListener("input", clearError);
+            field.addEventListener("change", clearError);
+            field.addEventListener("invalid", () => field.setCustomValidity(field.dataset.requiredMessage));
+        });
+    </script>
 }
