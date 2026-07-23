@@ -12,6 +12,8 @@ public static class DbInitializer
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
 
         string[] roles =
         {
@@ -28,33 +30,52 @@ public static class DbInitializer
             }
         }
 
-        const string adminLogin = "admin";
-        const string adminEmail = "admin@class-engineering.local";
+        var adminLogin = configuration["BootstrapAdmin:Login"]?.Trim();
+        var adminEmail = configuration["BootstrapAdmin:Email"]?.Trim();
+        var adminPassword = configuration["BootstrapAdmin:Password"];
 
-        var admin = await userManager.FindByNameAsync(adminLogin)
-            ?? await userManager.FindByEmailAsync(adminEmail)
+        var admin = string.IsNullOrWhiteSpace(adminLogin)
+            ? null
+            : await userManager.FindByNameAsync(adminLogin);
+        admin ??= string.IsNullOrWhiteSpace(adminEmail)
+            ? null
+            : await userManager.FindByEmailAsync(adminEmail);
+        admin ??= await userManager.FindByNameAsync("admin")
+            ?? await userManager.FindByEmailAsync("admin@class-engineering.local")
             ?? await userManager.FindByEmailAsync("admin@techsupport.local");
 
         if (admin == null)
         {
+            if (string.IsNullOrWhiteSpace(adminLogin)
+                || string.IsNullOrWhiteSpace(adminEmail)
+                || string.IsNullOrWhiteSpace(adminPassword))
+            {
+                logger.LogWarning(
+                    "Bootstrap administrator was not created. Set BootstrapAdmin__Login, BootstrapAdmin__Email and BootstrapAdmin__Password for the first startup.");
+                await SeedKnowledgeCategoriesAsync(db);
+                return;
+            }
+
             admin = new ApplicationUser
             {
                 UserName = adminLogin,
                 Email = adminEmail,
                 FullName = "System Administrator",
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                MustChangePassword = true
             };
 
-            var result = await userManager.CreateAsync(admin, "Admin123!");
-            if (result.Succeeded)
+            var result = await userManager.CreateAsync(admin, adminPassword);
+            if (!result.Succeeded)
             {
-                await userManager.AddToRoleAsync(admin, "Admin");
+                var errors = string.Join("; ", result.Errors.Select(x => $"{x.Code}: {x.Description}"));
+                throw new InvalidOperationException($"Could not create bootstrap administrator: {errors}");
             }
+
+            await userManager.AddToRoleAsync(admin, "Admin");
         }
         else
         {
-            admin.UserName = adminLogin;
-            admin.Email ??= adminEmail;
             admin.EmailConfirmed = true;
             await userManager.UpdateAsync(admin);
 
@@ -64,8 +85,12 @@ public static class DbInitializer
             }
         }
 
-        await NormalizeInstructionCategoryAsync(db);
+        await SeedKnowledgeCategoriesAsync(db);
+    }
 
+    private static async Task SeedKnowledgeCategoriesAsync(ApplicationDbContext db)
+    {
+        await NormalizeInstructionCategoryAsync(db);
         var defaultCategories = new[]
         {
             "Инструкция",

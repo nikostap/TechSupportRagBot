@@ -121,6 +121,7 @@ builder.Services.AddScoped<OperatorTimeTrackingService>();
 builder.Services.AddHttpClient<WorkCalendarService>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<AccessProfileService>();
+builder.Services.AddScoped<ChatTicketAccessService>();
 builder.Services.AddScoped<IVideoProcessingService, VideoProcessingService>();
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 builder.Services.AddSingleton<RagAuditLogger>();
@@ -281,7 +282,10 @@ using (var scope = app.Services.CreateScope())
     await accessProfiles.HardenClientProfilesAsync();
     await accessProfiles.FillMissingUserProfilesAsync();
     await services.GetRequiredService<KnowledgeIngestionService>().EnsureVectorIndexCompatibleAsync();
-    await services.GetRequiredService<KnowledgeFtsService>().RebuildAsync();
+    if (builder.Configuration.GetValue("Rag:RebuildFtsOnStartup", false))
+    {
+        await services.GetRequiredService<KnowledgeFtsService>().RebuildAsync();
+    }
     if (builder.Configuration.GetValue("Rag:ReindexOnStartup", false))
     {
         await services.GetRequiredService<KnowledgeIngestionService>().ReindexAllDocumentsAsync();

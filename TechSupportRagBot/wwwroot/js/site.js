@@ -351,7 +351,7 @@
 
       lastSentAt = now;
       try {
-        await connection.invoke("Typing", Number(chatShell.dataset.ticketId), chatShell.dataset.currentUserName || "");
+        await connection.invoke("Typing", Number(chatShell.dataset.ticketId));
       } catch {
         // Индикатор печати не должен мешать набору сообщения.
       }
