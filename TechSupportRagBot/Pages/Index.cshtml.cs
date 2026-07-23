@@ -27,6 +27,7 @@ namespace TechSupportRagBot.Pages
 
         public string DisplayName { get; private set; } = string.Empty;
         public string ProfileName { get; private set; } = string.Empty;
+        public string? LoginError { get; private set; }
         public Dictionary<string, bool> Permissions { get; private set; } = new();
 
         public int ClientCount { get; private set; }
@@ -55,6 +56,7 @@ namespace TechSupportRagBot.Pages
         {
             if (!User.Identity?.IsAuthenticated ?? true)
             {
+                LoginError = Request.Query["loginError"].ToString();
                 return Page();
             }
 

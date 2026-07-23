@@ -1,7 +1,20 @@
 @page
 @model IndexModel
+@inject IWebHostEnvironment Environment
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle");
+    var loginHost = HttpContext.Request.Host.Host;
+    var isLocalLogin = Environment.IsDevelopment()
+        || string.Equals(loginHost, "localhost", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(loginHost, "127.0.0.1", StringComparison.Ordinal)
+        || string.Equals(loginHost, "::1", StringComparison.Ordinal);
+}
+
+@section Scripts {
+    @if (User.Identity?.IsAuthenticated != true && !isLocalLogin)
+    {
+        <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
+    }
 }
 
 @if (User.Identity?.IsAuthenticated != true)
@@ -10,9 +23,35 @@
         <div class="hero-panel">
             <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow")</p>
             <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle")</h1>
-            <div class="hero-actions">
-                <a class="btn-main" asp-area="Identity" asp-page="/Account/Login">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login")</a>
-            </div>
+            @if (Model.LoginError == "captcha")
+            {
+                <p class="text-danger">Подтвердите, что вы не робот, и повторите попытку.</p>
+            }
+            else if (Model.LoginError == "invalid")
+            {
+                <p class="text-danger">Неверный логин или пароль.</p>
+            }
+            <form method="post" asp-area="Identity" asp-page="/Account/Login" class="hero-login-form">
+                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")
+                    <input name="Input.UserName" autocomplete="username" required />
+                </label>
+                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Password")
+                    <span class="password-field">
+                        <input name="Input.Password" type="password" autocomplete="current-password" required />
+                        <button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">👁</button>
+                    </span>
+                </label>
+                <label class="check-line">
+                    <input name="Input.RememberMe" type="checkbox" value="true" />
+                    @TechSupportRagBot.Services.UiText.T(HttpContext, "RememberMe")
+                </label>
+                @if (!isLocalLogin)
+                {
+                    <div style="height: 100px" class="smart-captcha" data-sitekey="ysc1_fZghYQp8UE8EfsAbJuoLj03FpAwUeJxohE6Kj4dI7f495857"></div>
+                }
+                <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login")</button>
+                <a class="muted-link" asp-area="Identity" asp-page="/Account/ForgotPassword">@TechSupportRagBot.Services.UiText.T(HttpContext, "Forgot password?")</a>
+            </form>
         </div>
     </section>
 }

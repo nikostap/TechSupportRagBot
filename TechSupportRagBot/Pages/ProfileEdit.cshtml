@@ -12,7 +12,7 @@
     <a class="btn-secondary as-link" asp-page="/Profile">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back")</a>
 </section>
 
-<form method="post" enctype="multipart/form-data" class="panel narrow">
+<form method="post" enctype="multipart/form-data" asp-page-handler="Save" class="panel narrow">
     <div class="profile-head">
         @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))
         {
@@ -70,6 +70,24 @@
     }
 
     <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
+    <div asp-validation-summary="All" class="text-danger"></div>
+</form>
+
+<form method="post" asp-page-handler="ChangePassword" class="panel narrow password-change-panel">
+    <div>
+        <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Account")</p>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ChangePassword")</h2>
+    </div>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "CurrentPassword")
+        <span class="password-field"><input asp-for="PasswordInput.CurrentPassword" type="password" autocomplete="current-password" /><button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">👁</button></span>
+    </label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewPassword")
+        <span class="password-field"><input asp-for="PasswordInput.NewPassword" type="password" autocomplete="new-password" /><button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">👁</button></span>
+    </label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Repeat password")
+        <span class="password-field"><input asp-for="PasswordInput.ConfirmPassword" type="password" autocomplete="new-password" /><button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">👁</button></span>
+    </label>
+    <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SavePassword")</button>
     <div asp-validation-summary="All" class="text-danger"></div>
 </form>
 

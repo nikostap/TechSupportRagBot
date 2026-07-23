@@ -1,5 +1,20 @@
 @page
 @model TechSupportRagBot.Areas.Identity.Pages.Account.LoginModel
+@inject IWebHostEnvironment Environment
+@{
+    var loginHost = HttpContext.Request.Host.Host;
+    var isLocalLogin = Environment.IsDevelopment()
+        || string.Equals(loginHost, "localhost", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(loginHost, "127.0.0.1", StringComparison.Ordinal)
+        || string.Equals(loginHost, "::1", StringComparison.Ordinal);
+}
+
+@section Scripts {
+    @if (!isLocalLogin)
+    {
+        <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
+    }
+}
 @{
     ViewData["Title"] = "Вход";
 }
@@ -15,12 +30,19 @@
         </label>
         <label>
             @TechSupportRagBot.Services.UiText.T(HttpContext, "Password", "Пароль")
-            <input asp-for="Input.Password" type="password" autocomplete="current-password" />
+            <span class="password-field">
+                <input asp-for="Input.Password" type="password" autocomplete="current-password" />
+                <button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">👁</button>
+            </span>
         </label>
         <label class="check-line">
             <input asp-for="Input.RememberMe" />
             @TechSupportRagBot.Services.UiText.T(HttpContext, "RememberMe", "Запомнить меня")
         </label>
+        @if (!isLocalLogin)
+        {
+            <div style="height: 100px" class="smart-captcha" data-sitekey="ysc1_fZghYQp8UE8EfsAbJuoLj03FpAwUeJxohE6Kj4dI7f495857"></div>
+        }
         <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login", "Войти")</button>
         <a class="muted-link" asp-page="./ForgotPassword">@TechSupportRagBot.Services.UiText.T(HttpContext, "Forgot password?", "Забыли пароль?")</a>
         <div asp-validation-summary="All" class="text-danger"></div>

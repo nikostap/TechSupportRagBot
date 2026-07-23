@@ -23,6 +23,9 @@ public class ProfileEditModel : PageModel
     [BindProperty]
     public ProfileInput Input { get; set; } = new();
 
+    [BindProperty]
+    public ChangePasswordInput PasswordInput { get; set; } = new();
+
     public string? CurrentAvatarPath { get; private set; }
     public string? FullName { get; private set; }
     public string? UserName { get; private set; }
@@ -48,7 +51,7 @@ public class ProfileEditModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostSaveAsync()
     {
         var user = await _userManager.GetUserAsync(User);
         if (user == null)
@@ -86,6 +89,43 @@ public class ProfileEditModel : PageModel
             user.AvatarPath = Path.Combine(relativeDir, storedName);
         }
 
+        await _userManager.UpdateAsync(user);
+        return RedirectToPage("/Profile");
+    }
+
+    public async Task<IActionResult> OnPostChangePasswordAsync()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Challenge();
+
+        if (string.IsNullOrWhiteSpace(PasswordInput.CurrentPassword))
+        {
+            ModelState.AddModelError(nameof(PasswordInput.CurrentPassword), "Введите текущий пароль.");
+        }
+        if (string.IsNullOrWhiteSpace(PasswordInput.NewPassword) || PasswordInput.NewPassword.Length < 6)
+        {
+            ModelState.AddModelError(nameof(PasswordInput.NewPassword), "Новый пароль должен содержать не менее 6 символов.");
+        }
+        if (PasswordInput.NewPassword != PasswordInput.ConfirmPassword)
+        {
+            ModelState.AddModelError(nameof(PasswordInput.ConfirmPassword), "Пароли не совпадают.");
+        }
+        if (!ModelState.IsValid)
+        {
+            Fill(user);
+            return Page();
+        }
+
+        var result = await _userManager.ChangePasswordAsync(user, PasswordInput.CurrentPassword, PasswordInput.NewPassword);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
+            Fill(user);
+            return Page();
+        }
+
+        user.MustChangePassword = false;
+        user.IssuedPassword = null;
         await _userManager.UpdateAsync(user);
         return RedirectToPage("/Profile");
     }
@@ -133,5 +173,12 @@ public class ProfileEditModel : PageModel
         public string? WorkdayEnd { get; set; }
 
         public IFormFile? Avatar { get; set; }
+    }
+
+    public class ChangePasswordInput
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }
