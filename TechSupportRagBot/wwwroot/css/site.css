@@ -1807,25 +1807,41 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 
 .qa-search-filter {
   display: grid;
-  grid-template-columns: minmax(240px, 2fr) repeat(5, minmax(140px, 1fr)) auto auto;
-  align-items: end;
   gap: 10px;
   width: 100%;
 }
 
+.qa-filter-search-row,
+.qa-filter-options-row {
+  display: grid;
+  align-items: end;
+  gap: 10px;
+}
+
+.qa-filter-search-row {
+  grid-template-columns: minmax(280px, 2fr) minmax(180px, 1fr) auto auto;
+}
+
+.qa-filter-options-row {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
 .qa-search-filter input,
-.qa-search-filter select {
+.qa-search-filter select,
+.qa-filter-search-row .btn-secondary {
   min-width: 0;
 }
 
 @media (max-width: 1180px) {
-  .qa-search-filter {
+  .qa-filter-search-row,
+  .qa-filter-options-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
-  .qa-search-filter {
+  .qa-filter-search-row,
+  .qa-filter-options-row {
     grid-template-columns: 1fr;
   }
 }

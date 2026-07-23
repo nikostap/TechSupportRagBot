@@ -265,42 +265,46 @@
     <div class="section-bar">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAEntries")</h2>
         <form method="get" class="qa-search-filter">
-            <input asp-for="SearchQuery" type="search" placeholder="Вопрос, ключевые слова, узел…" aria-label="Поиск по QA" />
-            <select asp-for="SearchMode" aria-label="Режим поиска">
-                <option value="Keyword">По ключевым словам</option>
-                <option value="Rag">RAG — по смыслу</option>
-            </select>
-            <select asp-for="MachineFilter">
-                <option value="">Все станки и модели</option>
-                @foreach (var modelName in Model.MachineFilterOptions)
-                {
-                    <option value="@modelName">@modelName</option>
-                }
-            </select>
-            <select asp-for="SerialFilter">
-                <option value="">Все серии</option>
-                @foreach (var serial in Model.SerialFilterOptions)
-                {
-                    <option value="@serial">@serial</option>
-                }
-            </select>
-            <select asp-for="StatusFilter">
-                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllStatuses")</option>
-                @foreach (var status in Model.Statuses)
-                {
-                    <option value="@status">@status</option>
-                }
-            </select>
-            <select asp-for="SortOrder" id="qa-sort-order" aria-label="Сортировка">
-                <option value="updated-desc">Сначала обновлённые</option>
-                <option value="updated-asc">Сначала старые</option>
-                <option value="question-asc">Вопрос: А–Я</option>
-                <option value="question-desc">Вопрос: Я–А</option>
-                <option value="status-asc">По статусу</option>
-                <option value="model-asc">По модели</option>
-            </select>
-            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
-            <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
+            <div class="qa-filter-search-row">
+                <input asp-for="SearchQuery" type="search" placeholder="Вопрос, ключевые слова, узел…" aria-label="Поиск по QA" />
+                <select asp-for="SearchMode" aria-label="Режим поиска">
+                    <option value="Keyword">По ключевым словам</option>
+                    <option value="Rag">RAG — по смыслу</option>
+                </select>
+                <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
+                <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
+            </div>
+            <div class="qa-filter-options-row">
+                <select asp-for="SortOrder" id="qa-sort-order" aria-label="Сортировка">
+                    <option value="updated-desc">Сначала обновлённые</option>
+                    <option value="updated-asc">Сначала старые</option>
+                    <option value="question-asc">Вопрос: А–Я</option>
+                    <option value="question-desc">Вопрос: Я–А</option>
+                    <option value="status-asc">По статусу</option>
+                    <option value="model-asc">По модели</option>
+                </select>
+                <select asp-for="MachineFilter">
+                    <option value="">Все станки и модели</option>
+                    @foreach (var modelName in Model.MachineFilterOptions)
+                    {
+                        <option value="@modelName">@modelName</option>
+                    }
+                </select>
+                <select asp-for="SerialFilter">
+                    <option value="">Все серии</option>
+                    @foreach (var serial in Model.SerialFilterOptions)
+                    {
+                        <option value="@serial">@serial</option>
+                    }
+                </select>
+                <select asp-for="StatusFilter">
+                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllStatuses")</option>
+                    @foreach (var status in Model.Statuses)
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </div>
         </form>
     </div>
 
