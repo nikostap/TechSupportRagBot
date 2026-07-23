@@ -2310,12 +2310,14 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 }
 
 .api-statistics-filter {
-  grid-template-columns: repeat(2, minmax(170px, 220px)) max-content;
+  grid-template-columns: repeat(3, minmax(170px, 220px));
+  justify-content: center;
 }
 
 .api-statistics-filter .btn-secondary {
   align-self: end;
   min-height: 42px;
+  width: 100%;
 }
 
 .bar-list {
@@ -2706,6 +2708,12 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 
   .time-filter {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .api-statistics-filter .btn-secondary {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(220px, 100%);
   }
 
   .machine-admin-scroll {

@@ -10,6 +10,7 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize(Roles = "Admin")]
 public class ApiStatisticsModel : PageModel
 {
+    private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
     private readonly ApplicationDbContext _db;
     public ApiStatisticsModel(ApplicationDbContext db) => _db = db;
 
@@ -23,11 +24,19 @@ public class ApiStatisticsModel : PageModel
 
     public async Task OnGetAsync()
     {
-        DateTo ??= DateTime.Today;
+        DateTo ??= TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone).Date;
         DateFrom ??= DateTo.Value.AddDays(-30);
-        if (DateFrom > DateTo) (DateFrom, DateTo) = (DateTo, DateFrom);
-        var from = DateTime.SpecifyKind(DateFrom.Value.Date, DateTimeKind.Local).ToUniversalTime();
-        var to = DateTime.SpecifyKind(DateTo.Value.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
+        if (DateFrom.Value.Date > DateTo.Value.Date)
+        {
+            (DateFrom, DateTo) = (DateTo, DateFrom);
+        }
+
+        var from = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(DateFrom.Value.Date, DateTimeKind.Unspecified),
+            MoscowTimeZone);
+        var to = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(DateTo.Value.Date.AddDays(1), DateTimeKind.Unspecified),
+            MoscowTimeZone);
         var records = await _db.ApiUsageRecords.AsNoTracking().Where(x => x.CreatedAt >= from && x.CreatedAt < to).ToListAsync();
         Categories = records.GroupBy(x => x.Category).Select(x => new UsageRow(DisplayCategory(x.Key), x.Count(), x.Sum(y => y.InputTokens), x.Sum(y => y.OutputTokens), x.Sum(y => y.EstimatedCostRub))).OrderByDescending(x => x.CostRub).ToList();
         Models = records.GroupBy(x => $"{x.Provider} · {x.Model}").Select(x => new UsageRow(x.Key, x.Count(), x.Sum(y => y.InputTokens), x.Sum(y => y.OutputTokens), x.Sum(y => y.EstimatedCostRub))).OrderByDescending(x => x.CostRub).ToList();
@@ -54,5 +63,25 @@ public class ApiStatisticsModel : PageModel
             return $"{colors[i % colors.Length]} {start:F2}% {cursor:F2}%";
         }));
     }
+
+    private static TimeZoneInfo ResolveMoscowTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Russian Standard Time");
+        }
+        catch
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            }
+            catch
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("Moscow", TimeSpan.FromHours(3), "Moscow", "Moscow");
+            }
+        }
+    }
+
     public sealed record UsageRow(string Name, int RequestCount, int InputTokens, int OutputTokens, decimal CostRub);
 }
