@@ -14,8 +14,8 @@ public class ApiStatisticsModel : PageModel
     private readonly ApplicationDbContext _db;
     public ApiStatisticsModel(ApplicationDbContext db) => _db = db;
 
-    [BindProperty(SupportsGet = true)] public DateTime? DateFrom { get; set; }
-    [BindProperty(SupportsGet = true)] public DateTime? DateTo { get; set; }
+    [BindProperty(SupportsGet = true)] public DateOnly? DateFrom { get; set; }
+    [BindProperty(SupportsGet = true)] public DateOnly? DateTo { get; set; }
     public List<UsageRow> Categories { get; private set; } = new();
     public List<UsageRow> Models { get; private set; } = new();
     public decimal TotalCost => Categories.Sum(x => x.CostRub);
@@ -24,18 +24,18 @@ public class ApiStatisticsModel : PageModel
 
     public async Task OnGetAsync()
     {
-        DateTo ??= TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone).Date;
+        DateTo ??= DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone));
         DateFrom ??= DateTo.Value.AddDays(-30);
-        if (DateFrom.Value.Date > DateTo.Value.Date)
+        if (DateFrom.Value > DateTo.Value)
         {
             (DateFrom, DateTo) = (DateTo, DateFrom);
         }
 
         var from = TimeZoneInfo.ConvertTimeToUtc(
-            DateTime.SpecifyKind(DateFrom.Value.Date, DateTimeKind.Unspecified),
+            DateTime.SpecifyKind(DateFrom.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified),
             MoscowTimeZone);
         var to = TimeZoneInfo.ConvertTimeToUtc(
-            DateTime.SpecifyKind(DateTo.Value.Date.AddDays(1), DateTimeKind.Unspecified),
+            DateTime.SpecifyKind(DateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified),
             MoscowTimeZone);
         var records = await _db.ApiUsageRecords.AsNoTracking().Where(x => x.CreatedAt >= from && x.CreatedAt < to).ToListAsync();
         Categories = records.GroupBy(x => x.Category).Select(x => new UsageRow(DisplayCategory(x.Key), x.Count(), x.Sum(y => y.InputTokens), x.Sum(y => y.OutputTokens), x.Sum(y => y.EstimatedCostRub))).OrderByDescending(x => x.CostRub).ToList();

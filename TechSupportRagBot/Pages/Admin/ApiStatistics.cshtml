@@ -7,6 +7,9 @@
     <label>По дату<input asp-for="DateTo" type="date" /></label>
     <button class="btn-secondary small" type="submit">Показать</button>
 </form>
+<p class="muted-text api-statistics-period">
+    Показан период: @Model.DateFrom?.ToString("dd.MM.yyyy") — @Model.DateTo?.ToString("dd.MM.yyyy")
+</p>
 <div class="metric-grid">
     <div class="metric-card blue"><span>Всего запросов</span><strong>@Model.TotalRequests</strong></div>
     <div class="metric-card attention"><span>Оценка расходов</span><strong>@ApiStatisticsModel.Money(Model.TotalCost)</strong></div>
