@@ -97,8 +97,7 @@ public class VideoProcessingBackgroundService : BackgroundService
                 messageId = attachment.ChatMessageId,
                 status = attachment.Status,
                 finalPath = ToUrl(attachment.FinalFilePath ?? attachment.FilePath),
-                previewPath = ToUrl(attachment.PreviewFilePath),
-                errorMessage = attachment.ErrorMessage
+                previewPath = ToUrl(attachment.PreviewFilePath)
             });
     }
 

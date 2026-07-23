@@ -369,11 +369,12 @@ a:hover {
   font-weight: 750;
 }
 
-.attention-card strong {
-  color: #0e78b7;
-  font-size: 34px;
-  line-height: 1;
-}
+    .attention-card strong {
+        color: #0e78b7;
+        font-size: 34px;
+        line-height: 1;
+        margin-right: 20px;
+    }
 
 .dashboard-grid {
   display: grid;
@@ -1115,6 +1116,10 @@ code {
   font-weight: 650;
 }
 
+.notification-menu {
+  position: relative;
+}
+
 .notification-bell {
   position: relative;
   display: inline-grid;
@@ -1128,13 +1133,161 @@ code {
   font-size: 12px;
 }
 
-.notification-bell > span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: currentColor;
-  color: transparent;
-  box-shadow: 0 0 0 5px rgba(34, 158, 217, 0.12);
+.notification-bell-icon {
+  width: 22px;
+  height: 22px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: 50% 10%;
+}
+
+.has-notifications .notification-bell {
+  color: #e49a16;
+  background: #fffaf0;
+  border-color: rgba(228, 154, 22, .28);
+}
+
+.has-notifications .notification-bell-icon {
+  animation: notification-ring 4.8s ease-in-out infinite;
+}
+
+@keyframes notification-ring {
+  0%, 8% { transform: rotate(0); }
+  10% { transform: rotate(18deg); }
+  13% { transform: rotate(-16deg); }
+  16% { transform: rotate(12deg); }
+  19% { transform: rotate(-8deg); }
+  22%, 100% { transform: rotate(0); }
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% - 2px);
+  right: -8px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(480px, calc(100vh - 90px));
+  padding: 10px;
+  overflow-y: auto;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+  border: 1px solid rgba(210, 229, 247, .95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 22px 60px rgba(28, 88, 140, .24);
+}
+
+.notification-dropdown::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 12px;
+  content: "";
+}
+
+.notification-menu:hover .notification-dropdown,
+.notification-menu:focus-within .notification-dropdown {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.notification-dropdown-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px 10px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.notification-dropdown-title strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+}
+
+.notification-chat-list {
+  display: grid;
+  gap: 6px;
+}
+
+.login-links .notification-chat-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 13px;
+  color: var(--ink);
+}
+
+.login-links .notification-chat-link:hover,
+.login-links .notification-chat-link:focus-visible {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.notification-chat-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.notification-chat-main strong,
+.notification-chat-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-chat-main strong {
+  font-size: 14px;
+}
+
+.notification-chat-main small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notification-chat-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #18b56f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.notification-empty {
+  padding: 16px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 .notification-bell strong,
@@ -1160,10 +1313,16 @@ code {
     0 10px 26px rgba(24, 181, 111, .34);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .has-notifications .notification-bell-icon {
+    animation: none;
+  }
+}
+
 .unread-badge.inline {
-  position: static;
-  top: auto;
-  right: auto;
+  position: absolute;
+  top: 10px;
+  right: 45px;
   flex: 0 0 auto;
 }
 
@@ -2922,12 +3081,14 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 
   .login-links {
     max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow: visible;
   }
 
-  .login-links::-webkit-scrollbar {
-    display: none;
+  .notification-dropdown {
+    position: fixed;
+    top: 58px;
+    right: 12px;
+    width: min(360px, calc(100vw - 24px));
   }
 
   .profile-link {

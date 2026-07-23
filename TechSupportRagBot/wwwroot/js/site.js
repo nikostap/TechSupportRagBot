@@ -564,8 +564,7 @@
             }
           } catch (error) {
             if (card) {
-              const details = error?.message ? `: ${error.message}` : "";
-              card.innerHTML = `<div class="video-state failed">${text("Видео не загружено", "Video upload failed")}${details}</div>`;
+              card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
             }
           } finally {
             form.dataset.submitting = "false";
@@ -579,7 +578,7 @@
 
         xhr.onerror = () => {
           if (card) {
-            card.innerHTML = `<div class="video-state failed">${text("Видео не загружено", "Video upload failed")}: ${text("ошибка сети", "network error")}</div>`;
+            card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
           }
           form.dataset.submitting = "false";
           form.dataset.ajaxVideoUpload = "false";
@@ -903,7 +902,7 @@
 
     card.dataset.videoStatus = payload.status || (failed ? "Failed" : "Ready");
     if (failed) {
-      card.innerHTML = `<div class="video-state failed">${text("Видео не обработано", "Video failed")}: ${payload.errorMessage || ""}</div>`;
+      card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
       return;
     }
 
@@ -923,7 +922,7 @@
 
     card.dataset.videoStatus = payload.status || (failed ? "Failed" : "Ready");
     if (failed) {
-      card.innerHTML = `<div class="video-state failed">${text("Видео не обработано", "Video failed")}: ${payload.errorMessage || ""}</div>`;
+      card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
       return;
     }
 

@@ -14,43 +14,99 @@
 {
     var currentUser = await UserManager.GetUserAsync(User);
     var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    var notificationCount = 0;
+    var notificationChats = new List<(Ticket Ticket, int UnreadCount, DateTime LatestMessageAt, string Url)>();
     var notificationLink = Url.Page("/Index") ?? "/";
     if (!string.IsNullOrWhiteSpace(currentUserId))
     {
         if (User.IsInRole("Client"))
         {
-            notificationCount += await Db.ChatMessages
+            var clientUnreadMessages = await Db.ChatMessages
                 .Include(x => x.Ticket)
-                .CountAsync(x =>
-                    x.Ticket!.ClientUserId == currentUserId &&
+                    .ThenInclude(x => x!.Machine)
+                .Where(x =>
+                    currentUser!.ClientId != null &&
+                    Db.Users.Any(user => user.Id == x.Ticket!.ClientUserId && user.ClientId == currentUser.ClientId) &&
                     x.AuthorUserId != currentUserId &&
-                    !x.IsReadByClient);
+                    !x.IsReadByClient)
+                .ToListAsync();
+
+            notificationChats.AddRange(clientUnreadMessages
+                .GroupBy(x => x.Ticket!)
+                .Select(group => (
+                    group.Key,
+                    group.Count(),
+                    group.Max(message => message.CreatedAt),
+                    Url.Page("/Client/Ticket", new { id = group.Key.Id }) ?? $"/Client/Ticket?id={group.Key.Id}")));
             notificationLink = Url.Page("/Client/Tickets") ?? notificationLink;
         }
 
         if (User.IsInRole("Operator") || User.IsInRole("Admin"))
         {
-            notificationCount += await Db.ChatMessages
+            var operatorUnreadMessages = await Db.ChatMessages
                 .Include(x => x.Ticket)
                     .ThenInclude(x => x!.OperatorAssignments)
-                .CountAsync(x =>
+                .Include(x => x.Ticket)
+                    .ThenInclude(x => x!.Machine)
+                .Where(x =>
                     x.Ticket!.Status != TicketStatuses.Closed &&
                     x.AuthorUserId != currentUserId &&
                     !x.IsReadByOperator &&
                     (x.Ticket.OperatorUserId == currentUserId ||
-                     x.Ticket.OperatorAssignments.Any(a => a.OperatorUserId == currentUserId)));
+                     x.Ticket.OperatorAssignments.Any(a => a.OperatorUserId == currentUserId)))
+                .ToListAsync();
+
+            notificationChats.AddRange(operatorUnreadMessages
+                .GroupBy(x => x.Ticket!)
+                .Select(group => (
+                    group.Key,
+                    group.Count(),
+                    group.Max(message => message.CreatedAt),
+                    Url.Page("/Operator/Ticket", new { id = group.Key.Id }) ?? $"/Operator/Ticket?id={group.Key.Id}")));
             notificationLink = Url.Page("/Operator/Index") ?? notificationLink;
         }
     }
-    <li>
-        <a class="notification-bell" href="@notificationLink" title="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")">
-            <span aria-hidden="true">●</span>
+    notificationChats = notificationChats
+        .OrderByDescending(chat => chat.LatestMessageAt)
+        .ToList();
+    var notificationCount = notificationChats.Sum(chat => chat.UnreadCount);
+    <li class="notification-menu @(notificationCount > 0 ? "has-notifications" : "")">
+        <a class="notification-bell" href="@notificationLink" title="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-haspopup="true">
+            <svg class="notification-bell-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+            </svg>
             @if (notificationCount > 0)
             {
                 <strong>+@notificationCount</strong>
             }
         </a>
+        <div class="notification-dropdown" role="menu" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")">
+            <div class="notification-dropdown-title">
+                <span>@TechSupportRagBot.Services.UiText.T(Context, "Notifications")</span>
+                @if (notificationCount > 0)
+                {
+                    <strong>@notificationCount</strong>
+                }
+            </div>
+            @if (notificationChats.Count == 0)
+            {
+                <div class="notification-empty">@TechSupportRagBot.Services.UiText.T(Context, "NoNewMessages", "Нет новых сообщений")</div>
+            }
+            else
+            {
+                <div class="notification-chat-list">
+                    @foreach (var chat in notificationChats)
+                    {
+                        <a class="notification-chat-link" href="@chat.Url" role="menuitem">
+                            <span class="notification-chat-main">
+                                <strong>@chat.Ticket.Title</strong>
+                                <small>@(chat.Ticket.Machine?.Name ?? chat.Ticket.Machine?.Model ?? "—")</small>
+                            </span>
+                            <span class="notification-chat-count">+@chat.UnreadCount</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
     </li>
     <li>
         <a class="profile-link" asp-area="" asp-page="/Profile" title="@TechSupportRagBot.Services.UiText.T(Context, "Profile", "Профиль")">
