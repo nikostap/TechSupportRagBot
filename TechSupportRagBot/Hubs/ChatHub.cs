@@ -1,29 +1,49 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Hubs;
 
 [Authorize]
 public class ChatHub : Hub
 {
-    public Task JoinTicket(int ticketId)
+    private readonly ChatTicketAccessService _ticketAccess;
+
+    public ChatHub(ChatTicketAccessService ticketAccess)
     {
-        return Groups.AddToGroupAsync(Context.ConnectionId, TicketGroup(ticketId));
+        _ticketAccess = ticketAccess;
     }
 
-    public Task LeaveTicket(int ticketId)
+    public async Task JoinTicket(int ticketId)
     {
-        return Groups.RemoveFromGroupAsync(Context.ConnectionId, TicketGroup(ticketId));
+        var access = await RequireAccessAsync(ticketId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, TicketGroup(access.TicketId));
     }
 
-    public Task Typing(int ticketId, string displayName)
+    public async Task LeaveTicket(int ticketId)
     {
-        return Clients.OthersInGroup(TicketGroup(ticketId)).SendAsync("UserTyping", new
+        var access = await RequireAccessAsync(ticketId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, TicketGroup(access.TicketId));
+    }
+
+    public async Task Typing(int ticketId)
+    {
+        var access = await RequireAccessAsync(ticketId);
+        await Clients.OthersInGroup(TicketGroup(access.TicketId)).SendAsync("UserTyping", new
         {
-            ticketId,
-            displayName
+            ticketId = access.TicketId,
+            access.DisplayName
         });
     }
 
     public static string TicketGroup(int ticketId) => $"ticket:{ticketId}";
+
+    private async Task<ChatTicketAccess> RequireAccessAsync(int ticketId)
+    {
+        var access = await _ticketAccess.AuthorizeAsync(
+            Context.User ?? new System.Security.Claims.ClaimsPrincipal(),
+            ticketId,
+            Context.ConnectionAborted);
+        return access ?? throw new HubException("Access to the ticket is denied.");
+    }
 }

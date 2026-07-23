@@ -15,12 +15,16 @@ docker compose up -d --build
 http://localhost:5028
 ```
 
-Стартовый администратор:
+При первом запуске администратор создаётся только из переменных окружения:
 
 ```text
-Логин: admin
-Пароль: Admin123!
+BootstrapAdmin__Login=admin
+BootstrapAdmin__Email=admin@example.com
+BootstrapAdmin__Password=уникальный_временный_пароль
 ```
+
+После первого входа администратор обязан сменить временный пароль. Если администратор
+уже существует, bootstrap-переменные не меняют его пароль.
 
 ## Основные сервисы
 
@@ -46,6 +50,9 @@ PostgreSQL:
 ```text
 ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=techsupport;Username=techsupport;Password=...
 Database__Provider=Postgres
+BootstrapAdmin__Login=admin
+BootstrapAdmin__Email=admin@example.com
+BootstrapAdmin__Password=...
 ```
 
 LLM/RAG:
