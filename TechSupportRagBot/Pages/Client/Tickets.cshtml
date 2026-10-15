@@ -57,11 +57,11 @@
         <div class="ticket-card-list">
         @foreach (var row in group.Rows)
         {
-            <details class="ticket-card client-ticket-record">
-                <summary class="client-ticket-record-summary">
+            <a class="ticket-card client-ticket-record" asp-page="/Client/Ticket" asp-route-id="@row.Ticket.Id">
+                <span class="client-ticket-record-summary">
                     <span class="client-ticket-record-main">
                         <strong>@row.Ticket.Title</strong>
-                        <small>@row.Ticket.Machine?.Model · @row.Ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        <small>@row.Ticket.Machine?.Model · № @row.Ticket.Machine?.SerialNumber · @row.Ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
                     </span>
                     <span class="client-ticket-record-end">
                         <span class="status-pill">@TechSupportRagBot.Services.UiText.Status(HttpContext, row.Ticket.Status)</span>
@@ -69,14 +69,10 @@
                         {
                             <span class="unread-badge inline">+@row.UnreadCount</span>
                         }
-                        <span class="client-ticket-record-chevron" aria-hidden="true">⌄</span>
+                        <span class="client-ticket-record-chevron" aria-hidden="true">›</span>
                     </span>
-                </summary>
-                <div class="client-ticket-record-body">
-                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine"): @group.MachineName · @row.Ticket.Machine?.Model · № @row.Ticket.Machine?.SerialNumber</span>
-                    <a class="btn-secondary" asp-page="/Client/Ticket" asp-route-id="@row.Ticket.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenChat")</a>
-                </div>
-            </details>
+                </span>
+            </a>
         }
         </div>
     </details>

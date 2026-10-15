@@ -192,32 +192,23 @@
 .dispatch-theme .focus-client-list .client-ticket-machine-group>.machine-summary,.dispatch-theme .focus-dashboard-list .dashboard-machine-group>summary{display:none}
 .dispatch-theme .focus-client-list .client-ticket-machine-group>.ticket-card-list{display:grid;gap:9px;padding:0}
 .dispatch-theme .focus-client-list .ticket-card{border:1px solid #d6e2e4;border-radius:8px;box-shadow:none}
-.dispatch-theme .client-ticket-record{padding:0;overflow:hidden}
-.dispatch-theme .client-ticket-record-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;padding:15px;cursor:pointer}
-.dispatch-theme .client-ticket-record-summary::-webkit-details-marker{display:none}
-.dispatch-theme .client-ticket-record-summary:hover,.dispatch-theme .client-ticket-record-summary:focus-visible{background:#f8faf9}
-.dispatch-theme .client-ticket-record-summary:focus-visible{outline:2px solid #d49233;outline-offset:-2px}
+.dispatch-theme .client-ticket-record{display:block;padding:0;overflow:hidden;color:inherit;text-decoration:none}
+.dispatch-theme .client-ticket-record-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px;cursor:pointer}
+.dispatch-theme .client-ticket-record:hover .client-ticket-record-summary,.dispatch-theme .client-ticket-record:focus-visible .client-ticket-record-summary{background:#f8faf9}
+.dispatch-theme .client-ticket-record:focus-visible{outline:2px solid #d49233;outline-offset:2px}
 .dispatch-theme .client-ticket-record-main{display:grid;gap:4px;min-width:0}
 .dispatch-theme .client-ticket-record-main strong{font-size:14px;color:#203d49;overflow-wrap:anywhere}
 .dispatch-theme .client-ticket-record-main small{font-size:11px;color:#71858e}
 .dispatch-theme .client-ticket-record-end{display:flex;align-items:center;gap:7px;flex:none}
-.dispatch-theme .client-ticket-record-chevron{font-size:19px;line-height:1;color:#9e6d27;transition:transform .2s}
-.dispatch-theme .client-ticket-record[open] .client-ticket-record-chevron{transform:rotate(180deg)}
-.dispatch-theme .client-ticket-record-body{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #e6edee;padding:13px 15px;color:#607883;font-size:12px}
-.dispatch-theme .client-ticket-record-body .btn-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:38px;white-space:nowrap}
+.dispatch-theme .client-ticket-record-chevron{font-size:19px;line-height:1;color:#9e6d27}
 .dispatch-theme .focus-dashboard-list .dashboard-list.nested{display:grid;gap:9px;padding:0;background:transparent}
-.dispatch-theme .focus-dashboard-list .focus-dashboard-record{border:1px solid #d6e2e4;border-radius:8px;background:#fff;overflow:hidden}
-.dispatch-theme .focus-dashboard-record summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:60px;padding:13px 15px;list-style:none;cursor:pointer}
-.dispatch-theme .focus-dashboard-record summary::-webkit-details-marker{display:none}
-.dispatch-theme .focus-dashboard-record summary:hover,.dispatch-theme .focus-dashboard-record summary:focus-visible{background:#f8faf9}
-.dispatch-theme .focus-dashboard-record summary:focus-visible{outline:2px solid #d49233;outline-offset:-2px}
-.dispatch-theme .focus-dashboard-record summary>span:first-child{display:grid;gap:4px;min-width:0;flex:1}
+.dispatch-theme .focus-dashboard-list .focus-dashboard-record{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:60px;padding:13px 15px;border:1px solid #d6e2e4;border-radius:8px;background:#fff;color:inherit;text-decoration:none}
+.dispatch-theme .focus-dashboard-record:hover,.dispatch-theme .focus-dashboard-record:focus-visible{background:#f8faf9;border-color:#d49233}
+.dispatch-theme .focus-dashboard-record:focus-visible{outline:2px solid #d49233;outline-offset:2px}
+.dispatch-theme .focus-dashboard-record>span:first-child{display:grid;gap:4px;min-width:0;flex:1}
 .dispatch-theme .focus-dashboard-record strong{color:#203d49;font-size:13px;overflow-wrap:anywhere}
 .dispatch-theme .focus-dashboard-record small{color:#71858e;font-size:11px;overflow-wrap:anywhere}
-.dispatch-theme .focus-dashboard-chevron{font-size:19px;line-height:1;color:#9e6d27;transition:transform .2s}
-.dispatch-theme .focus-dashboard-record[open] .focus-dashboard-chevron{transform:rotate(180deg)}
-.dispatch-theme .focus-dashboard-actions{display:flex;justify-content:flex-end;border-top:1px solid #e6edee;padding:10px 15px;background:#fbfcfc}
-.dispatch-theme .focus-dashboard-actions .btn-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:36px}
+.dispatch-theme .focus-dashboard-chevron{font-size:19px;line-height:1;color:#9e6d27}
 .dispatch-theme .dashboard-panel .focus-list-workspace{height:auto;min-height:190px;max-height:520px}
 .dispatch-theme .dashboard-grid:has(.focus-dashboard-list){grid-template-columns:1fr}
 .dispatch-theme .dashboard-panel:has(.focus-dashboard-list){min-width:0}
@@ -255,5 +246,4 @@
   .dispatch-theme .focus-list-pane .qa-card-summary:has(.qa-select-entry)::after{grid-column:3}
   .dispatch-theme .client-ticket-record-summary{align-items:flex-start;flex-direction:column}
   .dispatch-theme .client-ticket-record-end{width:100%;justify-content:space-between}
-  .dispatch-theme .client-ticket-record-body{align-items:stretch;flex-direction:column}
 }
