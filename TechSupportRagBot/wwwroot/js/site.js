@@ -49,7 +49,7 @@
     const deleteForm = payload.canDelete && chatShell.dataset.canWrite === "true"
       ? `<form method="post" action="?handler=DeleteMessage&id=${encodeURIComponent(chatShell.dataset.ticketId)}&messageId=${Number(payload.id)}" class="message-delete-form"><button type="submit" title="${text("Удалить сообщение", "Delete message")}" aria-label="${text("Удалить сообщение", "Delete message")}">×</button></form>`
       : "";
-    message.innerHTML = `<div class="message-meta"><span>${escapeHtml(payload.authorName)}${details}</span><span class="message-meta-actions"><span>${escapeHtml(payload.createdAt)}</span>${deleteForm}</span></div>`;
+    message.innerHTML = `<div class="message-meta"><span>${payload.kind === "bot" ? text("Бот", "Bot") : escapeHtml(payload.authorName)}${details}</span><span class="message-meta-actions"><span>${escapeHtml(payload.createdAt)}</span>${deleteForm}</span></div>`;
     if (payload.text) {
       const paragraph = document.createElement("p");
       paragraph.textContent = payload.text;
@@ -746,7 +746,7 @@
             form.reset();
             const labelText = form.querySelector(".file-picker span");
             if (labelText) labelText.textContent = text("Выберите файл", "Choose file");
-            if (chatShell && botForm && !chatShell.dataset.operatorUserId && chatShell.dataset.ticketStatus !== "Closed") {
+            if (payload.text?.trim() && chatShell && botForm && !chatShell.dataset.operatorUserId && chatShell.dataset.ticketStatus !== "Closed") {
               chatShell.dataset.askBot = "true";
               requestBotAnswer();
             }

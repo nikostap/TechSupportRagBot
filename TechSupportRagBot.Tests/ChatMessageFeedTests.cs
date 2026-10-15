@@ -32,4 +32,19 @@ public sealed class ChatMessageFeedTests
         Assert.True(json.GetProperty("attachments")[1].GetProperty("isVideo").GetBoolean());
         Assert.Equal("Processing", json.GetProperty("attachments")[1].GetProperty("status").GetString());
     }
+
+    [Fact]
+    public void Bot_message_uses_bot_name_even_when_author_user_is_a_client()
+    {
+        var message = new ChatMessage
+        {
+            Id = 43,
+            IsBotMessage = true,
+            AuthorUserId = "client",
+            AuthorUser = new ApplicationUser { FullName = "Клиент" }
+        };
+        var json = JsonSerializer.SerializeToElement(ChatMessageFeed.ToPayload(message, false, null, "client"));
+        Assert.Equal("bot", json.GetProperty("kind").GetString());
+        Assert.Equal("Бот", json.GetProperty("authorName").GetString());
+    }
 }

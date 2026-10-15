@@ -10,8 +10,8 @@ public static class ChatMessageFeed
         {
             id = message.Id,
             text = message.Text,
-            authorName = message.AuthorUser?.FullName ?? message.AuthorUser?.UserName ?? (message.IsBotMessage ? "Бот" : "Пользователь"),
-            authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }
+            authorName = message.IsBotMessage ? "Бот" : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName ?? "Пользователь",
+            authorDetails = message.IsBotMessage ? "" : string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }
                 .Where(x => !string.IsNullOrWhiteSpace(x))),
             createdAt = message.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
             kind = message.IsBotMessage ? "bot" : message.AuthorUserId == currentUserId ? "mine" : "operator",
