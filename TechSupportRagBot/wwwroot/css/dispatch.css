@@ -128,9 +128,9 @@
 .dispatch-theme .tickets-fact-value{font-size:12px;font-weight:700;color:#36525d}
 .dispatch-theme .tickets-ticket-facts small{color:#71858d;font-size:11px}
 .dispatch-theme .tickets-machine-detail{margin:16px 0 0;padding-top:12px;border-top:1px solid #e6edee;color:#71858d;font-size:11px}
-.dispatch-theme .tickets-focus-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 18px;border-top:1px solid #e6edee;background:#fbfcfc}
-.dispatch-theme .tickets-focus-actions .assign-inline-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-right:auto}
-.dispatch-theme .tickets-focus-actions .assign-inline-form select{max-width:200px}
+.dispatch-theme .tickets-focus-actions{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:13px 18px;border-top:1px solid #e6edee;background:#fbfcfc}
+.dispatch-theme .tickets-focus-actions .assign-inline-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-width:0;margin:0}
+.dispatch-theme .tickets-focus-actions .assign-inline-form select{width:100%;min-width:0;max-width:none}
 .dispatch-theme .tickets-focus-actions .row-action{display:flex;margin:0}
 .dispatch-theme .tickets-focus-actions .btn-secondary,.dispatch-theme .tickets-focus-actions .btn-danger{display:inline-flex;align-items:center;justify-content:center;min-height:38px;margin:0}
 .dispatch-theme .tickets-open-chat{background:#172f3b;color:#fff;border-color:#172f3b}
@@ -147,13 +147,15 @@
   .dispatch-theme .tickets-page-head{align-items:flex-start}
   .dispatch-theme .tickets-page-counts{gap:13px;flex-wrap:wrap}
   .dispatch-theme .tickets-client-nav{top:58px}
+  .dispatch-theme .tickets-overline{font-size:11px}
   .dispatch-theme .tickets-client-heading h2{font-size:19px}
   .dispatch-theme .tickets-focus-summary{align-items:flex-start;padding:14px;flex-direction:column}
+  .dispatch-theme .tickets-ticket-ident small,.dispatch-theme .tickets-machine-detail{font-size:12px}
   .dispatch-theme .tickets-ticket-summary-end{width:100%;justify-content:space-between}
   .dispatch-theme .tickets-ticket-facts{grid-template-columns:1fr}
   .dispatch-theme .tickets-focus-body,.dispatch-theme .tickets-focus-actions{padding:14px}
-  .dispatch-theme .tickets-focus-actions .assign-inline-form{width:100%;margin:0}
-  .dispatch-theme .tickets-focus-actions .assign-inline-form select{max-width:none;flex:1;min-width:0}
-  .dispatch-theme .tickets-focus-actions .tickets-open-chat,.dispatch-theme .tickets-focus-actions .row-action{flex:1}
+  .dispatch-theme .tickets-focus-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dispatch-theme .tickets-focus-actions .assign-inline-form{grid-column:1/-1;width:100%}
+  .dispatch-theme .tickets-focus-actions .tickets-open-chat,.dispatch-theme .tickets-focus-actions .row-action{width:100%}
   .dispatch-theme .tickets-focus-actions .row-action button{width:100%}
 }

@@ -48,7 +48,7 @@ else
                 <section class="tickets-client-panel" id="tickets-client-panel-@clientIndex" data-client-panel="@client.Key" hidden="@(clientIndex != 0)">
                     <div class="tickets-client-heading">
                         <div><span class="tickets-overline">Клиент</span><h2>@client.ClientName</h2></div>
-                        <span class="tickets-client-total">@client.TicketCount обращений</span>
+                        <span class="tickets-client-total">Обращений: @client.TicketCount</span>
                     </div>
                     @foreach (var machine in client.Machines)
                     {
