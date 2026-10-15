@@ -886,7 +886,8 @@ a:hover {
 }
 
 .qa-bulk-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:14px 0; }
-.qa-bulk-bar label { margin:0; flex-direction:row; align-items:center; }
+.qa-bulk-bar label { display:inline-flex; margin:0; flex-direction:row; align-items:center; gap:8px; }
+.qa-bulk-bar label input { flex:none; width:18px; height:18px; margin:0; }
 .qa-select-entry { flex:0 0 auto; width:18px; height:18px; margin-right:10px; }
 .app-version { margin-left:8px; color:var(--muted); font-size:11px; }
 .usage-donut-panel { display:grid; justify-items:center; gap:18px; }
@@ -1833,16 +1834,27 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 }
 
 @media (max-width: 1180px) {
-  .qa-filter-search-row,
   .qa-filter-options-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
+@media (max-width: 760px) {
+  .qa-filter-search-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
-  .qa-filter-search-row,
   .qa-filter-options-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .qa-filter-search-row input,
+  .qa-filter-search-row select {
+    grid-column: 1 / -1;
   }
 }
 

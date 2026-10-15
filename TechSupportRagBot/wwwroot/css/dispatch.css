@@ -230,11 +230,14 @@
   .dispatch-theme .focus-list-mobile-model{display:inline}
   .dispatch-theme .focus-list-pane{overflow:visible;padding:0}
 }
-@media(max-width:600px){
+@media(max-width:900px){
   .dispatch-theme .qa-bulk-bar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:center}
-  .dispatch-theme .qa-bulk-bar label{min-width:0;font-size:11px}
-  .dispatch-theme .qa-bulk-bar #qa-selected-count{text-align:right;font-size:11px}
-  .dispatch-theme .qa-bulk-bar .btn-secondary,.dispatch-theme .qa-bulk-bar .btn-danger{width:100%;height:100%;min-height:44px;margin:0;padding:6px;font-size:11px;white-space:normal}
+  .dispatch-theme .qa-bulk-bar label{display:inline-flex;flex-direction:row;align-items:center;gap:8px;min-width:0;margin:0;font-size:12px}
+  .dispatch-theme .qa-bulk-bar label input{flex:none;margin:0}
+  .dispatch-theme .qa-bulk-bar #qa-selected-count{text-align:right;font-size:12px}
+  .dispatch-theme .qa-bulk-bar .btn-secondary,.dispatch-theme .qa-bulk-bar .btn-danger{display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:44px;margin:0;padding:8px;font-size:12px;text-align:center;white-space:normal}
+}
+@media(max-width:600px){
   .dispatch-theme .focus-list-button{font-size:12px}
   .dispatch-theme .focus-list-pane-heading h3{font-size:16px}
   .dispatch-theme .focus-list-overline{font-size:11px}

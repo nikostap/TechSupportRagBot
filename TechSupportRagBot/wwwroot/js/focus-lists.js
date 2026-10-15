@@ -87,8 +87,6 @@
                             model.hidden = false;
                             list.querySelector('.focus-list-pane-heading')?.remove();
                             addPaneHeading(list, modelName, `№ ${serialName}`, `${count} QA`);
-                            const firstCard = serial.querySelector('.qa-card');
-                            if (firstCard && !serial.querySelector('.qa-card[open]')) firstCard.open = true;
                         }
                     }
                 };
@@ -141,8 +139,6 @@
                         if (selected) {
                             list.querySelector('.focus-list-pane-heading')?.remove();
                             addPaneHeading(list, 'Обращения', name, `${count}`);
-                            const firstRecord = group.querySelector('.focus-dashboard-record');
-                            if (firstRecord && !group.querySelector('.focus-dashboard-record[open]')) firstRecord.open = true;
                         }
                     }
                 };
@@ -171,8 +167,6 @@
                     if (selected) {
                         list.querySelector('.focus-list-pane-heading')?.remove();
                         addPaneHeading(list, 'Решения', group.label, `${group.cards.length}`);
-                        const first = group.cards[0];
-                        if (first && !group.cards.some(card => card.open)) first.open = true;
                     }
                 }
             };
@@ -190,7 +184,6 @@
         const items = chunks.map((chunk, index) => {
             const name = chunk.querySelector('.qa-summary-main strong')?.textContent.trim() || `Фрагмент ${index + 1}`;
             const button = addButton(nav, name, null, false);
-            chunk.open = true;
             return {
                 button,
                 show(selected) {
@@ -206,6 +199,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('details').forEach(detail => { detail.open = false; });
         setupQA();
         setupClientTickets();
         setupDashboard();

@@ -71,7 +71,7 @@ else
                                         TicketStatuses.WaitingForOperator => "is-waiting",
                                         _ => "is-progress"
                                     };
-                                    <details class="tickets-focus-ticket" data-ticket-id="@ticket.Id" open="@(rowIndex == 0)">
+                                    <details class="tickets-focus-ticket" data-ticket-id="@ticket.Id">
                                         <summary class="tickets-focus-summary">
                                             <span class="tickets-ticket-ident">
                                                 <span class="tickets-overline">Обращение #@ticket.Id</span>
@@ -154,7 +154,6 @@ else
         const stateKey = 'tickets:workspace:' + location.pathname + location.search;
         const buttons = [...workspace.querySelectorAll('[data-client-key]')];
         const panels = [...workspace.querySelectorAll('[data-client-panel]')];
-        const tickets = [...workspace.querySelectorAll('[data-ticket-id]')];
         const scroller = document.getElementById('tickets-work-scroll');
         let saved = {};
         try { saved = JSON.parse(sessionStorage.getItem(stateKey) || '{}') || {}; } catch { saved = {}; }
@@ -162,7 +161,6 @@ else
         function saveState() {
             sessionStorage.setItem(stateKey, JSON.stringify({
                 client: buttons.find(button => button.getAttribute('aria-pressed') === 'true')?.dataset.clientKey,
-                openTickets: tickets.filter(ticket => ticket.open).map(ticket => ticket.dataset.ticketId),
                 scrollTop: scroller.scrollTop
             }));
         }
@@ -178,11 +176,6 @@ else
             scroller.scrollTop = restoreScroll ? Math.max(0, Number(saved.scrollTop) || 0) : 0;
             saveState();
         }
-        if (Array.isArray(saved.openTickets)) {
-            const openIds = new Set(saved.openTickets);
-            tickets.forEach(ticket => { ticket.open = openIds.has(ticket.dataset.ticketId); });
-        }
-        tickets.forEach(ticket => ticket.addEventListener('toggle', saveState));
         buttons.forEach(button => button.addEventListener('click', () => selectClient(button.dataset.clientKey)));
         scroller.addEventListener('scroll', saveState, { passive: true });
         workspace.querySelectorAll('form[method="post"]').forEach(form => form.addEventListener('submit', saveState));
