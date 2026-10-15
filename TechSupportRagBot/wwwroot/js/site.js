@@ -534,12 +534,16 @@
       video.addEventListener("loadedmetadata", ready);
       video.addEventListener("canplay", ready);
       video.addEventListener("playing", ready);
-      video.addEventListener("error", () => {
+      const failed = () => {
         frame.classList.remove("is-loading");
         frame.classList.add("is-error");
         overlay.innerHTML = `<span>${text("Видео недоступно", "Video unavailable")}</span>`;
-      });
-      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+      };
+      video.addEventListener("error", failed);
+      video.querySelectorAll("source").forEach((source) => source.addEventListener("error", failed));
+      if (video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+        failed();
+      } else if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
         loading();
       }
     });
