@@ -107,7 +107,23 @@ public class OperatorTimeTrackingService
             presence.LastActivityAt = now;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Обновление страницы, SignalR и отправка сообщения могут одновременно
+            // зафиксировать присутствие одного оператора. Второй запрос уже не должен
+            // превращать страницу чата в ошибку 500: состояние успеет обновиться
+            // следующим обращением.
+            _db.ChangeTracker.Clear();
+            _logger.LogDebug(
+                "Operator time tracking conflict ignored. Ticket={TicketId}, Operator={OperatorUserId}",
+                ticketId,
+                operatorUserId);
+            return false;
+        }
         _logger.LogInformation(
             "Operator time activity tracked. Ticket={TicketId}, Operator={OperatorUserId}, EntryCreated={EntryCreated}, EndSession={EndSession}",
             ticketId,

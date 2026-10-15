@@ -5,7 +5,7 @@
 ## Быстрый старт для работы
 
 - Локальный сайт: `http://localhost:5028`.
-- Production: `https://productionmanager.ru/`.
+- Production: `https://support.classeng.com/`.
 - Основная точка входа: `TechSupportRagBot/Pages/Index.cshtml`.
 - Общее меню и ресурсы: `TechSupportRagBot/Pages/Shared/_Layout.cshtml` и `_LoginPartial.cshtml`.
 - Видимость плиток определяется `AccessProfileService` и методом `IndexModel.Can(...)`.
@@ -176,7 +176,7 @@
 - `.env`: реальные секреты; не коммитить и не показывать в логах.
 - При локальном `dotnet run` приложение загружает `.env` из каталога решения или проекта до построения конфигурации; уже заданные системные переменные имеют приоритет. Docker-адреса `postgres`, `qdrant`, `ollama` и `libretranslate` для локального процесса преобразуются в `localhost` (PostgreSQL — порт `55432`). В Docker значения по-прежнему передаются через `env_file` без преобразования.
 - Вложения по умолчанию хранятся локально в `/app/App_Data/Uploads` (`chat`, `qa`, `avatars`, `videos`), а не в `wwwroot`; запросы к старому `/uploads` возвращают 404.
-- В `/Admin/Settings` выбирается `Local` или `S3`. S3-совместимое Yandex Object Storage настраивается только переменными `Storage__S3__*` из `.env`; подготовлен бакет `chatbotbucket`, но переключение запрещено до заполнения обоих ключей.
+- В `/Admin/Settings` выбирается `Local` или `S3`. Production использует S3-совместимое хранилище REG.RU (`https://s3.regru.cloud`, бакет `bucket`); endpoint, регион и ключи задаются только переменными `Storage__S3__*` в `.env`. Ключи не хранятся в Git и не выводятся в логах.
 - Docker volume `app_uploads` подключён к `/app/App_Data/Uploads`. Стартовая миграция нормализует ключи в БД и переносит доступные legacy-файлы из `wwwroot/uploads`.
 - Для проверки входа SmartCaptcha использует `SmartCaptcha__ServerKey` из `.env`; публичный ключ размещён только в форме входа. В Development и при обращении к `localhost`/loopback проверка капчи отключена.
 - `.env.example`: безопасный шаблон.
@@ -190,15 +190,14 @@
 
 ### Production
 
-- Сервер: `productionmanager.ru`.
-- Каталог приложения: `/opt/techsupportragbot/app`.
-- Production override: `/opt/techsupportragbot/compose.production.yml`.
+- Сервер: `support.classeng.com` (`195.208.61.128`).
+- Каталог приложения: `/opt/classeng-support/app`.
+- Production override: `/opt/classeng-support/compose.production.yml`.
 - Caddy завершает TLS и проксирует на `127.0.0.1:5028`.
 - PostgreSQL, Qdrant и LibreTranslate наружу не публикуются.
-- LibreTranslate загружает только `en,ru`, ограничен 420 МБ RAM и 0.6 CPU.
-- VPS имеет около 1 ГБ RAM и постоянный swap 2 ГБ.
-- `techsupportragbot-update.timer`: каждые 10 минут проверяет `origin/main` и отдельно сверяет commit работающего развёртывания в `/opt/techsupportragbot/deployed-commit`; пересобирает контейнер и при изменившемся Git-коммите, и при рассинхронизации развёртывания. При неуспешном health-check откатывает commit.
-- `techsupportragbot-health.timer`: каждые 10 минут проверяет HTTPS и при сбое перезапускает контейнер app.
+- LibreTranslate загружает только `en,ru`, ограничен 1 ГБ RAM и 0.6 CPU, чтобы оба направления перевода не перезапускали сервис при загрузке моделей.
+- VPS имеет 2 vCPU, около 4 ГБ RAM и 40 ГБ SSD; Docker и Caddy запускаются через systemd, контейнеры — с политикой `unless-stopped`.
+- Автоматическое обновление из Git на новом сервере пока не настраивалось; обновления выполняются контролируемым развёртыванием.
 - Учёт AiTunnel: для `deepseek-chat` применяется калиброванная тарифная оценка с резервом 10%; для embeddings действует минимум 0,01 ₽ за запрос.
 
 ## Правила обновления этой карты
