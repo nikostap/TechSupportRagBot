@@ -523,11 +523,29 @@
       overlay.innerHTML = `<span class="video-spinner" aria-hidden="true"></span><span>${text("Загрузка видео...", "Loading video...")}</span>`;
       frame.appendChild(overlay);
 
+      let loadingTimeout = null;
+      const clearLoadingTimeout = () => {
+        if (loadingTimeout !== null) {
+          window.clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
+      };
       const loading = () => {
         frame.classList.remove("is-error");
         frame.classList.add("is-loading");
+        if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+          clearLoadingTimeout();
+          loadingTimeout = window.setTimeout(() => {
+            if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+              failed();
+            }
+          }, 12000);
+        }
       };
-      const ready = () => frame.classList.remove("is-loading", "is-error");
+      const ready = () => {
+        clearLoadingTimeout();
+        frame.classList.remove("is-loading", "is-error");
+      };
       video.addEventListener("loadstart", loading);
       video.addEventListener("waiting", loading);
       video.addEventListener("seeking", loading);
@@ -535,6 +553,7 @@
       video.addEventListener("canplay", ready);
       video.addEventListener("playing", ready);
       const failed = () => {
+        clearLoadingTimeout();
         frame.classList.remove("is-loading");
         frame.classList.add("is-error");
         overlay.innerHTML = `<span>${text("Видео недоступно", "Video unavailable")}</span>`;
