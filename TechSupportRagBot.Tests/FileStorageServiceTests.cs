@@ -39,6 +39,20 @@ public sealed class FileStorageServiceTests : IDisposable
             Assert.Equal(expected, output.ToArray());
         }
 
+        await using (var ranged = await storage.OpenReadRangeAsync(
+            StorageProviderNames.Local,
+            "chat/42/file.txt",
+            8,
+            17))
+        {
+            Assert.NotNull(ranged);
+            Assert.Equal(10, ranged.Length);
+            var bytes = new byte[ranged.Length];
+            var read = await ranged.Stream.ReadAsync(bytes);
+            Assert.Equal(10, read);
+            Assert.Equal("attachment", System.Text.Encoding.UTF8.GetString(bytes));
+        }
+
         await storage.DeleteAsync(StorageProviderNames.Local, "chat/42/file.txt");
         Assert.Null(await storage.OpenReadAsync(StorageProviderNames.Local, "chat/42/file.txt"));
     }

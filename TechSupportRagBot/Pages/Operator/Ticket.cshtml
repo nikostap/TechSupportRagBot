@@ -104,7 +104,7 @@
                             <div class="video-card" data-video-attachment-id="@attachment.Id" data-video-status="@attachment.Status">
                                 @if (attachment.Status == AttachmentStatuses.Ready && !string.IsNullOrWhiteSpace(fileUrl))
                                 {
-                                    <video controls poster="@previewUrl">
+                                    <video controls preload="metadata" poster="@previewUrl">
                                         <source src="@fileUrl" type="video/mp4" />
                                     </video>
                                 }

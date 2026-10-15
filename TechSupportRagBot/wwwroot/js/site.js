@@ -451,6 +451,46 @@
       </div>`;
   }
 
+  function setupVideoPlayback(root = document) {
+    root.querySelectorAll(".video-card video").forEach((video) => {
+      if (video.dataset.loadingBound === "true") {
+        return;
+      }
+      video.dataset.loadingBound = "true";
+      video.preload = "metadata";
+
+      const frame = document.createElement("div");
+      frame.className = "video-player-frame";
+      video.before(frame);
+      frame.appendChild(video);
+      const overlay = document.createElement("div");
+      overlay.className = "video-loading";
+      overlay.setAttribute("role", "status");
+      overlay.innerHTML = `<span class="video-spinner" aria-hidden="true"></span><span>${text("Загрузка видео...", "Loading video...")}</span>`;
+      frame.appendChild(overlay);
+
+      const loading = () => {
+        frame.classList.remove("is-error");
+        frame.classList.add("is-loading");
+      };
+      const ready = () => frame.classList.remove("is-loading", "is-error");
+      video.addEventListener("loadstart", loading);
+      video.addEventListener("waiting", loading);
+      video.addEventListener("seeking", loading);
+      video.addEventListener("loadedmetadata", ready);
+      video.addEventListener("canplay", ready);
+      video.addEventListener("playing", ready);
+      video.addEventListener("error", () => {
+        frame.classList.remove("is-loading");
+        frame.classList.add("is-error");
+        overlay.innerHTML = `<span>${text("Видео недоступно", "Video unavailable")}</span>`;
+      });
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+        loading();
+      }
+    });
+  }
+
   function appendTemporaryVideoMessage(fileName) {
     if (!chatShell) {
       return null;
@@ -922,27 +962,8 @@
 
     if (payload.finalPath) {
       const poster = payload.previewPath ? ` poster="${payload.previewPath}"` : "";
-      card.innerHTML = `<video controls${poster}><source src="${payload.finalPath}" type="video/mp4" /></video>`;
-    } else {
-      card.innerHTML = `<div class="video-state">${text("Видео обрабатывается...", "Video is processing...")}</div>`;
-    }
-  }
-
-  function updateVideoCard(payload, failed) {
-    const card = document.querySelector(`[data-video-attachment-id='${payload.attachmentId}']`);
-    if (!card) {
-      return;
-    }
-
-    card.dataset.videoStatus = payload.status || (failed ? "Failed" : "Ready");
-    if (failed) {
-      card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
-      return;
-    }
-
-    if (payload.finalPath) {
-      const poster = payload.previewPath ? ` poster="${payload.previewPath}"` : "";
-      card.innerHTML = `<video controls${poster}><source src="${payload.finalPath}" type="video/mp4" /></video>`;
+      card.innerHTML = `<video controls preload="metadata"${poster}><source src="${payload.finalPath}" type="video/mp4" /></video>`;
+      setupVideoPlayback(card);
     } else {
       setVideoProgress(card, text("Видео преобразовывается", "Video is converting"), payload.percent || 10);
     }
@@ -1031,6 +1052,7 @@
   setupCtrlEnterSubmit();
   setupChatAjaxMessages();
   setupVideoAjaxUpload();
+  setupVideoPlayback();
   setupExistingVideoStatusPolling();
   setupMessageDeleteConfirm();
   setupSubmitLocks();

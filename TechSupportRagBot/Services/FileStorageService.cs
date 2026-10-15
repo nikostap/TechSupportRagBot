@@ -110,6 +110,51 @@ public sealed class FileStorageService
         return new StorageReadResult(stream, info.Length);
     }
 
+    public async Task<StorageReadResult?> OpenReadRangeAsync(
+        string provider,
+        string key,
+        long start,
+        long end,
+        CancellationToken cancellationToken = default)
+    {
+        provider = NormalizeProvider(provider);
+        key = NormalizeKey(key);
+        if (provider == StorageProviderNames.S3)
+        {
+            EnsureS3Configured();
+            try
+            {
+                var response = await _s3.GetObjectAsync(new GetObjectRequest
+                {
+                    BucketName = _options.S3.Bucket,
+                    Key = key,
+                    ByteRange = new ByteRange(start, end)
+                }, cancellationToken);
+                return new StorageReadResult(response.ResponseStream, response.ContentLength, response);
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+        }
+
+        var fullPath = ResolveLocalPath(key);
+        if (!File.Exists(fullPath))
+        {
+            return null;
+        }
+
+        var stream = new FileStream(
+            fullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        stream.Seek(start, SeekOrigin.Begin);
+        return new StorageReadResult(stream, end - start + 1);
+    }
+
     public async Task DeleteAsync(
         string? provider,
         string? key,

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -61,7 +62,24 @@ public sealed class AttachmentsController : Controller
                 ? chatAttachment.PreviewStorageProvider ?? chatAttachment.StorageProvider
                 : chatAttachment.StorageProvider;
             var contentType = preview ? "image/jpeg" : chatAttachment.ContentType;
-            return await SendStoredAsync(provider, key, chatAttachment.OriginalFileName, contentType, preview, cancellationToken);
+            var isVideo = chatAttachment.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+            if (isVideo)
+            {
+                // The browser may retain its own copy, but must revalidate access on every revisit.
+                Response.Headers["Cache-Control"] = "private, no-cache";
+                Response.Headers["Vary"] = "Cookie";
+                var etag = $"\"{chatAttachment.PublicId:N}-{chatAttachment.ProcessedAt?.Ticks ?? chatAttachment.CreatedAt.Ticks}\"";
+                Response.Headers.ETag = etag;
+                if (string.IsNullOrEmpty(Request.Headers.Range)
+                    && Request.Headers.IfNoneMatch.ToString().Split(',').Any(value => value.Trim() == etag))
+                {
+                    return StatusCode(StatusCodes.Status304NotModified);
+                }
+            }
+
+            return await SendStoredAsync(
+                provider, key, chatAttachment.OriginalFileName, contentType, preview, cancellationToken,
+                isVideo && !preview ? chatAttachment.SizeBytes : null);
         }
 
         if (preview)
@@ -158,17 +176,28 @@ public sealed class AttachmentsController : Controller
         string downloadName,
         string contentType,
         bool forceInline,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? rangeLength = null)
     {
         if (string.IsNullOrWhiteSpace(key))
         {
             return NotFound();
         }
 
-        var stored = await _storage.OpenReadAsync(
-            FileStorageService.NormalizeProvider(provider),
-            key,
-            cancellationToken);
+        var normalizedProvider = FileStorageService.NormalizeProvider(provider);
+        var rangeHeader = Request.Headers.Range.ToString();
+        var hasRange = rangeLength is > 0 && !string.IsNullOrEmpty(rangeHeader);
+        long start = 0;
+        long end = 0;
+        if (hasRange && !TryResolveRange(rangeHeader, rangeLength!.Value, out start, out end))
+        {
+            Response.Headers.ContentRange = $"bytes */{rangeLength}";
+            return StatusCode(StatusCodes.Status416RangeNotSatisfiable);
+        }
+
+        var stored = hasRange
+            ? await _storage.OpenReadRangeAsync(normalizedProvider, key, start, end, cancellationToken)
+            : await _storage.OpenReadAsync(normalizedProvider, key, cancellationToken);
         if (stored == null)
         {
             return NotFound();
@@ -181,8 +210,77 @@ public sealed class AttachmentsController : Controller
             FileNameStar = Path.GetFileName(downloadName.Replace('\\', '/'))
         };
         Response.Headers.ContentDisposition = disposition.ToString();
-        Response.ContentLength = stored.Length;
-        return File(stored.Stream, contentType, enableRangeProcessing: true);
+        Response.ContentType = contentType;
+        Response.ContentLength = hasRange ? end - start + 1 : stored.Length;
+        if (rangeLength is > 0)
+        {
+            Response.Headers.AcceptRanges = "bytes";
+        }
+        if (hasRange)
+        {
+            Response.StatusCode = StatusCodes.Status206PartialContent;
+            Response.Headers.ContentRange = $"bytes {start}-{end}/{rangeLength}";
+        }
+
+        await using (stored)
+        {
+            if (hasRange)
+            {
+                await CopyExactlyAsync(stored.Stream, Response.Body, end - start + 1, cancellationToken);
+            }
+            else
+            {
+                await stored.Stream.CopyToAsync(Response.Body, 81920, cancellationToken);
+            }
+        }
+        return new EmptyResult();
+    }
+
+    private static bool TryResolveRange(string header, long length, out long start, out long end)
+    {
+        start = end = 0;
+        if (!RangeHeaderValue.TryParse(header, out var parsed)
+            || parsed.Unit != "bytes"
+            || parsed.Ranges.Count != 1)
+        {
+            return false;
+        }
+
+        var requested = parsed.Ranges.First();
+        if (requested.From.HasValue)
+        {
+            start = requested.From.Value;
+            end = Math.Min(requested.To ?? length - 1, length - 1);
+        }
+        else if (requested.To is > 0)
+        {
+            start = Math.Max(0, length - requested.To.Value);
+            end = length - 1;
+        }
+
+        return start >= 0 && start < length && end >= start;
+    }
+
+    private static async Task CopyExactlyAsync(Stream input, Stream output, long length, CancellationToken cancellationToken)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(81920);
+        try
+        {
+            while (length > 0)
+            {
+                var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, length)), cancellationToken);
+                if (read == 0)
+                {
+                    throw new EndOfStreamException("Stored file ended before the requested range.");
+                }
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                length -= read;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static string ContentTypeForName(string? name) => Path.GetExtension(name)?.ToLowerInvariant() switch
