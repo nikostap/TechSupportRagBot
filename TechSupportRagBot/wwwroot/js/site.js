@@ -5,6 +5,8 @@
   const isEnglish = document.documentElement.lang === "en";
   let chatConnection = null;
   let botAnswerInFlight = false;
+  let messageCursor = Number(chatShell?.dataset.lastMessageId || "0");
+  let messagesLoading = null;
 
   function text(ru, en) {
     return isEnglish ? en : ru;
@@ -34,34 +36,90 @@
       .replaceAll("'", "&#039;");
   }
 
-  function updateKnownSnapshot(lastMessageId) {
-    if (!chatShell) {
+  function appendFeedMessage(payload) {
+    if (!chatShell || chatShell.querySelector(`[data-message-id='${Number(payload.id)}']`)) {
       return;
     }
 
-    const currentCount = Number(chatShell.dataset.messageCount || "0");
-    chatShell.dataset.messageCount = String(currentCount + 1);
-    if (lastMessageId) {
-      chatShell.dataset.lastMessageId = String(lastMessageId);
+    const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 240;
+    const message = document.createElement("div");
+    message.className = `message ${["mine", "bot", "operator"].includes(payload.kind) ? payload.kind : "operator"}`;
+    message.dataset.messageId = String(payload.id);
+    const details = payload.authorDetails ? `<small>${escapeHtml(payload.authorDetails)}</small>` : "";
+    const deleteForm = payload.canDelete && chatShell.dataset.canWrite === "true"
+      ? `<form method="post" action="?handler=DeleteMessage&id=${encodeURIComponent(chatShell.dataset.ticketId)}&messageId=${Number(payload.id)}" class="message-delete-form"><button type="submit" title="${text("Удалить сообщение", "Delete message")}" aria-label="${text("Удалить сообщение", "Delete message")}">×</button></form>`
+      : "";
+    message.innerHTML = `<div class="message-meta"><span>${escapeHtml(payload.authorName)}${details}</span><span class="message-meta-actions"><span>${escapeHtml(payload.createdAt)}</span>${deleteForm}</span></div>`;
+    if (payload.text) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = payload.text;
+      message.appendChild(paragraph);
     }
+    if (payload.needsTranslation) {
+      const translation = document.createElement("div");
+      translation.className = `message-translation${payload.translation ? "" : " pending-translation"}`;
+      if (!payload.translation) translation.dataset.translationMessageId = String(payload.id);
+      translation.innerHTML = `<span>${text("Перевод", "Translation")}</span><p>${escapeHtml(payload.translation || text("Перевод загружается...", "Loading translation..."))}</p>`;
+      message.appendChild(translation);
+    }
+    if (payload.attachments?.length) {
+      const attachments = document.createElement("div");
+      attachments.className = "attachments";
+      for (const item of payload.attachments) {
+        const url = escapeHtml(item.url);
+        const name = escapeHtml(item.fileName);
+        if (item.isVideo) {
+          const card = document.createElement("div");
+          card.className = "video-card";
+          card.dataset.videoAttachmentId = String(item.id);
+          card.dataset.videoStatus = item.status;
+          card.innerHTML = item.status === "Ready"
+            ? `<video controls preload="metadata" poster="${escapeHtml(item.previewUrl)}"><source src="${url}" type="video/mp4" /></video><span>${name}</span>`
+            : `<div class="video-state${item.status === "Failed" ? " failed" : ""}">${item.status === "Failed" ? text("Ошибка отправки", "Send failed") : text("Видео обрабатывается...", "Video is processing...")}</div><span>${name}</span>`;
+          attachments.appendChild(card);
+          if (item.status !== "Ready" && item.status !== "Failed") pollVideoStatus(item.id, card);
+        } else if (item.isImage) {
+          const button = document.createElement("button");
+          button.className = "chat-image-button";
+          button.type = "button";
+          button.dataset.fullImage = item.url;
+          button.setAttribute("aria-label", item.fileName);
+          button.innerHTML = `<img src="${url}" alt="${name}" />`;
+          attachments.appendChild(button);
+        } else {
+          attachments.insertAdjacentHTML("beforeend", `<a href="${url}" target="_blank">${name}</a>`);
+        }
+      }
+      message.appendChild(attachments);
+    }
+    chatShell.appendChild(message);
+    setupVideoPlayback(message);
+    if (payload.needsTranslation && !payload.translation) setupLazyTranslations();
+    if (nearBottom) scrollChatToBottom();
   }
 
-  function appendChatMessage(payload, className) {
-    if (!chatShell || !payload?.text) {
-      return;
-    }
-
-    const message = document.createElement("div");
-    message.className = `message ${className || "mine"}`;
-    message.innerHTML = `
-      <div class="message-meta">
-        <span>${escapeHtml(payload.authorName || text("Вы", "You"))}</span>
-        <span class="message-meta-actions"><span>${escapeHtml(payload.createdAt || "")}</span></span>
-      </div>
-      <p>${escapeHtml(payload.text)}</p>`;
-    chatShell.appendChild(message);
-    updateKnownSnapshot(payload.lastMessageId || payload.messageId);
-    scrollChatToBottom();
+  async function syncMessages() {
+    if (!chatShell) return;
+    if (messagesLoading) return messagesLoading;
+    messagesLoading = (async () => {
+      const ticketId = chatShell.dataset.ticketId;
+      let batch;
+      do {
+        const response = await fetch(`?handler=Messages&id=${encodeURIComponent(ticketId)}&afterId=${messageCursor}`, {
+          headers: { "Accept": "application/json" }, cache: "no-store"
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (!payload.ok) return;
+        batch = payload.messages || [];
+        for (const item of batch) {
+          appendFeedMessage(item);
+          messageCursor = Math.max(messageCursor, Number(item.id));
+        }
+      } while (batch.length === 100);
+      chatShell.dataset.lastMessageId = String(messageCursor);
+    })();
+    try { await messagesLoading; } finally { messagesLoading = null; }
   }
 
   async function requestBotAnswer() {
@@ -88,17 +146,13 @@
       const payload = await response.json();
       if (payload.ok) {
         typing.remove();
-        appendChatMessage(payload, "bot");
+        await syncMessages();
         if (payload.escalated) {
           chatShell.dataset.ticketStatus = "WaitingForOperator";
         } else {
           chatShell.dataset.ticketStatus = "BotAnswered";
         }
 
-        if (payload.hasMedia) {
-          window.location.reload();
-          return;
-        }
       }
     } finally {
       botAnswerInFlight = false;
@@ -506,7 +560,7 @@
       <div class="attachments">
         <div class="video-card" data-video-temp="true" data-video-status="Uploading">
           ${videoProgressMarkup(text("Видео загружается", "Video is uploading"), 0)}
-          <span>${fileName || ""}</span>
+          <span>${escapeHtml(fileName)}</span>
         </div>
       </div>`;
     chatShell.appendChild(message);
@@ -609,8 +663,10 @@
             card.dataset.videoAttachmentId = payload.attachment.id;
             card.dataset.videoStatus = payload.attachment.status || "Processing";
             card.removeAttribute("data-video-temp");
+            card.closest(".message").dataset.messageId = String(payload.messageId);
             setVideoProgress(card, text("Видео преобразовывается", "Video is converting"), 5);
             pollVideoStatus(payload.attachment.id, card);
+            syncMessages().catch(() => {});
             form.reset();
             const labelText = form.querySelector(".file-picker span");
             if (labelText) {
@@ -652,7 +708,7 @@
       form.addEventListener("submit", async (event) => {
         const fileInput = form.querySelector("input[type='file']");
         const file = fileInput?.files?.[0];
-        if (file) {
+        if (isVideoFile(file)) {
           return;
         }
 
@@ -663,7 +719,7 @@
         }
 
         const textarea = form.querySelector("textarea");
-        if (!textarea || !textarea.value.trim()) {
+        if (!file && !textarea?.value.trim()) {
           return;
         }
 
@@ -686,13 +742,19 @@
           });
           const payload = await response.json();
           if (payload.ok) {
-            appendChatMessage(payload, "mine");
+            await syncMessages();
             form.reset();
+            const labelText = form.querySelector(".file-picker span");
+            if (labelText) labelText.textContent = text("Выберите файл", "Choose file");
             if (chatShell && botForm && !chatShell.dataset.operatorUserId && chatShell.dataset.ticketStatus !== "Closed") {
               chatShell.dataset.askBot = "true";
               requestBotAnswer();
             }
+          } else {
+            window.alert(payload.error || text("Ошибка отправки", "Send failed"));
           }
+        } catch {
+          window.alert(text("Ошибка отправки", "Send failed"));
         } finally {
           form.dataset.submitting = "false";
           form.removeAttribute("aria-busy");
@@ -753,29 +815,38 @@
         close();
       }
     });
-    modal.querySelector(".delete-confirm-submit")?.addEventListener("click", () => {
+    modal.querySelector(".delete-confirm-submit")?.addEventListener("click", async () => {
       if (!activeForm) {
         close();
         return;
       }
-
-      activeForm.dataset.deleteConfirmed = "true";
+      const form = activeForm;
       modal.hidden = true;
-      activeForm.requestSubmit();
+      activeForm = null;
+      try {
+        const token = form.querySelector("input[name='__RequestVerificationToken']")?.value
+          || document.querySelector("input[name='__RequestVerificationToken']")?.value || "";
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest", "RequestVerificationToken": token }
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error("Delete failed");
+        form.closest(".message")?.remove();
+        chatShell.dataset.messageCount = String(Math.max(0, Number(chatShell.dataset.messageCount || 0) - 1));
+      } catch {
+        window.alert(text("Не удалось удалить сообщение", "Could not delete message"));
+      }
     });
 
-    document.querySelectorAll(".message-delete-form").forEach((form) => {
-      form.addEventListener("submit", (event) => {
-        if (form.dataset.deleteConfirmed === "true") {
-          return;
-        }
-
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        activeForm = form;
-        modal.hidden = false;
-        modal.querySelector(".delete-confirm-cancel")?.focus();
-      });
+    document.addEventListener("submit", (event) => {
+      const form = event.target.closest(".message-delete-form");
+      if (!form) return;
+      event.preventDefault();
+      activeForm = form;
+      modal.hidden = false;
+      modal.querySelector(".delete-confirm-cancel")?.focus();
     });
   }
 
@@ -790,13 +861,6 @@
     }
 
     let isChecking = false;
-    const initial = {
-      status: chatShell.dataset.ticketStatus || "",
-      operatorUserId: chatShell.dataset.operatorUserId || "",
-      messageCount: Number(chatShell.dataset.messageCount || "0"),
-      lastMessageId: Number(chatShell.dataset.lastMessageId || "0")
-    };
-
     window.setInterval(async () => {
       if (isChecking || document.hidden) {
         return;
@@ -820,14 +884,29 @@
           return;
         }
 
-        const changed = snapshot.status !== (chatShell.dataset.ticketStatus || initial.status)
-          || (snapshot.operatorUserId || "") !== initial.operatorUserId
-          || Number(snapshot.activeOperatorCount || 0) !== Number(chatShell.dataset.activeOperatorCount || 0)
-          || Number(snapshot.messageCount || 0) !== Number(chatShell.dataset.messageCount || initial.messageCount)
-          || Number(snapshot.lastMessageId || 0) !== Number(chatShell.dataset.lastMessageId || initial.lastMessageId);
-
-        if (changed) {
-          window.location.reload();
+        if (Number(snapshot.lastMessageId || 0) > messageCursor) await syncMessages();
+        if (Number(snapshot.messageCount || 0) < chatShell.querySelectorAll("[data-message-id]").length) {
+          const idsResponse = await fetch(`?handler=MessageIds&id=${encodeURIComponent(ticketId)}`, { cache: "no-store" });
+          if (idsResponse.ok) {
+            const idsPayload = await idsResponse.json();
+            if (idsPayload.ok) {
+              const ids = new Set(idsPayload.ids.map(Number));
+              chatShell.querySelectorAll("[data-message-id]").forEach((node) => {
+                if (!ids.has(Number(node.dataset.messageId))) node.remove();
+              });
+            }
+          }
+        }
+        chatShell.dataset.ticketStatus = snapshot.status || "";
+        chatShell.dataset.operatorUserId = snapshot.operatorUserId || "";
+        chatShell.dataset.activeOperatorCount = String(snapshot.activeOperatorCount || 0);
+        chatShell.dataset.messageCount = String(snapshot.messageCount || 0);
+        if (snapshot.status === "Closed") {
+          document.querySelectorAll("form.chat-form").forEach((form) => { form.hidden = true; });
+        }
+        if (snapshot.status) {
+          const statusPill = document.querySelector(".page-head .status-pill");
+          if (statusPill && snapshot.statusLabel) statusPill.textContent = snapshot.statusLabel;
         }
       } catch {
         // Keep the current chat usable if a background refresh fails.
@@ -922,11 +1001,11 @@
       return;
     }
 
-    document.querySelectorAll("[data-full-image]").forEach((button) => {
-      button.addEventListener("click", () => {
-        lightboxImage.src = button.dataset.fullImage || "";
-        lightbox.hidden = false;
-      });
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-full-image]");
+      if (!button) return;
+      lightboxImage.src = button.dataset.fullImage || "";
+      lightbox.hidden = false;
     });
 
     const close = () => {
@@ -1022,6 +1101,8 @@
     const blocks = Array.from(document.querySelectorAll("[data-translation-message-id]"));
 
     for (const block of blocks) {
+      if (block.dataset.translationRequested === "true") continue;
+      block.dataset.translationRequested = "true";
       const messageId = block.dataset.translationMessageId;
       const textNode = block.querySelector("p");
       try {

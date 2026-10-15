@@ -104,10 +104,44 @@ public class TicketModel : PageModel
         {
             ok = true,
             status = ticket.Status,
+            statusLabel = UiText.Status(HttpContext, ticket.Status),
             operatorUserId = ticket.OperatorUserId,
             messageCount,
             lastMessageId = lastMessageId ?? 0
         });
+    }
+
+    public async Task<IActionResult> OnGetMessagesAsync(int id, int afterId = 0)
+    {
+        CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (await LoadTicketForCurrentOperatorAsync(id) == null)
+        {
+            return NotFound();
+        }
+
+        var messages = await _db.ChatMessages.AsNoTracking()
+            .Include(x => x.AuthorUser)
+            .Include(x => x.Attachments)
+            .Include(x => x.Translations)
+            .Where(x => x.TicketId == id && x.Id > afterId)
+            .OrderBy(x => x.Id)
+            .Take(100)
+            .ToListAsync();
+        var currentUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == CurrentUserId);
+        return new JsonResult(new
+        {
+            ok = true,
+            messages = BuildMessageViews(messages, currentUser).Select(item => ChatMessageFeed.ToPayload(item.Message,
+                item.NeedsTranslation, item.Translation, CurrentUserId)).ToList()
+        });
+    }
+
+    public async Task<IActionResult> OnGetMessageIdsAsync(int id)
+    {
+        CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (await LoadTicketForCurrentOperatorAsync(id) == null) return NotFound();
+        return new JsonResult(new { ok = true, ids = await _db.ChatMessages.AsNoTracking()
+            .Where(x => x.TicketId == id).Select(x => x.Id).ToListAsync() });
     }
 
     public async Task<IActionResult> OnPostAssignAsync(int id)
@@ -248,7 +282,8 @@ public class TicketModel : PageModel
             return Forbid();
         }
 
-        await _messageDeletion.DeleteOwnMessageAsync(id, messageId, CurrentUserId);
+        var deleted = await _messageDeletion.DeleteOwnMessageAsync(id, messageId, CurrentUserId);
+        if (IsAjaxRequest()) return new JsonResult(new { ok = deleted });
         return RedirectToPage(new { id });
     }
 

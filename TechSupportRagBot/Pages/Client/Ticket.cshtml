@@ -33,7 +33,8 @@
          data-ticket-id="@Model.Ticket.Id"
          data-ticket-status="@Model.Ticket.Status"
          data-message-count="@Model.Messages.Count"
-         data-last-message-id="@(Model.Messages.LastOrDefault()?.Message.Id ?? 0)"
+         data-last-message-id="@(Model.Messages.Count == 0 ? 0 : Model.Messages.Max(x => x.Message.Id))"
+         data-can-write="@Model.CanWriteChat.ToString().ToLowerInvariant()"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
          data-active-operator-count="@Model.ActiveOperatorNames.Count"
          data-current-user-name="@(User.Identity?.Name ?? "Клиент")"
@@ -47,7 +48,7 @@
                 : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName;
             var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-            <div class="message @(message.IsBotMessage ? "bot" : message.AuthorUserId == Model.CurrentUserId ? "mine" : "operator")">
+            <div class="message @(message.IsBotMessage ? "bot" : message.AuthorUserId == Model.CurrentUserId ? "mine" : "operator")" data-message-id="@message.Id">
                 <div class="message-meta">
                     <span>
                         @authorName
