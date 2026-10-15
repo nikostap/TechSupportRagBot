@@ -1,0 +1,67 @@
+@using Microsoft.AspNetCore.Identity
+@using TechSupportRagBot.Models
+@using TechSupportRagBot.Services
+@inject UserManager<ApplicationUser> UserManager
+@inject AccessProfileService Access
+@{
+    var account = await UserManager.GetUserAsync(User);
+    var profileKey = account is null ? AccessProfileService.Observer : await Access.ResolveProfileKeyAsync(account);
+    var profiles = await Access.GetProfilesAsync();
+    var permissions = profiles.FirstOrDefault(profile => profile.Key == profileKey)?.Permissions
+        ?? new Dictionary<string, bool>();
+    bool Can(string permission) => permissions.TryGetValue(permission, out var allowed) && allowed;
+    var isInternal = User.IsInRole("Admin") || User.IsInRole("Operator");
+    var hasClient = account?.ClientId is not null;
+    var isAdmin = User.IsInRole("Admin");
+    var english = Context.Request.Cookies["lang"] == "en";
+    var items = new List<(string Group, string Page, string Label, string Icon)>();
+    items.Add((english ? "Work" : "Работа", "/Index", english ? "Overview" : "Обзор", "ce-dashboard"));
+    if (isInternal && Can("Tickets")) items.Add((english ? "Work" : "Работа", "/Admin/Tickets", english ? "All tickets" : "Все обращения", "ce-inbox"));
+    if (isInternal && Can("OperatorQueue")) items.Add((english ? "Work" : "Работа", "/Operator/Index", english ? "Operator queue" : "Очередь оператора", "ce-chat"));
+    if (hasClient && Can("ClientCabinet")) items.Add((english ? "Work" : "Работа", "/Client/Tickets", english ? "My tickets" : "Мои обращения", "ce-inbox"));
+    if (hasClient && Can("CreateTickets")) items.Add((english ? "Work" : "Работа", "/Client/NewTicket", english ? "New ticket" : "Новое обращение", "ce-plus"));
+
+    if (isInternal && Can("ManageClients")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Admin/Clients", english ? "Clients" : "Клиенты", "ce-clients"));
+    if (isInternal && Can("ManageMachines")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Admin/Machines", english ? "Equipment" : "Оборудование", "ce-machine"));
+    if (isInternal && Can("ManageLicenses")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Admin/Licenses", english ? "Licenses" : "Лицензии", "ce-license"));
+    if (hasClient && Can("ClientCabinet")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Client/Machines", english ? "My equipment" : "Моё оборудование", "ce-machine"));
+    if (hasClient && Can("ClientCabinet")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Client/Activate", english ? "Activation" : "Активация", "ce-license"));
+    if (hasClient && Can("CompanyUsers")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Client/Users", english ? "Company users" : "Пользователи компании", "ce-users"));
+
+    if (isInternal && Can("ManageAdmins")) items.Add((english ? "Team" : "Команда", "/Admin/Admins", english ? "Employees" : "Сотрудники", "ce-users"));
+    if (isInternal && Can("ManageOperators")) items.Add((english ? "Team" : "Команда", "/Admin/Operators", english ? "Operators" : "Операторы", "ce-headset"));
+    if (isInternal && Can("TimeTracking")) items.Add((english ? "Team" : "Команда", "/Admin/TimeTracking", english ? "Time tracking" : "Учёт времени", "ce-clock"));
+    if (isInternal && Can("AccessProfiles")) items.Add((english ? "Team" : "Команда", "/Admin/AccessProfiles", english ? "Access profiles" : "Профили доступа", "ce-shield"));
+
+    if (isInternal && Can("QA")) items.Add((english ? "Knowledge & AI" : "Знания и AI", "/Admin/QA", "QA", "ce-knowledge"));
+    if (isInternal && Can("QA")) items.Add((english ? "Knowledge & AI" : "Знания и AI", "/Admin/IndexedChats", english ? "Resolved chats" : "Завершённые чаты", "ce-check"));
+    if (isInternal && Can("QA")) items.Add((english ? "Knowledge & AI" : "Знания и AI", "/Admin/BotTest", english ? "Bot test" : "Тест бота", "ce-bot"));
+    if (isInternal && Can("Settings")) items.Add((english ? "Knowledge & AI" : "Знания и AI", "/Admin/ApiStatistics", english ? "API statistics" : "Статистика API", "ce-chart"));
+
+    if (isInternal && Can("Settings")) items.Add((english ? "System" : "Система", "/Admin/Settings", english ? "Settings" : "Настройки", "ce-settings"));
+    if (isAdmin && Can("Settings")) items.Add((english ? "System" : "Система", "/Admin/WorkCalendar", english ? "Work calendar" : "Рабочий календарь", "ce-calendar"));
+    items.Add((english ? "System" : "Система", "/Profile", english ? "My profile" : "Мой профиль", "ce-user"));
+    var currentPage = Context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
+    string? lastGroup = null;
+}
+<nav class="dispatch-navigation">
+    @foreach (var item in items)
+    {
+        if (item.Group != lastGroup)
+        {
+            lastGroup = item.Group;
+            <div class="dispatch-nav-group">@item.Group</div>
+        }
+        var active = currentPage.Equals(item.Page, StringComparison.OrdinalIgnoreCase)
+            || (item.Page == "/Profile" && currentPage.Equals("/ProfileEdit", StringComparison.OrdinalIgnoreCase))
+            || (item.Page == "/Operator/Index" && currentPage.Equals("/Operator/Ticket", StringComparison.OrdinalIgnoreCase))
+            || (item.Page == "/Client/Tickets" && currentPage.Equals("/Client/Ticket", StringComparison.OrdinalIgnoreCase));
+        <a class="dispatch-nav-link @(active ? "active" : null)" asp-page="@item.Page" aria-current="@(active ? "page" : null)">
+            <svg class="dispatch-icon" aria-hidden="true"><use href="#@item.Icon"></use></svg>
+            <span>@item.Label</span>
+        </a>
+    }
+</nav>
+<form class="dispatch-sidebar-signout" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })">
+    <button type="submit">@TechSupportRagBot.Services.UiText.T(Context, "Logout", "Выйти")</button>
+</form>

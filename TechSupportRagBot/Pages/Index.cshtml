@@ -21,6 +21,7 @@
 {
     <section class="home-hero">
         <div class="hero-panel">
+            <img class="hero-company-logo" src="/images/class-engineering-transparent.png" alt="Class Engineering" />
             <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow")</p>
             <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle")</h1>
             @if (Model.LoginError == "captcha")
@@ -73,25 +74,6 @@ else
                 <a class="btn-secondary as-link" asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a>
             }
         </div>
-    </section>
-
-    <section class="menu-tile-grid">
-        @if (Model.IsInternalUser && Model.Can("ManageAdmins")) { <a asp-page="/Admin/Admins">@TechSupportRagBot.Services.UiText.T(HttpContext, "Employees")</a> }
-        @if (Model.IsInternalUser && Model.Can("ManageClients")) { <a asp-page="/Admin/Clients">@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</a> }
-        @if (Model.IsInternalUser && Model.Can("ManageMachines")) { <a asp-page="/Admin/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machines")</a> }
-        @if (Model.IsInternalUser && Model.Can("ManageLicenses")) { <a asp-page="/Admin/Licenses">@TechSupportRagBot.Services.UiText.T(HttpContext, "Licenses")</a> }
-        @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/BotTest">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTest", "Тест бота")</a> }
-        @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/IndexedChats">@TechSupportRagBot.Services.UiText.T(HttpContext, "IndexedChats", "Завершённые чаты")</a> }
-        @if (Model.IsInternalUser && Model.Can("QA")) { <a asp-page="/Admin/QA">QA</a> }
-        @if (Model.IsInternalUser && Model.Can("Tickets")) { <a asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</a> }
-        @if (Model.IsInternalUser && Model.Can("TimeTracking")) { <a asp-page="/Admin/TimeTracking">@TechSupportRagBot.Services.UiText.T(HttpContext, "TimeTracking")</a> }
-        @if (Model.IsInternalUser && Model.Can("Settings")) { <a asp-page="/Admin/Settings">@TechSupportRagBot.Services.UiText.T(HttpContext, "Settings")</a> }
-        @if (Model.IsInternalUser && Model.Can("Settings")) { <a asp-page="/Admin/ApiStatistics">Статистика API</a> }
-        @if (Model.IsInternalUser && Model.Can("AccessProfiles")) { <a asp-page="/Admin/AccessProfiles">@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfiles")</a> }
-        @if (Model.Can("OperatorQueue") && Model.ShowOperatorArea) { <a asp-page="/Operator/Index">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</a> }
-        @if (Model.Can("ClientCabinet") && Model.HasClientAccount) { <a asp-page="/Client/Machines">@TechSupportRagBot.Services.UiText.T(HttpContext, "AvailableMachines")</a> }
-        @if (Model.Can("ClientCabinet") && Model.HasClientAccount) { <a asp-page="/Client/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "MyTickets")</a> }
-        @if (Model.Can("CompanyUsers") && Model.HasClientAccount) { <a asp-page="/Client/Users">@TechSupportRagBot.Services.UiText.T(HttpContext, "CompanyUsers")</a> }
     </section>
 
     <section class="attention-strip">

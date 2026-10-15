@@ -3,39 +3,53 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Class-Engineering Support</title>
+    <title>@ViewData["Title"] - Class Engineering Support</title>
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/css/dispatch.css" asp-append-version="true" />
 </head>
-<body>
-    <header>
-        <nav class="top-nav">
-            <div class="nav-inner">
-                <div class="nav-content">
-                    <ul class="nav-links">
-                        <li><a asp-area="" asp-page="/Index">@TechSupportRagBot.Services.UiText.T(Context, "Home", "Главная")</a></li>
-                    </ul>
-                    <partial name="_LoginPartial" />
-                </div>
+<body class="dispatch-theme @(User.Identity?.IsAuthenticated == true ? "dispatch-signed-in" : "dispatch-guest")">
+    <a class="skip-to-content" href="#main-content">@(Context.Request.Cookies["lang"] == "en" ? "Skip to content" : "К содержимому")</a>
+    <partial name="_IconSprite" />
+    <div class="dispatch-shell">
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <aside class="dispatch-sidebar" id="dispatch-sidebar" aria-label="@(Context.Request.Cookies["lang"] == "en" ? "Navigation" : "Навигация")">
+                <a class="dispatch-brand" asp-page="/Index" aria-label="Class Engineering Support">
+                    <span class="dispatch-brand-mark"><img src="/images/class-engineering-transparent.png" alt="" /></span>
+                    <span class="dispatch-brand-name"><strong>CLASS / SERVICE</strong><small>Центр поддержки</small></span>
+                </a>
+                <partial name="_Sidebar" />
+            </aside>
+            <button class="dispatch-sidebar-backdrop" type="button" data-sidebar-close tabindex="-1" aria-label="Закрыть меню"></button>
+        }
+        <div class="dispatch-content">
+            <header class="dispatch-header">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <button class="dispatch-menu-toggle" type="button" data-sidebar-toggle aria-controls="dispatch-sidebar" aria-expanded="false" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Menu", "Открыть меню")">
+                        <svg class="dispatch-icon" aria-hidden="true"><use href="#ce-menu"></use></svg>
+                    </button>
+                }
+                else
+                {
+                    <a class="dispatch-guest-brand" asp-page="/Index"><img src="/images/class-engineering-transparent.png" alt="" /><span>CLASS <small>engineering</small></span></a>
+                }
+                <div class="dispatch-header-title">@(ViewData["Title"] ?? TechSupportRagBot.Services.UiText.T(Context, "Support", "Поддержка"))</div>
+                <partial name="_LoginPartial" />
+            </header>
+            <div class="app-container">
+                <main id="main-content" role="main">@RenderBody()</main>
             </div>
-        </nav>
-    </header>
-    <div class="app-container">
-        <main role="main">
-            @RenderBody()
-        </main>
-    </div>
-
-    <footer class="app-footer">
-        <div class="app-container">
-            &copy; 2026 - Class-Engineering Support <small class="app-version">версия 1.1.4</small>
+            <footer class="app-footer"><span>© 2026 Class Engineering</span><small class="app-version">1.1.4</small></footer>
         </div>
-    </footer>
+    </div>
 
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="/js/site.js" asp-append-version="true"></script>
+    <script src="/js/dispatch.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -70,7 +70,7 @@
         .ToList();
     var notificationCount = notificationChats.Sum(chat => chat.UnreadCount);
     <li class="notification-menu @(notificationCount > 0 ? "has-notifications" : "")">
-        <a class="notification-bell" href="@notificationLink" title="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-haspopup="true">
+        <a class="notification-bell" href="@notificationLink" title="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Notifications")" aria-haspopup="true" aria-expanded="false">
             <svg class="notification-bell-icon" aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
             </svg>
@@ -87,6 +87,7 @@
                     <strong>@notificationCount</strong>
                 }
             </div>
+            <a class="dispatch-notification-all" href="@notificationLink">@(Context.Request.Cookies["lang"] == "en" ? "All tickets" : "Все обращения") →</a>
             @if (notificationChats.Count == 0)
             {
                 <div class="notification-empty">@TechSupportRagBot.Services.UiText.T(Context, "NoNewMessages", "Нет новых сообщений")</div>
