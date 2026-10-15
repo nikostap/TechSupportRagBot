@@ -179,14 +179,13 @@ else
                                 <div class="dashboard-list nested">
                                     @foreach (var row in group.Rows)
                                     {
-                                        <a class="dashboard-row @(row.UnreadCount > 0 ? "unread" : "")" href="@row.Url">
-                                            <strong>@row.Ticket.Title</strong>
-                                            <span>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</span>
-                                            @if (row.UnreadCount > 0)
+                                        <details class="focus-dashboard-record @(row.UnreadCount > 0 ? "unread" : "")">
+                                            <summary><span><strong>@row.Ticket.Title</strong><small>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</small></span>@if (row.UnreadCount > 0)
                                             {
                                                 <span class="unread-badge inline">+@row.UnreadCount</span>
-                                            }
-                                        </a>
+                                            }<span class="focus-dashboard-chevron" aria-hidden="true">⌄</span></summary>
+                                            <div class="focus-dashboard-actions"><a class="btn-secondary" href="@row.Url">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenChat")</a></div>
+                                        </details>
                                     }
                                 </div>
                             </details>
@@ -227,14 +226,13 @@ else
                                     @foreach (var row in group.Rows)
                                     {
                                         var waiting = row.Ticket.Status == TechSupportRagBot.Models.TicketStatuses.WaitingForOperator;
-                                        <a class="dashboard-row @(row.UnreadCount > 0 || waiting ? "unread" : "")" href="@row.Url">
-                                            <strong>@row.Ticket.Title</strong>
-                                            <span>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</span>
-                                            @if (row.UnreadCount > 0)
+                                        <details class="focus-dashboard-record @(row.UnreadCount > 0 || waiting ? "unread" : "")">
+                                            <summary><span><strong>@row.Ticket.Title</strong><small>@(row.Ticket.ClientUser?.FullName ?? row.Ticket.ClientUser?.UserName) &middot; @Model.StatusName(row.Ticket.Status)</small></span>@if (row.UnreadCount > 0)
                                             {
                                                 <span class="unread-badge inline">+@row.UnreadCount</span>
-                                            }
-                                        </a>
+                                            }<span class="focus-dashboard-chevron" aria-hidden="true">⌄</span></summary>
+                                            <div class="focus-dashboard-actions"><a class="btn-secondary" href="@row.Url">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenChat")</a></div>
+                                        </details>
                                     }
                                 </div>
                             </details>
@@ -274,14 +272,13 @@ else
                                 <div class="dashboard-list nested">
                                     @foreach (var row in group.Rows)
                                     {
-                                        <a class="dashboard-row @(row.UnreadCount > 0 ? "unread" : "")" href="@row.Url">
-                                            <strong>@row.Ticket.Title</strong>
-                                            <span>@Model.StatusName(row.Ticket.Status)</span>
-                                            @if (row.UnreadCount > 0)
+                                        <details class="focus-dashboard-record @(row.UnreadCount > 0 ? "unread" : "")">
+                                            <summary><span><strong>@row.Ticket.Title</strong><small>@Model.StatusName(row.Ticket.Status)</small></span>@if (row.UnreadCount > 0)
                                             {
                                                 <span class="unread-badge inline">+@row.UnreadCount</span>
-                                            }
-                                        </a>
+                                            }<span class="focus-dashboard-chevron" aria-hidden="true">⌄</span></summary>
+                                            <div class="focus-dashboard-actions"><a class="btn-secondary" href="@row.Url">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenChat")</a></div>
+                                        </details>
                                     }
                                 </div>
                             </details>
