@@ -11,8 +11,13 @@ namespace TechSupportRagBot.Pages.Admin;
 public class WorkCalendarModel : PageModel
 {
     private readonly WorkCalendarService _calendar;
+    private readonly ILogger<WorkCalendarModel> _logger;
 
-    public WorkCalendarModel(WorkCalendarService calendar) => _calendar = calendar;
+    public WorkCalendarModel(WorkCalendarService calendar, ILogger<WorkCalendarModel> logger)
+    {
+        _calendar = calendar;
+        _logger = logger;
+    }
 
     [BindProperty(SupportsGet = true)]
     [Range(2000, 2100)]
@@ -44,7 +49,8 @@ public class WorkCalendarModel : PageModel
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Не удалось получить календарь: {ex.Message}";
+            _logger.LogError(ex, "Failed to preview work calendar for {Year}", Year);
+            ErrorMessage = "Не удалось получить календарь. Повторите попытку позже.";
         }
 
         await LoadYearAsync();
@@ -68,7 +74,8 @@ public class WorkCalendarModel : PageModel
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Не удалось сохранить календарь: {ex.Message}";
+            _logger.LogError(ex, "Failed to save work calendar for {Year}", Year);
+            ErrorMessage = "Не удалось сохранить календарь. Повторите попытку позже.";
             IsPreview = true;
         }
 

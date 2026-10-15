@@ -16,15 +16,18 @@ public class ClientsModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TicketDeletionService _ticketDeletion;
+    private readonly ILogger<ClientsModel> _logger;
 
     public ClientsModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
-        TicketDeletionService ticketDeletion)
+        TicketDeletionService ticketDeletion,
+        ILogger<ClientsModel> logger)
     {
         _db = db;
         _userManager = userManager;
         _ticketDeletion = ticketDeletion;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -36,6 +39,15 @@ public class ClientsModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
+        Input ??= new ClientInput();
+        if (string.IsNullOrWhiteSpace(Input.CompanyName))
+        {
+            ModelState.AddModelError(nameof(Input.CompanyName), "Укажите название клиента.");
+        }
+        if (string.IsNullOrWhiteSpace(Input.FullName))
+        {
+            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
+        }
         if (!ModelState.IsValid)
         {
             await LoadAsync();
@@ -112,8 +124,9 @@ public class ClientsModel : PageModel
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to create client and initial user");
             await transaction.RollbackAsync();
-            ModelState.AddModelError(string.Empty, ex.Message);
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "SaveError"));
             await LoadAsync();
             return Page();
         }

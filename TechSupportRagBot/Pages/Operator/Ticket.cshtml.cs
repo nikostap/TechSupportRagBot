@@ -231,7 +231,7 @@ public class TicketModel : PageModel
                 _db.ChatMessages.Remove(message);
                 await _db.SaveChangesAsync();
                 await LogVideoUploadRejectedAsync(id, ex.Message);
-                return new JsonResult(new { ok = false, error = ex.Message });
+                return new JsonResult(new { ok = false, error = UiText.T(HttpContext, "UploadError") });
             }
             await _db.SaveChangesAsync();
 
@@ -312,7 +312,6 @@ public class TicketModel : PageModel
             status = attachment.Status,
             finalPath = AttachmentUrl(attachment.PublicId),
             previewPath = AttachmentPreviewUrl(attachment.PublicId),
-            errorMessage = attachment.ErrorMessage
         });
     }
 

@@ -27,13 +27,25 @@ public class OperatorsModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (await _userManager.FindByNameAsync(Input.UserName.Trim()) != null)
+        Input ??= new OperatorInput();
+        if (string.IsNullOrWhiteSpace(Input.UserName))
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(nameof(Input.UserName), "Укажите логин.");
+        }
+        if (string.IsNullOrWhiteSpace(Input.FullName))
+        {
+            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
         }
 
         if (!ModelState.IsValid)
         {
+            await LoadAsync();
+            return Page();
+        }
+
+        if (await _userManager.FindByNameAsync(Input.UserName.Trim()) != null)
+        {
+            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
             await LoadAsync();
             return Page();
         }
@@ -56,8 +68,10 @@ public class OperatorsModel : PageModel
         var result = await _userManager.CreateAsync(user, temporaryPassword);
         if (result.Succeeded)
         {
-            await _userManager.AddToRoleAsync(user, "Operator");
-            return RedirectToPage();
+            var roleResult = await _userManager.AddToRoleAsync(user, "Operator");
+            if (roleResult.Succeeded) return RedirectToPage();
+            await _userManager.DeleteAsync(user);
+            result = roleResult;
         }
 
         foreach (var error in result.Errors)

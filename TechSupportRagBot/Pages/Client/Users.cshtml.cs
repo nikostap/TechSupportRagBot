@@ -50,10 +50,16 @@ public class UsersModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
+        Input ??= new CompanyUserInput();
         var clientId = await GetClientIdAsync();
         if (clientId == null)
         {
             return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.FullName))
+        {
+            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
         }
 
         if (!ModelState.IsValid)
@@ -94,8 +100,10 @@ public class UsersModel : PageModel
         var result = await _userManager.CreateAsync(user, password);
         if (result.Succeeded)
         {
-            await _userManager.AddToRoleAsync(user, "Client");
-            return RedirectToPage();
+            var roleResult = await _userManager.AddToRoleAsync(user, "Client");
+            if (roleResult.Succeeded) return RedirectToPage();
+            await _userManager.DeleteAsync(user);
+            result = roleResult;
         }
 
         foreach (var error in result.Errors)

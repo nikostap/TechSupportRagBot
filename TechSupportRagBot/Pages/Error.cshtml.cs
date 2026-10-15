@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages
 {
@@ -12,16 +13,25 @@ namespace TechSupportRagBot.Pages
 
         public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
 
-        private readonly ILogger<ErrorModel> _logger;
+        public IActionResult OnGet() => Handle();
 
-        public ErrorModel(ILogger<ErrorModel> logger)
-        {
-            _logger = logger;
-        }
+        public IActionResult OnPost() => Handle();
 
-        public void OnGet()
+        private IActionResult Handle()
         {
             RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+            if (Request.Headers.Accept.ToString().Contains("application/json", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.OrdinalIgnoreCase))
+            {
+                return new JsonResult(new
+                {
+                    ok = false,
+                    error = UiText.T(HttpContext, "UnexpectedErrorBody"),
+                    requestId = RequestId
+                }) { StatusCode = StatusCodes.Status500InternalServerError };
+            }
+
+            return Page();
         }
     }
 

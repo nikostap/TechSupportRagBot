@@ -14,15 +14,18 @@ public class ProfileEditModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly FileStorageService _storage;
     private readonly FileUploadValidationService _uploads;
+    private readonly ILogger<ProfileEditModel> _logger;
 
     public ProfileEditModel(
         UserManager<ApplicationUser> userManager,
         FileStorageService storage,
-        FileUploadValidationService uploads)
+        FileUploadValidationService uploads,
+        ILogger<ProfileEditModel> logger)
     {
         _userManager = userManager;
         _storage = storage;
         _uploads = uploads;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -100,7 +103,8 @@ public class ProfileEditModel : PageModel
             }
             catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                _logger.LogWarning(ex, "Avatar upload rejected");
+                ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "UploadError"));
                 Fill(user);
                 return Page();
             }

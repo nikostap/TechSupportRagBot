@@ -68,10 +68,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
-// Включаем страницу ошибок базы данных в режиме разработки.
-// Это помогает видеть подробные ошибки миграций и базы.
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
 // Подключаем систему пользователей Identity.
 //
 // Важно:
@@ -156,18 +152,11 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-// Настраиваем обработку ошибок и миграций.
-if (app.Environment.IsDevelopment())
+// Не показываем посетителям страницы исключений ни в одной среде.
+// Подробности остаются в серверном журнале.
+app.UseExceptionHandler("/Error");
+if (!app.Environment.IsDevelopment())
 {
-    // В разработке показываем страницу ошибок миграций.
-    app.UseMigrationsEndPoint();
-}
-else
-{
-    // В production показываем стандартную страницу ошибки.
-    app.UseExceptionHandler("/Error");
-
-    // HSTS включает принудительное использование HTTPS в браузере.
     app.UseHsts();
 }
 
