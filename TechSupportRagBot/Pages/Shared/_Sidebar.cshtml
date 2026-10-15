@@ -29,7 +29,6 @@
     if (hasClient && Can("CompanyUsers")) items.Add((english ? "Clients & equipment" : "Клиенты и техника", "/Client/Users", english ? "Company users" : "Пользователи компании", "ce-users"));
 
     if (isInternal && Can("ManageAdmins")) items.Add((english ? "Team" : "Команда", "/Admin/Admins", english ? "Employees" : "Сотрудники", "ce-users"));
-    if (isInternal && Can("ManageOperators")) items.Add((english ? "Team" : "Команда", "/Admin/Operators", english ? "Operators" : "Операторы", "ce-headset"));
     if (isInternal && Can("TimeTracking")) items.Add((english ? "Team" : "Команда", "/Admin/TimeTracking", english ? "Time tracking" : "Учёт времени", "ce-clock"));
     if (isInternal && Can("AccessProfiles")) items.Add((english ? "Team" : "Команда", "/Admin/AccessProfiles", english ? "Access profiles" : "Профили доступа", "ce-shield"));
 

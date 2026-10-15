@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Models;
 using TechSupportRagBot.Services;
 
@@ -19,6 +20,7 @@ public class AdminsModel : PageModel
     public AdminInput Input { get; set; } = new();
 
     public IList<ApplicationUser> Admins { get; private set; } = new List<ApplicationUser>();
+    public HashSet<string> AdminIds { get; private set; } = new();
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
     public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext);
 
@@ -34,6 +36,10 @@ public class AdminsModel : PageModel
         if (string.IsNullOrWhiteSpace(Input.FullName))
         {
             ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
+        }
+        if (Input.Role is not ("Admin" or "Operator"))
+        {
+            ModelState.AddModelError(nameof(Input.Role), "Выберите тип учётной записи.");
         }
 
         if (!ModelState.IsValid)
@@ -57,6 +63,7 @@ public class AdminsModel : PageModel
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
             AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
+            Gender = Input.Gender,
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             IssuedPassword = temporaryPassword,
             MustChangePassword = true,
@@ -66,7 +73,7 @@ public class AdminsModel : PageModel
         var result = await _userManager.CreateAsync(user, temporaryPassword);
         if (result.Succeeded)
         {
-            var roleResult = await _userManager.AddToRoleAsync(user, "Admin");
+            var roleResult = await _userManager.AddToRoleAsync(user, Input.Role);
             if (roleResult.Succeeded) return RedirectToPage();
             await _userManager.DeleteAsync(user);
             result = roleResult;
@@ -84,7 +91,7 @@ public class AdminsModel : PageModel
     public async Task<IActionResult> OnPostUpdateAsync(string id, AdminInput input)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user == null || !await _userManager.IsInRoleAsync(user, "Admin"))
+        if (user == null || await _userManager.IsInRoleAsync(user, "Client"))
         {
             return RedirectToPage();
         }
@@ -102,6 +109,7 @@ public class AdminsModel : PageModel
         user.Email = input.Email;
         user.Position = input.Position;
         user.AccessProfile = AccessProfileService.NormalizeProfileKey(input.AccessProfile);
+        user.Gender = input.Gender;
         user.Country = ChatTranslationService.NormalizeLanguage(input.Country);
         user.NormalizedUserName = _userManager.NormalizeName(user.UserName);
         user.NormalizedEmail = _userManager.NormalizeEmail(user.Email);
@@ -112,7 +120,7 @@ public class AdminsModel : PageModel
     public async Task<IActionResult> OnPostResetPasswordAsync(string id, string password)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user != null && await _userManager.IsInRoleAsync(user, "Admin") && !string.IsNullOrWhiteSpace(password))
+        if (user != null && !await _userManager.IsInRoleAsync(user, "Client") && !string.IsNullOrWhiteSpace(password))
         {
             await _userManager.RemovePasswordAsync(user);
             var result = await _userManager.AddPasswordAsync(user, password);
@@ -131,7 +139,8 @@ public class AdminsModel : PageModel
     {
         var admins = await _userManager.GetUsersInRoleAsync("Admin");
         var user = await _userManager.FindByIdAsync(id);
-        if (user != null && admins.Count > 1 && await _userManager.IsInRoleAsync(user, "Admin"))
+        if (user != null && !await _userManager.IsInRoleAsync(user, "Client")
+            && (!await _userManager.IsInRoleAsync(user, "Admin") || admins.Count > 1))
         {
             await _userManager.DeleteAsync(user);
         }
@@ -141,7 +150,16 @@ public class AdminsModel : PageModel
 
     private async Task LoadAsync()
     {
-        Admins = await _userManager.GetUsersInRoleAsync("Admin");
+        var clients = await _userManager.GetUsersInRoleAsync("Client");
+        var clientIds = clients.Select(x => x.Id).ToHashSet();
+        var admins = await _userManager.GetUsersInRoleAsync("Admin");
+        AdminIds = admins.Select(x => x.Id).ToHashSet();
+        Admins = await _userManager.Users
+            .AsNoTracking()
+            .Where(x => !clientIds.Contains(x.Id))
+            .OrderBy(x => x.FullName)
+            .ThenBy(x => x.UserName)
+            .ToListAsync();
     }
 
     public class AdminInput
@@ -157,7 +175,11 @@ public class AdminsModel : PageModel
 
         public string? Position { get; set; }
 
-        public string? AccessProfile { get; set; } = AccessProfileService.Administrator;
+        public string Role { get; set; } = "Operator";
+
+        public string? AccessProfile { get; set; } = AccessProfileService.Operator;
+
+        public string? Gender { get; set; }
 
         public string? Country { get; set; } = "ru";
     }

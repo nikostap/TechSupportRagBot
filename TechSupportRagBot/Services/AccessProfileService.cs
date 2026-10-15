@@ -33,7 +33,6 @@ public class AccessProfileService
         new("ManageClients", "PermissionManageClients"),
         new("ManageMachines", "PermissionManageMachines"),
         new("ManageLicenses", "PermissionManageLicenses"),
-        new("ManageOperators", "PermissionManageOperators"),
         new("QA", "PermissionQA"),
         new("Tickets", "PermissionTickets"),
         new("TimeTracking", "PermissionTimeTracking"),
@@ -212,7 +211,7 @@ public class AccessProfileService
         if (value.StartsWith("/Admin/Clients", StringComparison.OrdinalIgnoreCase)) return "ManageClients";
         if (value.StartsWith("/Admin/Machines", StringComparison.OrdinalIgnoreCase)) return "ManageMachines";
         if (value.StartsWith("/Admin/Licenses", StringComparison.OrdinalIgnoreCase)) return "ManageLicenses";
-        if (value.StartsWith("/Admin/Operators", StringComparison.OrdinalIgnoreCase)) return "ManageOperators";
+        if (value.StartsWith("/Admin/Operators", StringComparison.OrdinalIgnoreCase)) return "ManageAdmins";
         if (value.StartsWith("/Admin/BotTest", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/IndexedChats", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/QA", StringComparison.OrdinalIgnoreCase)) return "QA";
@@ -242,6 +241,10 @@ public class AccessProfileService
             }
 
             current.Name = defaultProfile.Name;
+            if (current.Permissions.Remove("ManageOperators", out var legacyOperatorAccess) && legacyOperatorAccess)
+            {
+                current.Permissions["ManageAdmins"] = true;
+            }
             foreach (var permission in PermissionDefinitions)
             {
                 current.Permissions.TryAdd(permission.Key, defaultProfile.Permissions[permission.Key]);

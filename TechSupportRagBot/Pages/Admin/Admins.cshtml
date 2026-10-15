@@ -18,6 +18,12 @@
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")<input asp-for="Input.UserName" autocomplete="off" /></label>
         <label>Email<input asp-for="Input.Email" /></label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")<input asp-for="Input.Position" /></label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccountType")
+            <select asp-for="Input.Role">
+                <option value="Operator">@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator", "Оператор")</option>
+                <option value="Admin">@TechSupportRagBot.Services.UiText.T(HttpContext, "Admin")</option>
+            </select>
+        </label>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")
             <select asp-for="Input.AccessProfile">
                 @foreach (var profile in Model.AccessProfileOptions)
@@ -32,6 +38,13 @@
                 {
                     <option value="@language.Code">@language.Name</option>
                 }
+            </select>
+        </label>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")
+            <select asp-for="Input.Gender">
+                <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                <option value="Мужской">@TechSupportRagBot.Services.UiText.T(HttpContext, "Male")</option>
+                <option value="Женский">@TechSupportRagBot.Services.UiText.T(HttpContext, "Female")</option>
             </select>
         </label>
         <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateEmployee")</button>
@@ -49,7 +62,9 @@
                         <th>Email</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccountType")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</th>
                         <th></th>
                     </tr>
@@ -63,7 +78,9 @@
                         <td>@user.Email</td>
                         <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
                         <td>@user.Position</td>
+                        <td>@(Model.AdminIds.Contains(user.Id) ? TechSupportRagBot.Services.UiText.T(HttpContext, "Admin") : TechSupportRagBot.Services.UiText.T(HttpContext, "Operator"))</td>
                         <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
+                        <td>@user.Gender</td>
                         <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
                         <td class="table-actions">
                             <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</a>

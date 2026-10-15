@@ -18,7 +18,7 @@
 |---|---|---|
 | Вход | `/`, `/Identity/Account/Login`, `/Error` | Логотип, единая карточка формы или сообщения, крупные поля и ясная ошибка. |
 | Общий кабинет | `/`, `/Profile`, `/ProfileEdit` | Показатели и очередь для доступных прав; профиль и формы в единой сетке. |
-| Внутренние пользователи | `/Admin/Index`, `/Admin/Admins`, `/Admin/Operators`, `/Admin/UserProfile`, `/Admin/AccessProfiles` | Счётчики, формы, списки сотрудников, матрица прав. |
+| Внутренние пользователи | `/Admin/Index`, `/Admin/Admins`, `/Admin/UserProfile`, `/Admin/AccessProfiles` | Счётчики, единая форма и список сотрудников, включая операторов, матрица прав. Старый `/Admin/Operators` перенаправляет на сотрудников. |
 | Клиенты и техника | `/Admin/Clients`, `/Admin/Machines`, `/Admin/Licenses`, `/Client/Index`, `/Client/Machines`, `/Client/Activate`, `/Client/Users` | Списки и карточки с едиными полями и действиями; на телефоне таблицы имеют локальную горизонтальную прокрутку. |
 | Обращения и чат | `/Admin/Tickets`, `/Operator/Index`, `/Operator/Ticket`, `/Client/Tickets`, `/Client/NewTicket`, `/Client/Ticket` | Очередь, заметные статусы, широкий диалог, читаемые вложения, удобная форма ввода. |
 | Знания и AI | `/Admin/QA`, `/Admin/IndexedChats`, `/Admin/BotTest`, `/Admin/ApiStatistics` | Фильтры, формы, результаты и таблицы в общей визуальной системе. |
