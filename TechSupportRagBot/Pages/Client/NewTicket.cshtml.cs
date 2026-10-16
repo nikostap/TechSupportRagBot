@@ -38,7 +38,7 @@ public class NewTicketModel : PageModel
 
         if (!hasAccess)
         {
-            ModelState.AddModelError(string.Empty, "Нет доступа к выбранному станку.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "MachineAccessDenied"));
         }
 
         if (!ModelState.IsValid)

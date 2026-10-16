@@ -137,15 +137,15 @@ public class ProfileEditModel : PageModel
 
         if (string.IsNullOrWhiteSpace(PasswordInput.CurrentPassword))
         {
-            ModelState.AddModelError(nameof(PasswordInput.CurrentPassword), "Введите текущий пароль.");
+            ModelState.AddModelError(nameof(PasswordInput.CurrentPassword), TechSupportRagBot.Services.UiText.T(HttpContext, "EnterCurrentPassword"));
         }
         if (string.IsNullOrWhiteSpace(PasswordInput.NewPassword) || PasswordInput.NewPassword.Length < 6)
         {
-            ModelState.AddModelError(nameof(PasswordInput.NewPassword), "Новый пароль должен содержать не менее 6 символов.");
+            ModelState.AddModelError(nameof(PasswordInput.NewPassword), TechSupportRagBot.Services.UiText.T(HttpContext, "NewPasswordMinLength"));
         }
         if (PasswordInput.NewPassword != PasswordInput.ConfirmPassword)
         {
-            ModelState.AddModelError(nameof(PasswordInput.ConfirmPassword), "Пароли не совпадают.");
+            ModelState.AddModelError(nameof(PasswordInput.ConfirmPassword), TechSupportRagBot.Services.UiText.T(HttpContext, "PasswordsDoNotMatch"));
         }
         if (!ModelState.IsValid)
         {

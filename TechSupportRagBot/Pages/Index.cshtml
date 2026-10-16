@@ -26,11 +26,11 @@
             <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle")</h1>
             @if (Model.LoginError == "captcha")
             {
-                <p class="text-danger">Подтвердите, что вы не робот, и повторите попытку.</p>
+                <p class="text-danger">@TechSupportRagBot.Services.UiText.T(HttpContext, "CaptchaRetry")</p>
             }
             else if (Model.LoginError == "invalid")
             {
-                <p class="text-danger">Неверный логин или пароль.</p>
+                <p class="text-danger">@TechSupportRagBot.Services.UiText.T(HttpContext, "InvalidCredentials")</p>
             }
             <form method="post" asp-area="Identity" asp-page="/Account/Login" class="hero-login-form">
                 <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")

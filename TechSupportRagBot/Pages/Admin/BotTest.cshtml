@@ -109,7 +109,7 @@
                     <summary class="qa-card-summary">
                         <span class="qa-summary-main">
                             <strong>#@chunk.ChunkId · @(chunk.DocumentType ?? chunk.SourceType)</strong>
-                            <small>@(chunk.DocumentName ?? chunk.FileName ?? chunk.Title ?? "Источник без названия")</small>
+                            <small>@(chunk.DocumentName ?? chunk.FileName ?? chunk.Title ?? TechSupportRagBot.Services.UiText.T(HttpContext, "UnnamedSource"))</small>
                         </span>
                         <span class="status-pill">score @chunk.RerankScore.ToString("F3")</span>
                     </summary>

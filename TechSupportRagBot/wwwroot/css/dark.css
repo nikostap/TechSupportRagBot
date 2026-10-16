@@ -1,0 +1,149 @@
+/* Palette for the common shell and every role. Activated before CSS is loaded. */
+.dispatch-header .theme-toggle{width:36px;min-width:36px;padding:6px!important;border:1px solid transparent;background:transparent;cursor:pointer}
+.theme-toggle svg{width:18px;height:18px}
+.theme-toggle .theme-sun{display:none}
+html[data-theme="dark"] .theme-toggle .theme-moon{display:none}
+html[data-theme="dark"] .theme-toggle .theme-sun{display:block}
+
+html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="dark"] body.dispatch-theme{
+  --bg:#101a20;--panel:#1b2a32;--panel-solid:#1b2a32;--ink:#e5edf0;
+  --muted:#a6bac2;--line:#3a515c;--accent:#f4b452;--accent-dark:#d28e2d;
+  --soft:#342b20;--soft-2:#21323a;--danger:#f28b84;--success:#69c5a0;
+  --shadow:0 10px 30px #0004;
+  background:#101a20;color:#e5edf0;
+}
+html[data-theme="dark"] .dispatch-theme a{color:#91d4eb}
+html[data-theme="dark"] .dispatch-theme a:hover{color:#ffd18b}
+html[data-theme="dark"] .dispatch-sidebar{background:#0b171d;border-right:1px solid #304650}
+html[data-theme="dark"] .dispatch-header,html[data-theme="dark"] .dispatch-theme .app-footer,html[data-theme="dark"] .dispatch-guest .dispatch-header{background:#17262e;border-color:#344954;color:#c8d7dd}
+html[data-theme="dark"] .dispatch-header-title,html[data-theme="dark"] .dispatch-guest-brand{color:#e5edf0!important}
+html[data-theme="dark"] .dispatch-header .login-links a,html[data-theme="dark"] .dispatch-header .login-links button{color:#dce9ec}
+html[data-theme="dark"] .dispatch-header .login-links a:hover,html[data-theme="dark"] .dispatch-header .login-links button:hover{background:#2b414a;color:#fff}
+html[data-theme="dark"] .dispatch-theme .app-footer,html[data-theme="dark"] .dispatch-theme .app-version{color:#a8bcc5}
+html[data-theme="dark"] .dispatch-menu-toggle{background:#1d3038;border-color:#4d6671;color:#e5edf0}
+html[data-theme="dark"] .skip-to-content{background:#263a44;color:#fff}
+
+html[data-theme="dark"] .dispatch-theme .panel,
+html[data-theme="dark"] .dispatch-theme .auth-card,
+html[data-theme="dark"] .dispatch-theme .hero-panel,
+html[data-theme="dark"] .dispatch-theme .metric-card,
+html[data-theme="dark"] .dispatch-theme .attention-card,
+html[data-theme="dark"] .dispatch-theme .ticket-card,
+html[data-theme="dark"] .dispatch-theme .machine-card,
+html[data-theme="dark"] .dispatch-theme .qa-card,
+html[data-theme="dark"] .dispatch-theme .company-user-card,
+html[data-theme="dark"] .dispatch-theme .ticket-machine-group,
+html[data-theme="dark"] .dispatch-theme .qa-model-group,
+html[data-theme="dark"] .dispatch-theme .qa-serial-group,
+html[data-theme="dark"] .dispatch-theme .qa-template,
+html[data-theme="dark"] .dispatch-theme .indexed-chunk,
+html[data-theme="dark"] .dispatch-theme .month-calendar,
+html[data-theme="dark"] .dispatch-theme .chat-shell,
+html[data-theme="dark"] .dispatch-theme .chat-form,
+html[data-theme="dark"] .dispatch-theme .tickets-client-nav,
+html[data-theme="dark"] .dispatch-theme .tickets-focus-ticket,
+html[data-theme="dark"] .dispatch-theme .focus-list-nav,
+html[data-theme="dark"] .dispatch-theme .focus-qa-list .qa-compact-card,
+html[data-theme="dark"] .dispatch-theme .focus-indexed-list .qa-compact-card,
+html[data-theme="dark"] .dispatch-theme .focus-bot-list .qa-compact-card,
+html[data-theme="dark"] .dispatch-theme .focus-client-list .ticket-card,
+html[data-theme="dark"] .dispatch-theme .focus-dashboard-list .focus-dashboard-record{background:#1b2a32;border-color:#38505b;color:#e5edf0;box-shadow:none}
+html[data-theme="dark"] .dispatch-theme .panel-title-row,
+html[data-theme="dark"] .dispatch-theme .ticket-accordion-summary,
+html[data-theme="dark"] .dispatch-theme .qa-model-summary,
+html[data-theme="dark"] .dispatch-theme .qa-serial-summary,
+html[data-theme="dark"] .dispatch-theme th{background:#263a44;border-color:#3a515c;color:#c9dbe1}
+html[data-theme="dark"] .dispatch-theme .page-head h1,
+html[data-theme="dark"] .dispatch-theme .dashboard-head h1,
+html[data-theme="dark"] .dispatch-theme .panel h2,
+html[data-theme="dark"] .dispatch-theme .auth-card h1,
+html[data-theme="dark"] .dispatch-guest .hero-panel h1,
+html[data-theme="dark"] .dispatch-theme .metric-card strong,
+html[data-theme="dark"] .dispatch-theme .ticket-accordion-summary h2,
+html[data-theme="dark"] .dispatch-theme .ticket-accordion-summary h3,
+html[data-theme="dark"] .dispatch-theme .ticket-group-head h2,
+html[data-theme="dark"] .dispatch-theme .ticket-card-main h3,
+html[data-theme="dark"] .dispatch-theme .qa-group-summary strong,
+html[data-theme="dark"] .dispatch-theme .tickets-nav-heading,
+html[data-theme="dark"] .dispatch-theme .tickets-client-heading h2,
+html[data-theme="dark"] .dispatch-theme .tickets-machine-heading h3,
+html[data-theme="dark"] .dispatch-theme .tickets-ticket-ident strong,
+html[data-theme="dark"] .dispatch-theme .focus-list-nav-heading,
+html[data-theme="dark"] .dispatch-theme .focus-list-pane-heading h3,
+html[data-theme="dark"] .dispatch-theme .client-ticket-record-main strong,
+html[data-theme="dark"] .dispatch-theme .focus-dashboard-record strong{color:#edf4f5}
+html[data-theme="dark"] .dispatch-theme .muted,
+html[data-theme="dark"] .dispatch-theme .muted-text,
+html[data-theme="dark"] .dispatch-theme .metric-card span,
+html[data-theme="dark"] .dispatch-theme .message-meta,
+html[data-theme="dark"] .dispatch-theme .tickets-client-total,
+html[data-theme="dark"] .dispatch-theme .tickets-ticket-ident small,
+html[data-theme="dark"] .dispatch-theme .focus-dashboard-record small,
+html[data-theme="dark"] .dispatch-theme .client-ticket-record-main small{color:#a8bdc5}
+html[data-theme="dark"] .dispatch-theme label{color:#c7d9df}
+html[data-theme="dark"] .dispatch-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html[data-theme="dark"] .dispatch-theme select,
+html[data-theme="dark"] .dispatch-theme textarea{background:#14232b;border-color:#506a76;color:#edf4f5}
+html[data-theme="dark"] .dispatch-theme input::placeholder,html[data-theme="dark"] .dispatch-theme textarea::placeholder{color:#9aafb8;opacity:1}
+html[data-theme="dark"] .dispatch-theme .btn-secondary,html[data-theme="dark"] .dispatch-theme .file-picker{background:#253a44;border-color:#58717d;color:#e8f1f3}
+html[data-theme="dark"] .dispatch-theme .btn-secondary:hover,html[data-theme="dark"] .dispatch-theme .file-picker:hover{background:#344d58;color:#fff}
+html[data-theme="dark"] .dispatch-theme .btn-danger{background:#422c30;border-color:#875059;color:#ffb1ab}
+html[data-theme="dark"] .dispatch-theme .btn-danger:hover{background:#57373d;color:#ffd3cf}
+html[data-theme="dark"] .dispatch-theme .btn-main{background:#f4ae47;border-color:#e09a36;color:#192a32}
+html[data-theme="dark"] .dispatch-theme .table-wrap,html[data-theme="dark"] .dispatch-theme td,html[data-theme="dark"] .dispatch-theme .tickets-machine-heading,html[data-theme="dark"] .dispatch-theme .focus-list-pane-heading{border-color:#3a515c}
+html[data-theme="dark"] .dispatch-theme table{background:#1b2a32;color:#e5edf0}
+html[data-theme="dark"] .dispatch-theme tr:hover td{background:#293b43}
+html[data-theme="dark"] .dispatch-theme code{background:#273e48;color:#b6dcf1}
+html[data-theme="dark"] .dispatch-theme .metric-card:hover,
+html[data-theme="dark"] .dispatch-theme .dashboard-row:hover,
+html[data-theme="dark"] .dispatch-theme .quick-action-list a:hover,
+html[data-theme="dark"] .dispatch-theme .tickets-focus-summary:hover,
+html[data-theme="dark"] .dispatch-theme .client-ticket-record:hover .client-ticket-record-summary,
+html[data-theme="dark"] .dispatch-theme .focus-dashboard-record:hover{background:#283d47}
+html[data-theme="dark"] .dispatch-theme .attention-card.urgent,html[data-theme="dark"] .dispatch-theme .attention-card.calm{background:#2b3030;border-color:#65513a}
+html[data-theme="dark"] .dispatch-theme .ticket-card-meta>div,
+html[data-theme="dark"] .dispatch-theme .qa-answer,
+html[data-theme="dark"] .dispatch-theme .indexed-chunk-text,
+html[data-theme="dark"] .dispatch-theme .debug-pre,
+html[data-theme="dark"] .dispatch-theme .tickets-focus-actions,
+html[data-theme="dark"] .dispatch-theme .message-translation{background:#21343e;border-color:#405965;color:#e5edf0}
+html[data-theme="dark"] .dispatch-theme .message{background:#263842;border-color:#49616c;color:#edf4f5}
+html[data-theme="dark"] .dispatch-theme .message.mine{background:#3a3328;border-color:#6e5736;color:#f3ebdc}
+html[data-theme="dark"] .dispatch-theme .message.bot{background:#213c42;border-color:#497078;color:#e6f3f4}
+html[data-theme="dark"] .dispatch-theme .tickets-client-button,html[data-theme="dark"] .dispatch-theme .focus-list-button{background:#1b2a32;color:#d4e3e7}
+html[data-theme="dark"] .dispatch-theme .tickets-client-button:hover,html[data-theme="dark"] .dispatch-theme .focus-list-button:hover{background:#2b414a}
+html[data-theme="dark"] .dispatch-theme .tickets-client-button.is-active,html[data-theme="dark"] .dispatch-theme .focus-list-button[aria-current="true"]{background:#29434b;color:#fff}
+html[data-theme="dark"] .dispatch-theme .tickets-client-count,html[data-theme="dark"] .dispatch-theme .tickets-machine-count,html[data-theme="dark"] .dispatch-theme .focus-list-count,html[data-theme="dark"] .dispatch-theme .focus-list-pane-count{background:#34515c;color:#e5f2f4}
+html[data-theme="dark"] .dispatch-theme .tickets-client-button.is-active .tickets-client-count,html[data-theme="dark"] .dispatch-theme .focus-list-button[aria-current="true"] .focus-list-count{background:#3d5a64}
+html[data-theme="dark"] .dispatch-theme .tickets-open-chat{background:#314c57;border-color:#47636e;color:#fff}
+html[data-theme="dark"] .dispatch-theme .status-pill,html[data-theme="dark"] .dispatch-theme .tickets-status.is-progress,html[data-theme="dark"] .dispatch-theme .tickets-unread-pill{background:#423626;color:#ffd495;border-color:#6e5733}
+html[data-theme="dark"] .dispatch-theme .tickets-status.is-new{background:#25433a;color:#a3e6c9}
+html[data-theme="dark"] .dispatch-theme .tickets-status.is-waiting,html[data-theme="dark"] .dispatch-theme .tickets-status.is-closed{background:#34414a;color:#d0dce4}
+html[data-theme="dark"] .dispatch-theme .usage-donut::after{background:#1b2a32}
+html[data-theme="dark"] .dispatch-theme .usage-donut span{color:#edf4f5}
+html[data-theme="dark"] .dispatch-theme .notification-dropdown{background:#1b2a32;border-color:#49616c;color:#e5edf0}
+html[data-theme="dark"] .dispatch-theme .dispatch-notification-all{border-color:#405762}
+html[data-theme="dark"] .dispatch-theme .day-working{background:#25413c}
+html[data-theme="dark"] .dispatch-theme .day-weekend{background:#463536}
+html[data-theme="dark"] .dispatch-theme .day-holiday{background:#5b3639}
+html[data-theme="dark"] .dispatch-theme .day-shortened{background:#51412d}
+html[data-theme="dark"] .dispatch-theme .calendar-day{color:#e8f0f2}
+html[data-theme="dark"] .dispatch-theme .day-weekend,html[data-theme="dark"] .dispatch-theme .day-holiday{color:#ffe1dd}
+html[data-theme="dark"] .dispatch-theme .day-working{color:#d4f0e4}
+html[data-theme="dark"] .dispatch-theme .day-shortened{color:#ffe7b6}
+html[data-theme="dark"] .dispatch-theme .qa-template pre{color:#d5e3e8}
+html[data-theme="dark"] .dispatch-theme .qa-meta div{background:#263b45}
+html[data-theme="dark"] .dispatch-theme .qa-meta dt{color:#adc4cd}
+html[data-theme="dark"] .dispatch-theme .qa-meta dd{color:#f1f6f7}
+html[data-theme="dark"] .dispatch-theme .qa-card h3,
+html[data-theme="dark"] .dispatch-theme .indexed-chat-body h3,
+html[data-theme="dark"] .dispatch-theme .bot-test-debug h3{color:#d5ecf4}
+html[data-theme="dark"] .dispatch-theme .qa-details{color:#d9e6e9}
+html[data-theme="dark"] .dispatch-theme .qa-compact-card[open] .qa-card-summary{background:#30414a}
+html[data-theme="dark"] .dispatch-theme .tickets-page-counts,
+html[data-theme="dark"] .dispatch-theme .tickets-page-counts strong,
+html[data-theme="dark"] .dispatch-theme .tickets-client-total{color:#c4d6dd}
+html[data-theme="dark"] .dispatch-theme .notice-soft,
+html[data-theme="dark"] .dispatch-theme .notice-success,
+html[data-theme="dark"] .dispatch-theme .notice-error{background:#263941;border-color:#48616b;color:#e1ebed}

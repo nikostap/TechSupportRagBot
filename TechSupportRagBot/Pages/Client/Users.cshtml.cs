@@ -59,7 +59,7 @@ public class UsersModel : PageModel
 
         if (string.IsNullOrWhiteSpace(Input.FullName))
         {
-            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
+            ModelState.AddModelError(nameof(Input.FullName), TechSupportRagBot.Services.UiText.T(HttpContext, "FullNameRequired"));
         }
 
         if (!ModelState.IsValid)
@@ -78,7 +78,7 @@ public class UsersModel : PageModel
 
         if (await _userManager.FindByNameAsync(userName) != null)
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LoginTaken"));
             await LoadAsync();
             return Page();
         }

@@ -40,7 +40,7 @@ public class AccessProfilesModel : PageModel
 
         await _access.SaveProfilesAsync(existing, HttpContext.RequestAborted);
         Profiles = existing;
-        StatusMessage = "Профили доступа сохранены.";
+        StatusMessage = TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfilesSaved");
         return Page();
     }
 }

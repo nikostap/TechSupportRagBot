@@ -73,7 +73,7 @@ public class MachinesModel : PageModel
             var hasKnowledge = await _db.KnowledgeDocuments.AnyAsync(x => x.MachineId == id);
             if (hasTickets || hasKnowledge)
             {
-                AlertMessage = "Станок нельзя удалить, пока к нему привязаны обращения или документы базы знаний.";
+                AlertMessage = TechSupportRagBot.Services.UiText.T(HttpContext, "MachineDeleteBlocked");
                 return RedirectToPage();
             }
 

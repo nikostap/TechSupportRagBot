@@ -36,7 +36,7 @@
             <select asp-for="Input.Country">
                 @foreach (var language in Model.LanguageOptions)
                 {
-                    <option value="@language.Code">@language.Name</option>
+                    <option value="@language.Code">@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, language.Name)</option>
                 }
             </select>
         </label>
@@ -81,7 +81,7 @@
                         <td>@(Model.AdminIds.Contains(user.Id) ? TechSupportRagBot.Services.UiText.T(HttpContext, "Admin") : TechSupportRagBot.Services.UiText.T(HttpContext, "Operator"))</td>
                         <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
                         <td>@user.Gender</td>
-                        <td>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</td>
+                        <td>@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, user.Country)</td>
                         <td class="table-actions">
                             <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</a>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">

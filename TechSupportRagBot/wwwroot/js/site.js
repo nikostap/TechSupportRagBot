@@ -1,15 +1,14 @@
-﻿(function () {
+(function () {
   const chatShell = document.getElementById("chatShell");
   const botForm = document.getElementById("botRequestForm");
   const translationForm = document.getElementById("translationRequestForm");
-  const isEnglish = document.documentElement.lang === "en";
   let chatConnection = null;
   let botAnswerInFlight = false;
   let messageCursor = Number(chatShell?.dataset.lastMessageId || "0");
   let messagesLoading = null;
 
-  function text(ru, en) {
-    return isEnglish ? en : ru;
+  function text(key) {
+    return window.ceText?.[key] || key;
   }
 
   function scrollChatToBottom() {
@@ -47,9 +46,9 @@
     message.dataset.messageId = String(payload.id);
     const details = payload.authorDetails ? `<small>${escapeHtml(payload.authorDetails)}</small>` : "";
     const deleteForm = payload.canDelete && chatShell.dataset.canWrite === "true"
-      ? `<form method="post" action="?handler=DeleteMessage&id=${encodeURIComponent(chatShell.dataset.ticketId)}&messageId=${Number(payload.id)}" class="message-delete-form"><button type="submit" title="${text("Удалить сообщение", "Delete message")}" aria-label="${text("Удалить сообщение", "Delete message")}">×</button></form>`
+      ? `<form method="post" action="?handler=DeleteMessage&id=${encodeURIComponent(chatShell.dataset.ticketId)}&messageId=${Number(payload.id)}" class="message-delete-form"><button type="submit" title="${text("DeleteMessage")}" aria-label="${text("DeleteMessage")}">×</button></form>`
       : "";
-    message.innerHTML = `<div class="message-meta"><span>${payload.kind === "bot" ? text("Бот", "Bot") : escapeHtml(payload.authorName)}${details}</span><span class="message-meta-actions"><span>${escapeHtml(payload.createdAt)}</span>${deleteForm}</span></div>`;
+    message.innerHTML = `<div class="message-meta"><span>${payload.kind === "bot" ? text("Bot") : escapeHtml(payload.authorName)}${details}</span><span class="message-meta-actions"><span>${escapeHtml(payload.createdAt)}</span>${deleteForm}</span></div>`;
     if (payload.text) {
       const paragraph = document.createElement("p");
       paragraph.textContent = payload.text;
@@ -59,7 +58,7 @@
       const translation = document.createElement("div");
       translation.className = `message-translation${payload.translation ? "" : " pending-translation"}`;
       if (!payload.translation) translation.dataset.translationMessageId = String(payload.id);
-      translation.innerHTML = `<span>${text("Перевод", "Translation")}</span><p>${escapeHtml(payload.translation || text("Перевод загружается...", "Loading translation..."))}</p>`;
+      translation.innerHTML = `<span>${text("Translation")}</span><p>${escapeHtml(payload.translation || text("TranslationLoading"))}</p>`;
       message.appendChild(translation);
     }
     if (payload.attachments?.length) {
@@ -75,7 +74,7 @@
           card.dataset.videoStatus = item.status;
           card.innerHTML = item.status === "Ready"
             ? `<video controls preload="metadata" poster="${escapeHtml(item.previewUrl)}"><source src="${url}" type="video/mp4" /></video><span>${name}</span>`
-            : `<div class="video-state${item.status === "Failed" ? " failed" : ""}">${item.status === "Failed" ? text("Ошибка отправки", "Send failed") : text("Видео обрабатывается...", "Video is processing...")}</div><span>${name}</span>`;
+            : `<div class="video-state${item.status === "Failed" ? " failed" : ""}">${item.status === "Failed" ? text("SendFailed") : text("VideoProcessing")}</div><span>${name}</span>`;
           attachments.appendChild(card);
           if (item.status !== "Ready" && item.status !== "Failed") pollVideoStatus(item.id, card);
         } else if (item.isImage) {
@@ -131,7 +130,7 @@
     chatShell.dataset.askBot = "false";
     const ticketId = chatShell.dataset.ticketId;
     const token = botForm.querySelector("input[name='__RequestVerificationToken']")?.value;
-    const typing = createTyping(chatShell.dataset.botTyping || text("Бот печатает", "Bot is typing"), "bot");
+    const typing = createTyping(chatShell.dataset.botTyping || text("BotTyping"), "bot");
     chatShell.appendChild(typing);
     scrollChatToBottom();
 
@@ -166,7 +165,7 @@
         const label = input.closest(".file-picker");
         const labelText = label?.querySelector("span");
         if (labelText) {
-          labelText.textContent = input.files?.[0]?.name || text("Выберите файл", "Choose file");
+          labelText.textContent = input.files?.[0]?.name || text("ChooseFile");
         }
       });
     });
@@ -180,7 +179,7 @@
         const isVisible = input.type === "text";
         input.type = isVisible ? "password" : "text";
         button.setAttribute("aria-pressed", String(!isVisible));
-        button.setAttribute("aria-label", text(isVisible ? "Показать пароль" : "Скрыть пароль", isVisible ? "Show password" : "Hide password"));
+        button.setAttribute("aria-label", text(isVisible ? "ShowPassword" : "HidePassword"));
         button.textContent = isVisible ? "👁" : "🙈";
       });
     });
@@ -222,7 +221,7 @@
       input.value = "";
       const labelText = input.closest(".file-picker")?.querySelector("span");
       if (labelText) {
-        labelText.textContent = text("Выберите файл", "Choose file");
+        labelText.textContent = text("ChooseFile");
       }
     };
 
@@ -395,7 +394,7 @@
       chatShell.insertAdjacentElement("afterend", indicator);
     }
 
-    indicator.textContent = `${displayName || text("Собеседник", "Contact")} ${text("печатает", "is typing")}`;
+    indicator.textContent = `${displayName || text("Contact")} ${text("IsTyping")}`;
     indicator.hidden = false;
     window.clearTimeout(Number(indicator.dataset.hideTimer || 0));
     indicator.dataset.hideTimer = String(window.setTimeout(() => {
@@ -452,11 +451,11 @@
         if (validator && form.classList.contains("bot-test-form")) {
           validator.settings.messages["Input.MachineId"] = {
             ...validator.settings.messages["Input.MachineId"],
-            required: text("Выберите станок.", "Select a machine.")
+            required: text("MachineRequired")
           };
           validator.settings.messages["Input.Question"] = {
             ...validator.settings.messages["Input.Question"],
-            required: text("Введите вопрос.", "Enter a question.")
+            required: text("QuestionRequired")
           };
         }
 
@@ -476,7 +475,7 @@
           button.disabled = true;
           button.dataset.originalText = button.textContent || "";
           if (button.tagName === "BUTTON") {
-            button.textContent = text("Отправляется...", "Sending...");
+            button.textContent = text("Sending");
           }
         });
       });
@@ -520,7 +519,7 @@
       const overlay = document.createElement("div");
       overlay.className = "video-loading";
       overlay.setAttribute("role", "status");
-      overlay.innerHTML = `<span class="video-spinner" aria-hidden="true"></span><span>${text("Загрузка видео...", "Loading video...")}</span>`;
+      overlay.innerHTML = `<span class="video-spinner" aria-hidden="true"></span><span>${text("VideoLoading")}</span>`;
       frame.appendChild(overlay);
 
       let loadingTimeout = null;
@@ -556,7 +555,7 @@
         clearLoadingTimeout();
         frame.classList.remove("is-loading");
         frame.classList.add("is-error");
-        overlay.innerHTML = `<span>${text("Видео недоступно", "Video unavailable")}</span>`;
+        overlay.innerHTML = `<span>${text("VideoUnavailable")}</span>`;
       };
       video.addEventListener("error", failed);
       video.querySelectorAll("source").forEach((source) => source.addEventListener("error", failed));
@@ -577,12 +576,12 @@
     message.className = "message mine pending-video-message";
     message.innerHTML = `
       <div class="message-meta">
-        <span>${text("Вы", "You")}</span>
+        <span>${text("You")}</span>
         <span>${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
       </div>
       <div class="attachments">
         <div class="video-card" data-video-temp="true" data-video-status="Uploading">
-          ${videoProgressMarkup(text("Видео загружается", "Video is uploading"), 0)}
+          ${videoProgressMarkup(text("VideoUploading"), 0)}
           <span>${escapeHtml(fileName)}</span>
         </div>
       </div>`;
@@ -667,12 +666,12 @@
 
         xhr.upload.onprogress = (progressEvent) => {
           if (!progressEvent.lengthComputable) {
-            setVideoProgress(card, text("Видео загружается", "Video is uploading"), 0);
+            setVideoProgress(card, text("VideoUploading"), 0);
             return;
           }
 
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-          setVideoProgress(card, text("Видео загружается", "Video is uploading"), percent);
+          setVideoProgress(card, text("VideoUploading"), percent);
         };
 
         xhr.onload = () => {
@@ -687,17 +686,17 @@
             card.dataset.videoStatus = payload.attachment.status || "Processing";
             card.removeAttribute("data-video-temp");
             card.closest(".message").dataset.messageId = String(payload.messageId);
-            setVideoProgress(card, text("Видео преобразовывается", "Video is converting"), 5);
+            setVideoProgress(card, text("VideoConverting"), 5);
             pollVideoStatus(payload.attachment.id, card);
             syncMessages().catch(() => {});
             form.reset();
             const labelText = form.querySelector(".file-picker span");
             if (labelText) {
-              labelText.textContent = text("Выберите файл", "Choose file");
+              labelText.textContent = text("ChooseFile");
             }
           } catch (error) {
             if (card) {
-              card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
+              card.innerHTML = `<div class="video-state failed">${text("SendFailed")}</div>`;
             }
           } finally {
             form.dataset.submitting = "false";
@@ -711,7 +710,7 @@
 
         xhr.onerror = () => {
           if (card) {
-            card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
+            card.innerHTML = `<div class="video-state failed">${text("SendFailed")}</div>`;
           }
           form.dataset.submitting = "false";
           form.dataset.ajaxVideoUpload = "false";
@@ -768,16 +767,16 @@
             await syncMessages();
             form.reset();
             const labelText = form.querySelector(".file-picker span");
-            if (labelText) labelText.textContent = text("Выберите файл", "Choose file");
+            if (labelText) labelText.textContent = text("ChooseFile");
             if (payload.text?.trim() && chatShell && botForm && !chatShell.dataset.operatorUserId && chatShell.dataset.ticketStatus !== "Closed") {
               chatShell.dataset.askBot = "true";
               requestBotAnswer();
             }
           } else {
-            window.alert(payload.error || text("Ошибка отправки", "Send failed"));
+            window.alert(payload.error || text("SendFailed"));
           }
         } catch {
-          window.alert(text("Ошибка отправки", "Send failed"));
+          window.alert(text("SendFailed"));
         } finally {
           form.dataset.submitting = "false";
           form.removeAttribute("aria-busy");
@@ -811,12 +810,12 @@
         <div class="delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
           <div class="delete-confirm-icon">×</div>
           <div>
-            <h2 id="deleteConfirmTitle">${text("Удалить сообщение?", "Delete message?")}</h2>
-            <p>${text("Сообщение исчезнет у всех участников этого чата.", "The message will disappear for everyone in this chat.")}</p>
+            <h2 id="deleteConfirmTitle">${text("DeleteMessageQuestion")}</h2>
+            <p>${text("DeleteMessageWarning")}</p>
           </div>
           <div class="delete-confirm-actions">
-            <button type="button" class="btn-secondary delete-confirm-cancel">${text("Отмена", "Cancel")}</button>
-            <button type="button" class="btn-danger delete-confirm-submit">${text("Удалить", "Delete")}</button>
+            <button type="button" class="btn-secondary delete-confirm-cancel">${text("Cancel")}</button>
+            <button type="button" class="btn-danger delete-confirm-submit">${text("Delete")}</button>
           </div>
         </div>`;
       document.body.appendChild(modal);
@@ -859,7 +858,7 @@
         form.closest(".message")?.remove();
         chatShell.dataset.messageCount = String(Math.max(0, Number(chatShell.dataset.messageCount || 0) - 1));
       } catch {
-        window.alert(text("Не удалось удалить сообщение", "Could not delete message"));
+        window.alert(text("DeleteMessageFailed"));
       }
     });
 
@@ -1058,7 +1057,7 @@
 
     card.dataset.videoStatus = payload.status || (failed ? "Failed" : "Ready");
     if (failed) {
-      card.innerHTML = `<div class="video-state failed">${text("Ошибка отправки", "Send failed")}</div>`;
+      card.innerHTML = `<div class="video-state failed">${text("SendFailed")}</div>`;
       return;
     }
 
@@ -1067,7 +1066,7 @@
       card.innerHTML = `<video controls preload="metadata"${poster}><source src="${payload.finalPath}" type="video/mp4" /></video>`;
       setupVideoPlayback(card);
     } else {
-      setVideoProgress(card, text("Видео преобразовывается", "Video is converting"), payload.percent || 10);
+      setVideoProgress(card, text("VideoConverting"), payload.percent || 10);
     }
   }
 
@@ -1079,7 +1078,7 @@
 
     setVideoProgress(
       card,
-      payload.stage || text("Видео преобразовывается", "Video is converting"),
+      payload.stage || text("VideoConverting"),
       payload.percent || 0);
   }
 
@@ -1144,7 +1143,7 @@
         }
       } catch {
         if (textNode) {
-          textNode.textContent = text("Перевод недоступен", "Translation unavailable");
+          textNode.textContent = text("TranslationUnavailable");
         }
       }
     }

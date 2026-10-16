@@ -51,7 +51,7 @@
             var authorName = message.IsBotMessage
                 ? TechSupportRagBot.Services.UiText.T(HttpContext, "Bot")
                 : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName;
-            var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, string.IsNullOrWhiteSpace(message.AuthorUser?.Country) ? null : TechSupportRagBot.Services.UiText.LanguageName(HttpContext, message.AuthorUser.Country) }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
             <div class="message @(message.IsBotMessage ? "bot" : message.AuthorUserId == Model.CurrentUserId ? "mine" : "operator")" data-message-id="@message.Id">
                 <div class="message-meta">
@@ -162,7 +162,7 @@
         {
             <form method="post" asp-page-handler="Close" class="panel narrow close-form">
                 <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</h2>
-                <p class="muted-text">После закрытия LLM подготовит русскоязычный структурированный черновик. Индексация выполняется после проверки в разделе «Завершённые чаты».</p>
+                <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChatDraftHint")</p>
                 <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "CloseChat")</button>
             </form>
         }

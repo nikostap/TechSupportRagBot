@@ -68,13 +68,5 @@ public class IndexModel : PageModel
             .ToHashSetAsync();
     }
 
-    public string StatusName(string status) => status switch
-    {
-        TicketStatuses.New => "Новый",
-        TicketStatuses.BotAnswered => "Ответ бота",
-        TicketStatuses.WaitingForOperator => "Ждет оператора",
-        TicketStatuses.InProgress => "В работе",
-        TicketStatuses.Closed => "Закрыт",
-        _ => status
-    };
+    public string StatusName(string status) => TechSupportRagBot.Services.UiText.Status(HttpContext, status);
 }

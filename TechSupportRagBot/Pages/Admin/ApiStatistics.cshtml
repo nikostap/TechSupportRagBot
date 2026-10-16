@@ -1,32 +1,32 @@
 @page
 @model TechSupportRagBot.Pages.Admin.ApiStatisticsModel
-@{ ViewData["Title"] = "Статистика API и расходов"; }
-<section class="page-head"><div><p class="eyebrow">AITUNNEL</p><h1>Статистика запросов и стоимости</h1></div></section>
+@{ ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "ApiStatisticsTitle"); }
+<section class="page-head"><div><p class="eyebrow">AITUNNEL</p><h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "ApiStatisticsHeading")</h1></div></section>
 <form method="get" class="panel time-filter api-statistics-filter">
-    <label>С даты<input asp-for="DateFrom" type="date" /></label>
-    <label>По дату<input asp-for="DateTo" type="date" /></label>
-    <button class="btn-secondary small" type="submit">Показать</button>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "DateFrom")<input asp-for="DateFrom" type="date" /></label>
+    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "DateTo")<input asp-for="DateTo" type="date" /></label>
+    <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
 </form>
 <p class="muted-text api-statistics-period">
-    Показан период: @Model.DateFrom?.ToString("dd.MM.yyyy") — @Model.DateTo?.ToString("dd.MM.yyyy")
+    @TechSupportRagBot.Services.UiText.T(HttpContext, "ShownPeriod") @Model.DateFrom?.ToString("dd.MM.yyyy") — @Model.DateTo?.ToString("dd.MM.yyyy")
 </p>
 <div class="metric-grid">
-    <div class="metric-card blue"><span>Всего запросов</span><strong>@Model.TotalRequests</strong></div>
-    <div class="metric-card attention"><span>Оценка расходов</span><strong>@ApiStatisticsModel.Money(Model.TotalCost)</strong></div>
+    <div class="metric-card blue"><span>@TechSupportRagBot.Services.UiText.T(HttpContext, "TotalRequests")</span><strong>@Model.TotalRequests</strong></div>
+    <div class="metric-card attention"><span>@TechSupportRagBot.Services.UiText.T(HttpContext, "EstimatedCost")</span><strong>@ApiStatisticsModel.Money(Model.TotalCost)</strong></div>
 </div>
 <div class="split-layout usage-layout">
     <section class="panel usage-donut-panel">
-        <h2>На что расходуются средства</h2>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CostBreakdown")</h2>
         <div class="usage-donut" style="--usage-sectors: @Model.DonutStyle"><span>@ApiStatisticsModel.Money(Model.TotalCost)</span></div>
         <div class="usage-legend">
-        @foreach (var row in Model.Categories) { <div><strong class="usage-legend-label"><i class="usage-legend-color" style="--legend-color: @row.Color" aria-hidden="true"></i>@row.Name</strong><span>@row.RequestCount запросов · @ApiStatisticsModel.Money(row.CostRub)</span></div> }
+        @foreach (var row in Model.Categories) { <div><strong class="usage-legend-label"><i class="usage-legend-color" style="--legend-color: @row.Color" aria-hidden="true"></i>@row.Name</strong><span>@row.RequestCount @TechSupportRagBot.Services.UiText.RequestCountLabel(HttpContext, row.RequestCount) · @ApiStatisticsModel.Money(row.CostRub)</span></div> }
         </div>
     </section>
     <section class="panel">
-        <h2>По моделям</h2>
-        <div class="table-wrap"><table><thead><tr><th>Модель</th><th>Запросы</th><th>Ввод</th><th>Вывод</th><th>Стоимость</th></tr></thead><tbody>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ByModels")</h2>
+        <div class="table-wrap"><table><thead><tr><th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</th><th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Requests")</th><th>@TechSupportRagBot.Services.UiText.T(HttpContext, "InputTokens")</th><th>@TechSupportRagBot.Services.UiText.T(HttpContext, "OutputTokens")</th><th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Cost")</th></tr></thead><tbody>
         @foreach (var row in Model.Models) { <tr><td>@row.Name</td><td>@row.RequestCount</td><td>@row.InputTokens</td><td>@row.OutputTokens</td><td>@ApiStatisticsModel.Money(row.CostRub)</td></tr> }
         </tbody></table></div>
-        <p class="muted-text">Сумма берётся из фактического списания AITUNNEL, если оно есть в ответе API; иначе применяется тарифная оценка. Для embeddings учитывается минимум 0,01 ₽ за запрос. Для AiTunnel deepseek-chat заложен резерв 10%.</p>
+        <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "ApiCostExplanation")</p>
     </section>
 </div>

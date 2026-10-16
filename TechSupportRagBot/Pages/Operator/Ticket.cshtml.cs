@@ -186,7 +186,7 @@ public class TicketModel : PageModel
         if (!await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted))
         {
             return IsAjaxRequest()
-                ? new JsonResult(new { ok = false, error = "Нет доступа к отправке сообщений." })
+                ? new JsonResult(new { ok = false, error = UiText.T(HttpContext, "MessageSendForbidden") })
                 : Forbid();
         }
 
@@ -245,7 +245,7 @@ public class TicketModel : PageModel
                 ok = createdMessage != null,
                 messageId = createdMessage?.Id,
                 text = createdMessage?.Text,
-                authorName = "Вы",
+                authorName = UiText.T(HttpContext, "You"),
                 createdAt = createdMessage?.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
                 lastMessageId = createdMessage?.Id,
                 attachment = createdAttachment == null

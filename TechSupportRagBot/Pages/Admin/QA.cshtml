@@ -172,37 +172,8 @@
 
         <div class="qa-template">
             <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "QATemplate")</h3>
-            <p class="muted-text">TXT и MD должны быть сохранены в кодировке UTF-8. DOCX уже хранит Unicode-текст.</p>
-            <pre># Кодировка файла: UTF-8
-
-Вопрос:
-Почему не подается ремешок на АЛФ-033?
-
-Альтернативные вопросы:
-Почему нет подачи ремешка?
-Ремешковый узел не работает
-
-Категория:
-Механика
-
-Модель:
-АЛФ-033
-
-Серийный номер или диапазон:
-5-30
-
-Узел:
-Ремешковый узел
-
-Тип проблемы:
-Настройка
-
-Ключевые слова:
-ремешок, ремень, подача
-
-Ответ:
-Проверить натяжение ремней.
-Проверить положение ремешкового узла.</pre>
+            <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QATemplateEncodingHelp")</p>
+            <pre>@TechSupportRagBot.Services.UiText.T(HttpContext, "QATemplateSample")</pre>
         </div>
     </div>
 </div>
@@ -270,32 +241,32 @@
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAEntries")</h2>
         <form method="get" class="qa-search-filter">
             <div class="qa-filter-search-row">
-                <input asp-for="SearchQuery" type="search" placeholder="Вопрос, ключевые слова, узел…" aria-label="Поиск по QA" />
-                <select asp-for="SearchMode" aria-label="Режим поиска">
-                    <option value="Keyword">По ключевым словам</option>
-                    <option value="Rag">RAG — по смыслу</option>
+                <input asp-for="SearchQuery" type="search" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "QASearchPlaceholder")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "QASearchLabel")" />
+                <select asp-for="SearchMode" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SearchMode")">
+                    <option value="Keyword">@TechSupportRagBot.Services.UiText.T(HttpContext, "SearchByKeywords")</option>
+                    <option value="Rag">@TechSupportRagBot.Services.UiText.T(HttpContext, "SearchByMeaning")</option>
                 </select>
                 <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
-                <a class="btn-secondary" asp-page="/Admin/QA">Сбросить</a>
+                <a class="btn-secondary" asp-page="/Admin/QA">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reset")</a>
             </div>
             <div class="qa-filter-options-row">
-                <select asp-for="SortOrder" id="qa-sort-order" aria-label="Сортировка">
-                    <option value="updated-desc">Сначала обновлённые</option>
-                    <option value="updated-asc">Сначала старые</option>
-                    <option value="question-asc">Вопрос: А–Я</option>
-                    <option value="question-desc">Вопрос: Я–А</option>
-                    <option value="status-asc">По статусу</option>
-                    <option value="model-asc">По модели</option>
+                <select asp-for="SortOrder" id="qa-sort-order" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Sort")">
+                    <option value="updated-desc">@TechSupportRagBot.Services.UiText.T(HttpContext, "RecentlyUpdated")</option>
+                    <option value="updated-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "OldestUpdated")</option>
+                    <option value="question-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "QuestionAZ")</option>
+                    <option value="question-desc">@TechSupportRagBot.Services.UiText.T(HttpContext, "QuestionZA")</option>
+                    <option value="status-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "ByStatus")</option>
+                    <option value="model-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "ByModel")</option>
                 </select>
                 <select asp-for="MachineFilter">
-                    <option value="">Все станки и модели</option>
+                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllMachinesAndModels")</option>
                     @foreach (var modelName in Model.MachineFilterOptions)
                     {
                         <option value="@modelName">@modelName</option>
                     }
                 </select>
                 <select asp-for="SerialFilter">
-                    <option value="">Все серии</option>
+                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllSeries")</option>
                     @foreach (var serial in Model.SerialFilterOptions)
                     {
                         <option value="@serial">@serial</option>
@@ -319,10 +290,10 @@
         <input type="hidden" asp-for="SearchQuery" />
         <input type="hidden" asp-for="SearchMode" />
         <input type="hidden" asp-for="SortOrder" />
-        <label><input type="checkbox" id="qa-select-all" /> Выбрать все на странице</label>
-        <span id="qa-selected-count">Выбрано: 0</span>
-        <button class="btn-secondary small" name="bulkAction" value="verify" type="submit">Верифицировать</button>
-        <button class="btn-danger small" name="bulkAction" value="delete" type="submit">Удалить выбранные</button>
+        <label><input type="checkbox" id="qa-select-all" /> @TechSupportRagBot.Services.UiText.T(HttpContext, "SelectAllOnPage")</label>
+        <span id="qa-selected-count">@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectedCount") 0</span>
+        <button class="btn-secondary small" name="bulkAction" value="verify" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "VerifySelected")</button>
+        <button class="btn-danger small" name="bulkAction" value="delete" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteSelected")</button>
     </form>
 
     <div class="qa-list" id="qa-entry-list">
@@ -332,7 +303,7 @@
         {
             <details class="qa-model-group" data-model-group data-model="@modelGroup.Key">
                 <summary class="qa-group-summary qa-model-summary">
-                    <input class="qa-select-group qa-select-model" type="checkbox" aria-label="Выбрать все QA модели @Display(modelGroup.Key)" onclick="event.stopPropagation()" />
+                    <input class="qa-select-group qa-select-model" type="checkbox" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectAllModelQA") @Display(modelGroup.Key)" onclick="event.stopPropagation()" />
                     <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model"): @Display(modelGroup.Key)</strong>
                     <span>QA: @modelGroup.Count()</span>
                 </summary>
@@ -343,7 +314,7 @@
                     {
                         <details class="qa-serial-group" data-serial-group data-serial="@serialGroup.Key">
                             <summary class="qa-group-summary qa-serial-summary">
-                                <input class="qa-select-group qa-select-serial" type="checkbox" aria-label="Выбрать все QA серийного номера @Display(serialGroup.Key)" onclick="event.stopPropagation()" />
+                                <input class="qa-select-group qa-select-serial" type="checkbox" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectAllSerialQA") @Display(serialGroup.Key)" onclick="event.stopPropagation()" />
                                 <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRangeShort"): @Display(serialGroup.Key)</strong>
                                 <span>QA: @serialGroup.Count()</span>
                             </summary>
@@ -352,7 +323,7 @@
                                 {
             <details class="qa-card qa-compact-card" data-updated="@entry.UpdatedAt.Ticks" data-question="@entry.Question" data-status="@entry.Status" data-model="@entry.MachineModel" data-serial="@entry.SerialNumber">
                 <summary class="qa-card-summary">
-                    <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="Выбрать QA" onclick="event.stopPropagation()" />
+                    <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectQA")" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
                         <span class="status-pill">@entry.Status</span>
                         <strong>@entry.Question</strong>
@@ -437,6 +408,7 @@
     const sort = document.getElementById('qa-sort-order');
     const all = document.getElementById('qa-select-all');
     const count = document.getElementById('qa-selected-count');
+    const selectedLabel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TechSupportRagBot.Services.UiText.T(HttpContext, "SelectedCount")));
     const checks = (scope = document) => [...scope.querySelectorAll('.qa-select-entry')];
 
     function syncCheckbox(checkbox, entries) {
@@ -456,7 +428,7 @@
         if (all) {
             syncCheckbox(all, entries);
         }
-        count.textContent = `Выбрано: ${entries.filter(entry => entry.checked).length}`;
+        count.textContent = `${selectedLabel} ${entries.filter(entry => entry.checked).length}`;
     }
 
     all?.addEventListener('change', () => {

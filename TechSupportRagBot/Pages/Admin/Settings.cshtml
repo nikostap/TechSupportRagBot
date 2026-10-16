@@ -144,14 +144,14 @@
         @if (!Model.HasQwenKey)
         {
             <div class="notice-soft" data-provider-note="Qwen">
-                Qwen API key не задан. Укажите переменную окружения <code>Qwen__ApiKey</code>.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "QwenKeyMissingHint") <code>Qwen__ApiKey</code>.
             </div>
         }
 
         @if (!Model.HasAiTunnelKey)
         {
             <div class="notice-soft" data-provider-note="AiTunnel">
-                AITunnel API key не задан. Укажите переменную окружения <code>AiTunnel__ApiKey</code>.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "AiTunnelKeyMissingHint") <code>AiTunnel__ApiKey</code>.
             </div>
         }
 
@@ -160,21 +160,21 @@
             <input asp-for="Input.UnreadEmailDelayMinutes" type="number" min="5" max="1440" step="5" />
         </label>
 
-        <h2>Хранилище файлов</h2>
-        <label>Провайдер для новых файлов
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "FileStorage")</h2>
+        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewFilesProvider")
             <select asp-for="Input.StorageProvider">
-                <option value="Local">Локальное закрытое хранилище</option>
-                <option value="S3">S3-совместимое хранилище</option>
+                <option value="Local">@TechSupportRagBot.Services.UiText.T(HttpContext, "LocalPrivateStorage")</option>
+                <option value="S3">@TechSupportRagBot.Services.UiText.T(HttpContext, "S3CompatibleStorage")</option>
             </select>
         </label>
         <p class="field-hint">
-            Переключение влияет только на новые файлы. Ранее сохранённые объекты продолжают читаться из своего провайдера.
+            @TechSupportRagBot.Services.UiText.T(HttpContext, "StorageSwitchHelp")
         </p>
         @if (!Model.IsS3Configured)
         {
             <div class="notice-soft">
-                Для S3 задайте <code>Storage__S3__Bucket</code>, <code>Storage__S3__AccessKey</code>
-                и <code>Storage__S3__SecretKey</code> в <code>.env</code>.
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "S3ConfigPrefix") <code>Storage__S3__Bucket</code>, <code>Storage__S3__AccessKey</code>
+                @TechSupportRagBot.Services.UiText.T(HttpContext, "S3ConfigMiddle") <code>Storage__S3__SecretKey</code> @TechSupportRagBot.Services.UiText.T(HttpContext, "S3ConfigSuffix") <code>.env</code>.
             </div>
         }
 
@@ -192,9 +192,9 @@
     }
 
     <section class="panel">
-        <h2>Производственный календарь</h2>
-        <p>Рабочие, выходные, праздничные и сокращённые дни для расчёта времени операторов.</p>
-        <a class="btn-main as-link" asp-page="/Admin/WorkCalendar">Открыть календарь</a>
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkCalendar")</h2>
+        <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkCalendarSettingsHelp")</p>
+        <a class="btn-main as-link" asp-page="/Admin/WorkCalendar">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenCalendar")</a>
     </section>
 
     <section class="panel" hidden>

@@ -45,12 +45,12 @@ public class WorkCalendarModel : PageModel
                 .Select(x => new CalendarDayInput { Date = x.Date, DayType = x.DayType })
                 .ToList();
             IsPreview = true;
-            StatusMessage = "Календарь получен. Проверьте итог и подтвердите импорт.";
+            StatusMessage = UiText.T(HttpContext, "CalendarPreviewReady");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to preview work calendar for {Year}", Year);
-            ErrorMessage = "Не удалось получить календарь. Повторите попытку позже.";
+            ErrorMessage = UiText.T(HttpContext, "CalendarPreviewFailed");
         }
 
         await LoadYearAsync();
@@ -69,13 +69,13 @@ public class WorkCalendarModel : PageModel
             }
 
             await _calendar.ImportAsync(Year, days, HttpContext.RequestAborted);
-            StatusMessage = $"Производственный календарь за {Year} год сохранён.";
+            StatusMessage = $"{UiText.T(HttpContext, "CalendarSavedPrefix")} {Year} {UiText.T(HttpContext, "CalendarSavedSuffix")}";
             PreviewDays = [];
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save work calendar for {Year}", Year);
-            ErrorMessage = "Не удалось сохранить календарь. Повторите попытку позже.";
+            ErrorMessage = UiText.T(HttpContext, "CalendarSaveFailed");
             IsPreview = true;
         }
 
@@ -97,7 +97,7 @@ public class WorkCalendarModel : PageModel
             ManualDay.DayType,
             ManualDay.Name,
             HttpContext.RequestAborted);
-        StatusMessage = $"День {ManualDay.Date:dd.MM.yyyy} сохранён вручную.";
+        StatusMessage = $"{UiText.T(HttpContext, "DaySavedPrefix")} {ManualDay.Date:dd.MM.yyyy} {UiText.T(HttpContext, "DaySavedSuffix")}";
         await LoadYearAsync();
         return Page();
     }
@@ -128,18 +128,10 @@ public class WorkCalendarModel : PageModel
                 : previewDay?.DayType ?? item?.DayType ?? defaultType;
             var source = item?.IsManualOverride == true
                 ? item.Source
-                : previewDay != null ? "isDayOff — предварительный просмотр" : item?.Source ?? "По умолчанию";
+                : previewDay != null ? UiText.T(HttpContext, "CalendarPreviewSource") : item?.Source ?? UiText.T(HttpContext, "ByDefault");
             return new CalendarDisplayDay(date, type, source, item?.IsManualOverride == true, item?.Name);
         }).ToArray();
     }
-
-    public static string DayTypeName(WorkCalendarDayType type) => type switch
-    {
-        WorkCalendarDayType.Working => "Рабочий",
-        WorkCalendarDayType.Shortened => "Сокращённый",
-        WorkCalendarDayType.Holiday => "Праздничный",
-        _ => "Выходной"
-    };
 
     public class ManualDayInput
     {

@@ -153,7 +153,7 @@ public class TicketModel : PageModel
         if (!await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted))
         {
             return IsAjaxRequest()
-                ? new JsonResult(new { ok = false, error = "Нет доступа к отправке сообщений." })
+                ? new JsonResult(new { ok = false, error = UiText.T(HttpContext, "MessageSendForbidden") })
                 : Forbid();
         }
 
@@ -204,7 +204,7 @@ public class TicketModel : PageModel
                 ok = createdMessage != null,
                 messageId = createdMessage?.Id,
                 text = createdMessage?.Text,
-                authorName = "Вы",
+                authorName = UiText.T(HttpContext, "You"),
                 createdAt = createdMessage?.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
                 lastMessageId = createdMessage?.Id,
                 attachment = createdAttachment == null
@@ -358,7 +358,7 @@ public class TicketModel : PageModel
                 escalated = result.ShouldEscalate,
                 messageId = botMessage.Id,
                 text = botMessage.Text,
-                authorName = "Бот",
+                authorName = UiText.T(HttpContext, "Bot"),
                 createdAt = botMessage.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
                 lastMessageId = botMessage.Id,
                 hasMedia = result.Media.Count > 0
@@ -517,16 +517,18 @@ public class TicketModel : PageModel
     private async Task<List<string>> LoadActiveOperatorNamesAsync(int ticketId)
     {
         var activeSince = OperatorTimeTrackingService.ActiveSinceUtc;
-        return await _db.OperatorChatPresences
+        var names = await _db.OperatorChatPresences
             .AsNoTracking()
             .Include(x => x.OperatorUser)
             .Where(x => x.TicketId == ticketId && x.LastActivityAt >= activeSince)
             .OrderBy(x => x.OperatorUser!.FullName ?? x.OperatorUser.UserName)
             .Select(x => x.OperatorUser == null
-                ? "Оператор"
-                : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? "Оператор")
-            .Distinct()
+                ? string.Empty
+                : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? string.Empty)
             .ToListAsync();
+        return names.Select(name => string.IsNullOrWhiteSpace(name) ? UiText.T(HttpContext, "Operator") : name)
+            .Distinct()
+            .ToList();
     }
 
     private bool HasClientMessageAfterLastBot()

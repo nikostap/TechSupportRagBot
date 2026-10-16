@@ -37,7 +37,7 @@
          data-can-write="@Model.CanWriteChat.ToString().ToLowerInvariant()"
          data-operator-user-id="@Model.Ticket.OperatorUserId"
          data-active-operator-count="@Model.ActiveOperatorNames.Count"
-         data-current-user-name="@(User.Identity?.Name ?? "Клиент")"
+         data-current-user-name="@(User.Identity?.Name ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Client"))"
          data-ask-bot="@Model.ShouldAskBot.ToString().ToLowerInvariant()"
          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping", "Бот печатает")">
         @foreach (var item in Model.Messages)
@@ -46,7 +46,7 @@
             var authorName = message.IsBotMessage
                 ? TechSupportRagBot.Services.UiText.T(HttpContext, "Bot", "Бот")
                 : message.AuthorUser?.FullName ?? message.AuthorUser?.UserName;
-            var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, message.AuthorUser?.Country }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            var authorDetails = string.Join(" · ", new[] { message.AuthorUser?.Position, string.IsNullOrWhiteSpace(message.AuthorUser?.Country) ? null : TechSupportRagBot.Services.UiText.LanguageName(HttpContext, message.AuthorUser.Country) }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
             <div class="message @(message.IsBotMessage ? "bot" : message.AuthorUserId == Model.CurrentUserId ? "mine" : "operator")" data-message-id="@message.Id">
                 <div class="message-meta">

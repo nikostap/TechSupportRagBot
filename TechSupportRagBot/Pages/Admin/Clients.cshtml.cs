@@ -42,11 +42,11 @@ public class ClientsModel : PageModel
         Input ??= new ClientInput();
         if (string.IsNullOrWhiteSpace(Input.CompanyName))
         {
-            ModelState.AddModelError(nameof(Input.CompanyName), "Укажите название клиента.");
+            ModelState.AddModelError(nameof(Input.CompanyName), TechSupportRagBot.Services.UiText.T(HttpContext, "ClientNameRequired"));
         }
         if (string.IsNullOrWhiteSpace(Input.FullName))
         {
-            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
+            ModelState.AddModelError(nameof(Input.FullName), TechSupportRagBot.Services.UiText.T(HttpContext, "FullNameRequired"));
         }
         if (!ModelState.IsValid)
         {
@@ -62,7 +62,7 @@ public class ClientsModel : PageModel
 
         if (duplicateExists)
         {
-            ModelState.AddModelError(string.Empty, "Клиент с таким названием уже существует.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "ClientAlreadyExists"));
             await LoadAsync();
             return Page();
         }
@@ -144,7 +144,7 @@ public class ClientsModel : PageModel
         var existing = await _userManager.FindByNameAsync(input.UserName.Trim());
         if (existing != null && existing.Id != user.Id)
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LoginTaken"));
             await LoadAsync();
             return Page();
         }

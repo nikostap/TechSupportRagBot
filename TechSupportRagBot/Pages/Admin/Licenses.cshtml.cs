@@ -41,7 +41,7 @@ public class LicensesModel : PageModel
 
         if (exists)
         {
-            ModelState.AddModelError(string.Empty, "У клиента уже есть активная лицензия на этот станок.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseAlreadyActive"));
             await LoadAsync();
             return Page();
         }

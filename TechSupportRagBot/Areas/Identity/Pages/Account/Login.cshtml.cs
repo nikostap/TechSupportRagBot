@@ -46,7 +46,7 @@ public class LoginModel : PageModel
 
         if (!await IsCaptchaValidAsync())
         {
-            ModelState.AddModelError(string.Empty, "Подтвердите, что вы не робот, и повторите попытку.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "CaptchaRetry"));
             return RedirectToPage("/Index", new { area = "", loginError = "captcha" });
         }
 
@@ -67,7 +67,7 @@ public class LoginModel : PageModel
             return LocalRedirect(ReturnUrl);
         }
 
-        ModelState.AddModelError(string.Empty, "Неверный логин или пароль.");
+        ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "InvalidCredentials"));
         return RedirectToPage("/Index", new { area = "", loginError = "invalid" });
     }
 

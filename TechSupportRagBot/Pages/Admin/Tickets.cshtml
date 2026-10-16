@@ -7,26 +7,26 @@
 
 <section class="page-head tickets-page-head">
     <div><p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Control")</p><h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "Tickets")</h1></div>
-    <div class="tickets-page-counts"><span><strong>@Model.Tickets.Count</strong> всего</span><span><strong>@Model.TotalUnreadCount</strong> новых сообщений</span></div>
+    <div class="tickets-page-counts"><span><strong>@Model.Tickets.Count</strong> @TechSupportRagBot.Services.UiText.T(HttpContext, "TotalLower")</span><span><strong>@Model.TotalUnreadCount</strong> @TechSupportRagBot.Services.UiText.T(HttpContext, "NewMessagesLower")</span></div>
 </section>
 
 @if (Model.StatusFilter == TicketStatuses.WaitingForOperator)
 {
     <div class="notice-soft ticket-filter-notice">
         <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "WaitingForOperator")</span>
-        <a class="btn-secondary small" asp-page="/Admin/Tickets">Показать все обращения</a>
+        <a class="btn-secondary small" asp-page="/Admin/Tickets">@TechSupportRagBot.Services.UiText.T(HttpContext, "ShowAllTickets")</a>
     </div>
 }
 
 @if (Model.ClientGroups.Count == 0)
 {
-    <div class="panel tickets-empty-state">Обращений пока нет.</div>
+    <div class="panel tickets-empty-state">@TechSupportRagBot.Services.UiText.T(HttpContext, "NoTicketsYet")</div>
 }
 else
 {
     <div class="tickets-workspace" id="tickets-workspace">
-        <nav class="tickets-client-nav" aria-label="Клиенты с обращениями">
-            <div class="tickets-nav-heading"><strong>Клиенты</strong><span>@Model.ClientGroups.Count</span></div>
+        <nav class="tickets-client-nav" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientsWithTickets")">
+            <div class="tickets-nav-heading"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "Clients")</strong><span>@Model.ClientGroups.Count</span></div>
             @for (var clientIndex = 0; clientIndex < Model.ClientGroups.Count; clientIndex++)
             {
                 var client = Model.ClientGroups[clientIndex];
@@ -35,26 +35,26 @@ else
                         aria-pressed="@(clientIndex == 0 ? "true" : "false")">
                     <span class="tickets-client-name">@client.ClientName</span>
                     <span class="tickets-client-count">@client.TicketCount</span>
-                    @if (client.UnreadCount > 0) { <span class="tickets-client-unread" title="Новые сообщения">+@client.UnreadCount</span> }
+                    @if (client.UnreadCount > 0) { <span class="tickets-client-unread" title="@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMessages")">+@client.UnreadCount</span> }
                 </button>
             }
-            <p class="tickets-nav-hint">Выберите клиента, чтобы увидеть его оборудование и обращения.</p>
+            <p class="tickets-nav-hint">@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseClientHint")</p>
         </nav>
 
-        <div class="tickets-work-scroll" id="tickets-work-scroll" tabindex="0" aria-label="Обращения выбранного клиента">
+        <div class="tickets-work-scroll" id="tickets-work-scroll" tabindex="0" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectedClientTickets")">
             @for (var clientIndex = 0; clientIndex < Model.ClientGroups.Count; clientIndex++)
             {
                 var client = Model.ClientGroups[clientIndex];
                 <section class="tickets-client-panel" id="tickets-client-panel-@clientIndex" data-client-panel="@client.Key" hidden="@(clientIndex != 0)">
                     <div class="tickets-client-heading">
-                        <div><span class="tickets-overline">Клиент</span><h2>@client.ClientName</h2></div>
-                        <span class="tickets-client-total">Обращений: @client.TicketCount</span>
+                        <div><span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</span><h2>@client.ClientName</h2></div>
+                        <span class="tickets-client-total">@TechSupportRagBot.Services.UiText.T(HttpContext, "TicketsCountLabel") @client.TicketCount</span>
                     </div>
                     @foreach (var machine in client.Machines)
                     {
                         <section class="tickets-machine-section">
                             <div class="tickets-machine-heading">
-                                <div><span class="tickets-overline">Оборудование</span><h3>@machine.MachineName</h3></div>
+                                <div><span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "Equipment")</span><h3>@machine.MachineName</h3></div>
                                 <span class="tickets-machine-count">@machine.Rows.Count</span>
                             </div>
                             <div class="tickets-focus-list">
@@ -74,7 +74,7 @@ else
                                     <details class="tickets-focus-ticket" data-ticket-id="@ticket.Id">
                                         <summary class="tickets-focus-summary">
                                             <span class="tickets-ticket-ident">
-                                                <span class="tickets-overline">Обращение #@ticket.Id</span>
+                                                <span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "TicketNumber")@ticket.Id</span>
                                                 <strong>@ticket.Title</strong>
                                                 <small>@(ticket.ClientUser?.FullName ?? ticket.ClientUser?.UserName) · @ticket.Machine?.Model · @ticket.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
                                             </span>
@@ -87,7 +87,7 @@ else
                                         <div class="tickets-focus-body">
                                             <div class="tickets-ticket-facts">
                                                 <div>
-                                                    <span class="tickets-overline">Ответственные</span>
+                                                    <span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "Responsible")</span>
                                                     @if (ticket.OperatorAssignments.Count > 0)
                                                     {
                                                         <div class="operator-chip-list">
@@ -107,7 +107,7 @@ else
                                                     else { <span class="muted-text">—</span> }
                                                 </div>
                                                 <div>
-                                                    <span class="tickets-overline">База знаний</span>
+                                                    <span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "KnowledgeBase")</span>
                                                     @if (ticket.ResolvedAnswers.Count > 0)
                                                     {
                                                         var indexed = ticket.ResolvedAnswers.OrderByDescending(x => x.CreatedAt).First();
@@ -124,7 +124,7 @@ else
                                             @if (Model.CanAssignOperatorsToTickets && ticket.Status != TicketStatuses.Closed && availableOperators.Count > 0)
                                             {
                                                 <form method="post" asp-page-handler="AddOperator" asp-route-id="@ticket.Id" class="assign-inline-form">
-                                                    <select name="OperatorId" aria-label="Выбрать оператора">@foreach (var option in availableOperators) { <option value="@option.Id">@option.Name</option> }</select>
+                                                    <select name="OperatorId" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "ChooseOperator")">@foreach (var option in availableOperators) { <option value="@option.Id">@option.Name</option> }</select>
                                                     <button class="btn-secondary small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
                                                 </form>
                                             }

@@ -61,11 +61,11 @@
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</dt><dd>@Display(ticket?.ClientUser?.FullName ?? ticket?.ClientUser?.UserName)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Operator")</dt><dd>@Display(ticket?.OperatorUser?.FullName ?? ticket?.OperatorUser?.UserName)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")</dt><dd>@Display(answer.Category)</dd></div>
-                            <div><dt>Заголовок</dt><dd>@Display(answer.Title)</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Title")</dt><dd>@Display(answer.Title)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Node")</dt><dd>@Display(answer.NodeName)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")</dt><dd>@Display(answer.ProblemType)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Keywords")</dt><dd>@Display(answer.Tags)</dd></div>
-                            <div><dt>Уверенность LLM</dt><dd>@answer.Confidence.ToString("0.00")</dd></div>
+                            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "LlmConfidence")</dt><dd>@answer.Confidence.ToString("0.00")</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</dt><dd>@Display(machine?.Model)</dd></div>
                             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")</dt><dd>@Display(machine?.SerialNumber)</dd></div>
                             <div><dt>Qdrant</dt><dd>@Display(answer.QdrantPointId)</dd></div>
@@ -76,7 +76,7 @@
                         {
                             <form method="post" class="archive-review-form">
                                 <div class="inline-grid">
-                                    <label>Заголовок
+                                    <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Title")
                                         <input name="EditInput.Title" value="@answer.Title" />
                                     </label>
                                     <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")
@@ -102,10 +102,10 @@
                                     <textarea name="EditInput.Tags" rows="2">@answer.Tags</textarea>
                                 </label>
                                 <div class="form-actions">
-                                    <button class="btn-secondary" type="submit" asp-page-handler="SaveDraft" asp-route-id="@answer.Id">Сохранить черновик</button>
-                                    <button class="btn-main" type="submit" asp-page-handler="Index" asp-route-id="@answer.Id">Подтвердить и индексировать</button>
-                                    <a class="btn-secondary" asp-page="/Operator/Ticket" asp-route-id="@answer.TicketId">Открыть исходный чат</a>
-                                    <button class="btn-danger" type="submit" asp-page-handler="DeleteDraft" asp-route-id="@answer.Id">Удалить черновик</button>
+                                    <button class="btn-secondary" type="submit" asp-page-handler="SaveDraft" asp-route-id="@answer.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "SaveDraft")</button>
+                                    <button class="btn-main" type="submit" asp-page-handler="Index" asp-route-id="@answer.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "ConfirmAndIndex")</button>
+                                    <a class="btn-secondary" asp-page="/Operator/Ticket" asp-route-id="@answer.TicketId">@TechSupportRagBot.Services.UiText.T(HttpContext, "OpenSourceChat")</a>
+                                    <button class="btn-danger" type="submit" asp-page-handler="DeleteDraft" asp-route-id="@answer.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteDraft")</button>
                                 </div>
                             </form>
                         }
@@ -169,8 +169,8 @@
                                       asp-route-PageNumber="@Model.PageNumber"
                                       asp-route-PageSize="@Model.PageSize"
                                       class="row-action"
-                                      onsubmit="return confirm('Удалить проиндексированный чат из базы знаний? Исходный чат обращения останется доступен.');">
-                                    <button class="btn-danger" type="submit">Удалить из индекса</button>
+                                      onsubmit="return confirm(this.dataset.confirmMessage);" data-confirm-message="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteIndexedChatConfirm")">
+                                    <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteFromIndex")</button>
                                 </form>
                             }
                         </div>

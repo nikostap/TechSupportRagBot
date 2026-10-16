@@ -41,13 +41,13 @@ public class ActivateModel : PageModel
 
         if (license == null || license.ExpiresAt < DateTime.UtcNow)
         {
-            ModelState.AddModelError(string.Empty, "Ключ не найден или срок действия истёк.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseKeyInvalid"));
             return Page();
         }
 
         if (license.IsActivated && license.ActivatedByUserId != userId)
         {
-            ModelState.AddModelError(string.Empty, "Этот ключ уже активирован другим пользователем.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseAlreadyUsed"));
             return Page();
         }
 
@@ -78,7 +78,7 @@ public class ActivateModel : PageModel
 
         await _db.SaveChangesAsync();
 
-        Message = "Лицензия активирована. Станок доступен в личном кабинете.";
+        Message = TechSupportRagBot.Services.UiText.T(HttpContext, "LicenseActivatedMessage");
         return Page();
     }
 

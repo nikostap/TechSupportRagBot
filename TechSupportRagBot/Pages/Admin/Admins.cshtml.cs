@@ -31,15 +31,15 @@ public class AdminsModel : PageModel
         Input ??= new AdminInput();
         if (string.IsNullOrWhiteSpace(Input.UserName))
         {
-            ModelState.AddModelError(nameof(Input.UserName), "Укажите логин.");
+            ModelState.AddModelError(nameof(Input.UserName), TechSupportRagBot.Services.UiText.T(HttpContext, "UserNameRequired"));
         }
         if (string.IsNullOrWhiteSpace(Input.FullName))
         {
-            ModelState.AddModelError(nameof(Input.FullName), "Укажите ФИО.");
+            ModelState.AddModelError(nameof(Input.FullName), TechSupportRagBot.Services.UiText.T(HttpContext, "FullNameRequired"));
         }
         if (Input.Role is not ("Admin" or "Operator"))
         {
-            ModelState.AddModelError(nameof(Input.Role), "Выберите тип учётной записи.");
+            ModelState.AddModelError(nameof(Input.Role), TechSupportRagBot.Services.UiText.T(HttpContext, "AccountTypeRequired"));
         }
 
         if (!ModelState.IsValid)
@@ -50,7 +50,7 @@ public class AdminsModel : PageModel
 
         if (await _userManager.FindByNameAsync(Input.UserName.Trim()) != null)
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LoginTaken"));
             await LoadAsync();
             return Page();
         }
@@ -99,7 +99,7 @@ public class AdminsModel : PageModel
         var existing = await _userManager.FindByNameAsync(input.UserName.Trim());
         if (existing != null && existing.Id != user.Id)
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LoginTaken"));
             await LoadAsync();
             return Page();
         }

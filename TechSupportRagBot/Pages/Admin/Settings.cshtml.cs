@@ -72,7 +72,7 @@ public class SettingsModel : PageModel
 
         if (Input.StorageProvider == "S3" && !IsS3Configured)
         {
-            ModelState.AddModelError(nameof(Input.StorageProvider), "S3 нельзя включить, пока bucket, access key и secret key не заданы в .env.");
+            ModelState.AddModelError(nameof(Input.StorageProvider), TechSupportRagBot.Services.UiText.T(HttpContext, "S3NotConfigured"));
             return Page();
         }
 
@@ -85,7 +85,7 @@ public class SettingsModel : PageModel
 
         await _settings.SaveNotificationsAsync(Input.UnreadEmailDelayMinutes, HttpContext.RequestAborted);
         await _settings.SaveStorageProviderAsync(Input.StorageProvider, HttpContext.RequestAborted);
-        StatusMessage = "Настройки сохранены.";
+        StatusMessage = TechSupportRagBot.Services.UiText.T(HttpContext, "SettingsSaved");
         await LoadAsync();
         return Page();
     }

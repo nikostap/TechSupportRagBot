@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
@@ -53,14 +54,14 @@ public class ApiStatisticsModel : PageModel
 
     public static string Money(decimal value) =>
         $"{value.ToString("F2", CultureInfo.InvariantCulture)} ₽";
-    private static string DisplayCategory(string value) => value switch
+    private string DisplayCategory(string value) => UiText.T(HttpContext, value switch
     {
-        ApiUsageCategories.BotAnswers => "Ответы бота",
-        ApiUsageCategories.KnowledgeFilling => "Заполнение базы",
-        ApiUsageCategories.Vectorization => "Векторизация",
-        ApiUsageCategories.RagSearch => "RAG-поиск",
-        _ => "Прочее"
-    };
+        ApiUsageCategories.BotAnswers => "ApiBotAnswers",
+        ApiUsageCategories.KnowledgeFilling => "ApiKnowledgeFilling",
+        ApiUsageCategories.Vectorization => "ApiVectorization",
+        ApiUsageCategories.RagSearch => "ApiRagSearch",
+        _ => "Other"
+    });
     private static string BuildDonut(List<UsageRow> rows)
     {
         var total = rows.Sum(x => x.CostRub);

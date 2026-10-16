@@ -4,24 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Class Engineering Support</title>
+    <script>try{const theme=localStorage.getItem('classeng-theme');if(theme==='dark'){document.documentElement.dataset.theme='dark';document.documentElement.dataset.bsTheme='dark'}}catch{}</script>
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/dispatch.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/css/dark.css" asp-append-version="true" />
 </head>
 <body class="dispatch-theme @(User.Identity?.IsAuthenticated == true ? "dispatch-signed-in" : "dispatch-guest")">
-    <a class="skip-to-content" href="#main-content">@(Context.Request.Cookies["lang"] == "en" ? "Skip to content" : "К содержимому")</a>
+    <a class="skip-to-content" href="#main-content">@TechSupportRagBot.Services.UiText.T(Context, "SkipToContent")</a>
     <partial name="_IconSprite" />
     <div class="dispatch-shell">
         @if (User.Identity?.IsAuthenticated == true)
         {
-            <aside class="dispatch-sidebar" id="dispatch-sidebar" aria-label="@(Context.Request.Cookies["lang"] == "en" ? "Navigation" : "Навигация")">
+            <aside class="dispatch-sidebar" id="dispatch-sidebar" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "Navigation")">
                 <a class="dispatch-brand" asp-page="/Index" aria-label="Class Engineering Support">
                     <span class="dispatch-brand-mark"><img src="/images/class-engineering-transparent.png" alt="" /></span>
-                    <span class="dispatch-brand-name"><strong>CLASS / SERVICE</strong><small>Центр поддержки</small></span>
+                    <span class="dispatch-brand-name"><strong>CLASS / SERVICE</strong><small>@TechSupportRagBot.Services.UiText.T(Context, "SupportCenter")</small></span>
                 </a>
                 <partial name="_Sidebar" />
             </aside>
-            <button class="dispatch-sidebar-backdrop" type="button" data-sidebar-close tabindex="-1" aria-label="Закрыть меню"></button>
+            <button class="dispatch-sidebar-backdrop" type="button" data-sidebar-close tabindex="-1" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "CloseMenu")"></button>
         }
         <div class="dispatch-content">
             <header class="dispatch-header">
@@ -48,8 +50,10 @@
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script>window.ceText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TechSupportRagBot.Services.UiText.ClientStrings(Context)));</script>
     <script src="/js/site.js" asp-append-version="true"></script>
     <script src="/js/dispatch.js" asp-append-version="true"></script>
+    <script src="/js/theme.js" asp-append-version="true"></script>
     <script src="/js/focus-lists.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)

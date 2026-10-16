@@ -60,7 +60,7 @@ public class UserProfileModel : PageModel
         var existing = await _userManager.FindByNameAsync(Input.UserName.Trim());
         if (existing != null && existing.Id != EditedUser!.Id)
         {
-            ModelState.AddModelError(string.Empty, "Этот логин уже занят.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "LoginTaken"));
             return Page();
         }
 
@@ -99,7 +99,7 @@ public class UserProfileModel : PageModel
 
         if (string.IsNullOrWhiteSpace(password))
         {
-            ModelState.AddModelError(string.Empty, "Укажите новый пароль.");
+            ModelState.AddModelError(string.Empty, TechSupportRagBot.Services.UiText.T(HttpContext, "NewPasswordRequired"));
             FillInput();
             return Page();
         }

@@ -34,7 +34,7 @@
             <select asp-for="Input.Country">
                 @foreach (var language in Model.LanguageOptions)
                 {
-                    <option value="@language.Code">@language.Name</option>
+                    <option value="@language.Code">@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, language.Name)</option>
                 }
             </select>
         </label>
@@ -65,7 +65,7 @@
                 </div>
                 <dl class="company-user-meta">
                     <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.ChatTranslationService.NormalizeLanguage(user.Country)</dd></div>
+                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, user.Country)</dd></div>
                     <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
                 </dl>
                 <div class="company-user-actions">

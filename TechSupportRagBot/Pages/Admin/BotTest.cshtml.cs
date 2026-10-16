@@ -34,10 +34,10 @@ public class BotTestModel : PageModel
 
     public SelectList MachineOptions { get; private set; } = new(Array.Empty<object>());
 
-    public IReadOnlyList<SelectListItem> LanguageOptions { get; } =
+    public IReadOnlyList<SelectListItem> LanguageOptions =>
     [
-        new("Русский", "Russian"),
-        new("English", "English")
+        new(UiText.T(HttpContext, "RussianLanguage"), "Russian"),
+        new(UiText.T(HttpContext, "EnglishLanguage"), "English")
     ];
 
     public string? RetrievalQuestion { get; private set; }
@@ -113,12 +113,10 @@ public class BotTestModel : PageModel
 
     public class BotTestInput
     {
-        [Required(ErrorMessage = "Выберите станок.")]
         public int? MachineId { get; set; }
 
         public string Language { get; set; } = "Russian";
 
-        [Required(ErrorMessage = "Введите вопрос.")]
         public string Question { get; set; } = string.Empty;
     }
 }

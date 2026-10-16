@@ -1,4 +1,5 @@
 (() => {
+    const t = key => window.ceText?.[key] || key;
     function createElement(tag, className, text) {
         const element = document.createElement(tag);
         element.className = className;
@@ -60,11 +61,11 @@
         if (!list) return;
         const models = [...list.querySelectorAll(':scope > [data-model-group]')];
         if (!models.length) return;
-        const { nav } = setupWorkspace(list, 'Модели и номера');
+        const { nav } = setupWorkspace(list, t('ModelsAndSerials'));
         list.classList.add('focus-qa-list');
         const items = [];
         models.forEach(model => {
-            const modelName = model.dataset.model || 'Не указана';
+            const modelName = model.dataset.model || t('UnspecifiedFemale');
             const serials = [...model.querySelectorAll(':scope > .qa-model-group-body > [data-serial-group]')];
             [model, ...serials].forEach(group => group.querySelector(':scope > summary')?.addEventListener('click', event => {
                 if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
@@ -72,7 +73,7 @@
             const label = createElement('div', 'focus-list-nav-group', modelName);
             nav.append(label);
             serials.forEach(serial => {
-                const serialName = serial.dataset.serial || 'Не указан';
+                const serialName = serial.dataset.serial || t('UnspecifiedMale');
                 const count = serial.querySelectorAll('.qa-select-entry').length;
                 const button = addButton(nav, `№ ${serialName}`, String(count), false);
                 button.querySelector('.focus-list-button-label').prepend(createElement('span', 'focus-list-mobile-model', `${modelName} · `));
@@ -100,10 +101,10 @@
         const list = document.querySelector('.ticket-group-list');
         if (!list || !list.querySelector('.client-ticket-machine-group')) return;
         const groups = [...list.querySelectorAll(':scope > .client-ticket-machine-group')];
-        const { nav } = setupWorkspace(list, 'Оборудование');
+        const { nav } = setupWorkspace(list, t('Equipment'));
         list.classList.add('focus-client-list');
         const items = groups.map(group => {
-            const name = group.querySelector('.machine-summary h2')?.textContent.trim() || 'Оборудование';
+            const name = group.querySelector('.machine-summary h2')?.textContent.trim() || t('Equipment');
             const count = group.querySelectorAll('.ticket-card').length;
             const button = addButton(nav, name, String(count), false);
             group.open = true;
@@ -113,7 +114,7 @@
                     group.hidden = !selected;
                     if (selected) {
                         list.querySelector('.focus-list-pane-heading')?.remove();
-                        addPaneHeading(list, 'Оборудование', name, `${count} обращений`);
+                        addPaneHeading(list, t('Equipment'), name, `${count} ${t('TicketsGenitive')}`);
                     }
                 }
             };
@@ -125,10 +126,10 @@
         document.querySelectorAll('.dashboard-machine-list').forEach(list => {
             const groups = [...list.querySelectorAll(':scope > .dashboard-machine-group')];
             if (!groups.length) return;
-            const { nav } = setupWorkspace(list, 'Оборудование');
+            const { nav } = setupWorkspace(list, t('Equipment'));
             list.classList.add('focus-dashboard-list');
             const items = groups.map(group => {
-                const name = group.querySelector('.dashboard-machine-title strong')?.textContent.trim() || 'Оборудование';
+                const name = group.querySelector('.dashboard-machine-title strong')?.textContent.trim() || t('Equipment');
                 const count = group.querySelectorAll('.focus-dashboard-record').length;
                 const button = addButton(nav, name, String(count), false);
                 group.open = true;
@@ -138,7 +139,7 @@
                         group.hidden = !selected;
                         if (selected) {
                             list.querySelector('.focus-list-pane-heading')?.remove();
-                            addPaneHeading(list, 'Обращения', name, `${count}`);
+                            addPaneHeading(list, t('Tickets'), name, `${count}`);
                         }
                     }
                 };
@@ -152,11 +153,11 @@
         if (!list) return;
         const cards = [...list.querySelectorAll(':scope > .indexed-chat-card')];
         if (!cards.length) return;
-        const { nav } = setupWorkspace(list, 'Решения');
+        const { nav } = setupWorkspace(list, t('Solutions'));
         list.classList.add('focus-indexed-list');
         const groups = [
-            { label: 'Ожидают проверки', cards: cards.filter(card => card.querySelector('.status-pill.warning')) },
-            { label: 'В индексе', cards: cards.filter(card => !card.querySelector('.status-pill.warning')) }
+            { label: t('PendingReview'), cards: cards.filter(card => card.querySelector('.status-pill.warning')) },
+            { label: t('InIndex'), cards: cards.filter(card => !card.querySelector('.status-pill.warning')) }
         ].filter(group => group.cards.length);
         const items = groups.map(group => {
             const button = addButton(nav, group.label, String(group.cards.length), false);
@@ -166,7 +167,7 @@
                     group.cards.forEach(card => card.hidden = !selected);
                     if (selected) {
                         list.querySelector('.focus-list-pane-heading')?.remove();
-                        addPaneHeading(list, 'Решения', group.label, `${group.cards.length}`);
+                        addPaneHeading(list, t('Solutions'), group.label, `${group.cards.length}`);
                     }
                 }
             };
@@ -179,10 +180,10 @@
         if (!list) return;
         const chunks = [...list.querySelectorAll(':scope > .qa-compact-card')];
         if (!chunks.length) return;
-        const { nav } = setupWorkspace(list, 'Найденные фрагменты');
+        const { nav } = setupWorkspace(list, t('FoundChunks'));
         list.classList.add('focus-bot-list');
         const items = chunks.map((chunk, index) => {
-            const name = chunk.querySelector('.qa-summary-main strong')?.textContent.trim() || `Фрагмент ${index + 1}`;
+            const name = chunk.querySelector('.qa-summary-main strong')?.textContent.trim() || `${t('Chunk')} ${index + 1}`;
             const button = addButton(nav, name, null, false);
             return {
                 button,
@@ -190,7 +191,7 @@
                     chunk.hidden = !selected;
                     if (selected) {
                         list.querySelector('.focus-list-pane-heading')?.remove();
-                        addPaneHeading(list, 'Выбранный фрагмент', name, `${index + 1} / ${chunks.length}`);
+                        addPaneHeading(list, t('SelectedChunk'), name, `${index + 1} / ${chunks.length}`);
                     }
                 }
             };

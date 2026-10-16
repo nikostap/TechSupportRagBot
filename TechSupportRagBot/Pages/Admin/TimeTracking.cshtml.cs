@@ -103,8 +103,8 @@ public class TimeTrackingModel : PageModel
             {
                 Period = PeriodKey(x.StartedAt),
                 x.OperatorUserId,
-                OperatorName = !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? "Удалённый сотрудник" : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? "Удалённый сотрудник",
-                MachineModel = !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model
+                OperatorName = !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? TechSupportRagBot.Services.UiText.T(HttpContext, "DeletedEmployee") : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? TechSupportRagBot.Services.UiText.T(HttpContext, "DeletedEmployee"),
+                MachineModel = !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? TechSupportRagBot.Services.UiText.T(HttpContext, "NoModel") : x.Machine.Model
             })
             .Select(x => new TimeReportRow(
                 x.Key.Period,
@@ -119,13 +119,13 @@ public class TimeTrackingModel : PageModel
             .ToList();
 
         OperatorChart = entries
-            .GroupBy(x => !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? "Удалённый сотрудник" : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? "Удалённый сотрудник")
+            .GroupBy(x => !string.IsNullOrWhiteSpace(x.OperatorName) ? x.OperatorName : x.OperatorUser == null ? x.OperatorUserId ?? TechSupportRagBot.Services.UiText.T(HttpContext, "DeletedEmployee") : x.OperatorUser.FullName ?? x.OperatorUser.UserName ?? x.OperatorUserId ?? TechSupportRagBot.Services.UiText.T(HttpContext, "DeletedEmployee"))
             .Select(x => new ChartRow(x.Key, x.Sum(e => e.WorkSeconds), x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.TotalSeconds)
             .ToList();
 
         MachineChart = entries
-            .GroupBy(x => !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? "Без модели" : x.Machine.Model)
+            .GroupBy(x => !string.IsNullOrWhiteSpace(x.MachineModel) ? x.MachineModel : x.Machine == null || string.IsNullOrWhiteSpace(x.Machine.Model) ? TechSupportRagBot.Services.UiText.T(HttpContext, "NoModel") : x.Machine.Model)
             .Select(x => new ChartRow(x.Key, x.Sum(e => e.WorkSeconds), x.Sum(e => e.OvertimeSeconds)))
             .OrderByDescending(x => x.TotalSeconds)
             .ToList();
@@ -177,12 +177,12 @@ public class TimeTrackingModel : PageModel
             .ToList();
     }
 
-    public static string FormatDuration(int seconds)
+    public string FormatDuration(int seconds)
     {
         var span = TimeSpan.FromSeconds(seconds);
         return span.TotalHours >= 1
-            ? $"{(int)span.TotalHours} ч {span.Minutes:00} мин"
-            : $"{span.Minutes} мин {span.Seconds:00} сек";
+            ? $"{(int)span.TotalHours} {TechSupportRagBot.Services.UiText.T(HttpContext, "HoursShort")} {span.Minutes:00} {TechSupportRagBot.Services.UiText.T(HttpContext, "MinutesShort")}"
+            : $"{span.Minutes} {TechSupportRagBot.Services.UiText.T(HttpContext, "MinutesShort")} {span.Seconds:00} {TechSupportRagBot.Services.UiText.T(HttpContext, "SecondsShort")}";
     }
 
     public int Percent(int seconds, int maxSeconds)
