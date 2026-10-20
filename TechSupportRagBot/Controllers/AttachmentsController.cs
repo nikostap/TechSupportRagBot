@@ -92,7 +92,7 @@ public sealed class AttachmentsController : Controller
             .FirstOrDefaultAsync(x => x.PublicId == publicId, cancellationToken);
         if (qaAttachment != null)
         {
-            if (!User.IsInRole("Admin") || !await _access.IsAllowedAsync(User, "QA", cancellationToken))
+            if (!await _access.IsAllowedAsync(User, "QA", cancellationToken))
             {
                 return NotFound();
             }
@@ -128,7 +128,7 @@ public sealed class AttachmentsController : Controller
             .FirstOrDefaultAsync(x => x.PublicId == publicId, cancellationToken);
         if (document != null)
         {
-            if (!User.IsInRole("Admin") || !await _access.IsAllowedAsync(User, "QA", cancellationToken))
+            if (!await _access.IsAllowedAsync(User, "QA", cancellationToken))
             {
                 return NotFound();
             }
@@ -153,21 +153,13 @@ public sealed class AttachmentsController : Controller
             return false;
         }
 
-        if (User.IsInRole("Admin"))
+        if (await _access.IsAllowedAsync(User, "Tickets", cancellationToken))
         {
-            return await _access.IsAllowedAsync(User, "Tickets", cancellationToken);
+            return true;
         }
 
-        if (User.IsInRole("Operator"))
-        {
-            return await _access.IsAllowedAsync(User, "Tickets", cancellationToken)
-                && (ticket.OperatorUserId == user.Id
-                    || await _db.TicketOperatorAssignments.AnyAsync(
-                        x => x.TicketId == ticket.Id && x.OperatorUserId == user.Id,
-                        cancellationToken));
-        }
-
-        return user.ClientId.HasValue && ticket.ClientUser?.ClientId == user.ClientId;
+        return await _access.IsAllowedAsync(User, "ClientCabinet", cancellationToken)
+            && user.ClientId.HasValue && ticket.ClientUser?.ClientId == user.ClientId;
     }
 
     private async Task<IActionResult> SendStoredAsync(

@@ -66,13 +66,16 @@ namespace TechSupportRagBot.Pages
             ProfileName = user == null
                 ? AccessProfileService.DisplayProfile(HttpContext, null)
                 : AccessProfileService.DisplayProfile(HttpContext, await _access.ResolveProfileKeyAsync(user, HttpContext.RequestAborted));
-            ShowOperatorArea = User.IsInRole("Operator");
-            IsInternalUser = User.IsInRole("Admin");
+            ShowOperatorArea = await _access.IsAllowedAsync(User, "OperatorQueue", HttpContext.RequestAborted);
 
             foreach (var permission in AccessProfileService.PermissionDefinitions)
             {
                 Permissions[permission.Key] = await _access.IsAllowedAsync(User, permission.Key, HttpContext.RequestAborted);
             }
+
+            IsInternalUser = AccessProfileService.PermissionDefinitions
+                .Where(x => x.Key is not ("ClientCabinet" or "CreateTickets" or "CompanyUsers" or "ChatWrite"))
+                .Any(x => Can(x.Key));
 
             await LoadAdminMetricsAsync();
             await LoadClientMetricsAsync(userId);

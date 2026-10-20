@@ -7,7 +7,7 @@ using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Pages.Client;
 
-[Authorize(Roles = "Client,Admin")]
+[Authorize]
 public class TicketsModel : PageModel
 {
     private readonly ApplicationDbContext _db;

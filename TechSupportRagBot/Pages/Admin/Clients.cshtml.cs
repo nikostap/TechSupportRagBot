@@ -10,7 +10,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class ClientsModel : PageModel
 {
     private readonly ApplicationDbContext _db;
@@ -92,6 +92,7 @@ public class ClientsModel : PageModel
                 Email = contactEmail,
                 FullName = Input.FullName.Trim(),
                 ClientId = client.Id,
+                AccessProfile = AccessProfileService.Client,
                 IssuedPassword = password,
                 MustChangePassword = true,
                 Country = "ru",

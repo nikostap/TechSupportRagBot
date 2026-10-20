@@ -11,7 +11,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Client;
 
-[Authorize(Roles = "Client,Admin")]
+[Authorize]
 public class UsersModel : PageModel
 {
     private readonly ApplicationDbContext _db;
@@ -37,9 +37,6 @@ public class UsersModel : PageModel
     public List<ApplicationUser> Users { get; private set; } = new();
     public string? CurrentUserId { get; private set; }
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext)
-        .Where(x => x.Key is AccessProfileService.Manager or AccessProfileService.Engineer or AccessProfileService.Observer)
-        .ToList();
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -93,7 +90,7 @@ public class UsersModel : PageModel
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
-            AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
+            AccessProfile = AccessProfileService.ClientOperator,
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             ClientId = clientId,
             IssuedPassword = password,
@@ -161,11 +158,6 @@ public class UsersModel : PageModel
 
     private async Task<int?> GetClientIdAsync()
     {
-        if (User.IsInRole("Admin"))
-        {
-            return await _db.Clients.OrderBy(x => x.Name).Select(x => (int?)x.Id).FirstOrDefaultAsync();
-        }
-
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return await _db.Users
             .Where(x => x.Id == userId)
@@ -232,8 +224,6 @@ public class UsersModel : PageModel
         public string? Email { get; set; }
 
         public string? Position { get; set; }
-
-        public string? AccessProfile { get; set; } = AccessProfileService.Manager;
 
         public string? Country { get; set; } = "ru";
     }

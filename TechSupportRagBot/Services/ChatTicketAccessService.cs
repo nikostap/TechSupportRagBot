@@ -40,9 +40,8 @@ public sealed class ChatTicketAccessService
             return null;
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
-        var isInternalUser = roles.Contains("Admin") || roles.Contains("Operator");
-        var hasTicketAccess = isInternalUser
+        var canReadAllTickets = await _accessProfiles.IsAllowedAsync(principal, "Tickets", cancellationToken);
+        var hasTicketAccess = canReadAllTickets
             ? await _db.Tickets.AnyAsync(x => x.Id == ticketId, cancellationToken)
             : user.ClientId.HasValue && await _db.Tickets.AnyAsync(
                 x => x.Id == ticketId

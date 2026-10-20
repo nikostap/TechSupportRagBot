@@ -9,7 +9,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class ApiStatisticsModel : PageModel
 {
     private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();

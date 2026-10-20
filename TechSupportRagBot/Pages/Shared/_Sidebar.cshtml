@@ -10,35 +10,33 @@
     var permissions = profiles.FirstOrDefault(profile => profile.Key == profileKey)?.Permissions
         ?? new Dictionary<string, bool>();
     bool Can(string permission) => permissions.TryGetValue(permission, out var allowed) && allowed;
-    var isInternal = User.IsInRole("Admin") || User.IsInRole("Operator");
     var hasClient = account?.ClientId is not null;
-    var isAdmin = User.IsInRole("Admin");
     string T(string key) => UiText.T(Context, key);
     var items = new List<(string Group, string Page, string Label, string Icon)>();
     items.Add((T("SidebarWork"), "/Index", T("Overview"), "ce-dashboard"));
-    if (isInternal && Can("Tickets")) items.Add((T("SidebarWork"), "/Admin/Tickets", T("AllTickets"), "ce-inbox"));
-    if (isInternal && Can("OperatorQueue")) items.Add((T("SidebarWork"), "/Operator/Index", T("OperatorQueue"), "ce-chat"));
+    if (Can("Tickets")) items.Add((T("SidebarWork"), "/Admin/Tickets", T("AllTickets"), "ce-inbox"));
+    if (Can("OperatorQueue")) items.Add((T("SidebarWork"), "/Operator/Index", T("OperatorQueue"), "ce-chat"));
     if (hasClient && Can("ClientCabinet")) items.Add((T("SidebarWork"), "/Client/Tickets", T("MyTickets"), "ce-inbox"));
     if (hasClient && Can("CreateTickets")) items.Add((T("SidebarWork"), "/Client/NewTicket", T("NewTicket"), "ce-plus"));
 
-    if (isInternal && Can("ManageClients")) items.Add((T("SidebarClientsEquipment"), "/Admin/Clients", T("Clients"), "ce-clients"));
-    if (isInternal && Can("ManageMachines")) items.Add((T("SidebarClientsEquipment"), "/Admin/Machines", T("Equipment"), "ce-machine"));
-    if (isInternal && Can("ManageLicenses")) items.Add((T("SidebarClientsEquipment"), "/Admin/Licenses", T("Licenses"), "ce-license"));
+    if (Can("ManageClients")) items.Add((T("SidebarClientsEquipment"), "/Admin/Clients", T("Clients"), "ce-clients"));
+    if (Can("ManageMachines")) items.Add((T("SidebarClientsEquipment"), "/Admin/Machines", T("Equipment"), "ce-machine"));
+    if (Can("ManageLicenses")) items.Add((T("SidebarClientsEquipment"), "/Admin/Licenses", T("Licenses"), "ce-license"));
     if (hasClient && Can("ClientCabinet")) items.Add((T("SidebarClientsEquipment"), "/Client/Machines", T("MyEquipment"), "ce-machine"));
     if (hasClient && Can("ClientCabinet")) items.Add((T("SidebarClientsEquipment"), "/Client/Activate", T("Activation"), "ce-license"));
     if (hasClient && Can("CompanyUsers")) items.Add((T("SidebarClientsEquipment"), "/Client/Users", T("CompanyUsers"), "ce-users"));
 
-    if (isInternal && Can("ManageAdmins")) items.Add((T("Team"), "/Admin/Admins", T("Employees"), "ce-users"));
-    if (isInternal && Can("TimeTracking")) items.Add((T("Team"), "/Admin/TimeTracking", T("TimeTracking"), "ce-clock"));
-    if (isInternal && Can("AccessProfiles")) items.Add((T("Team"), "/Admin/AccessProfiles", T("AccessProfiles"), "ce-shield"));
+    if (Can("ManageAdmins")) items.Add((T("Team"), "/Admin/Admins", T("Employees"), "ce-users"));
+    if (Can("TimeTracking")) items.Add((T("Team"), "/Admin/TimeTracking", T("TimeTracking"), "ce-clock"));
+    if (Can("AccessProfiles")) items.Add((T("Team"), "/Admin/AccessProfiles", T("AccessProfiles"), "ce-shield"));
 
-    if (isInternal && Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/QA", "QA", "ce-knowledge"));
-    if (isInternal && Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/IndexedChats", T("IndexedChats"), "ce-check"));
-    if (isInternal && Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/BotTest", T("BotTest"), "ce-bot"));
-    if (isInternal && Can("Settings")) items.Add((T("SidebarKnowledgeAi"), "/Admin/ApiStatistics", T("ApiStatisticsNav"), "ce-chart"));
+    if (Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/QA", "QA", "ce-knowledge"));
+    if (Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/IndexedChats", T("IndexedChats"), "ce-check"));
+    if (Can("QA")) items.Add((T("SidebarKnowledgeAi"), "/Admin/BotTest", T("BotTest"), "ce-bot"));
+    if (Can("Settings")) items.Add((T("SidebarKnowledgeAi"), "/Admin/ApiStatistics", T("ApiStatisticsNav"), "ce-chart"));
 
-    if (isInternal && Can("Settings")) items.Add((T("System"), "/Admin/Settings", T("Settings"), "ce-settings"));
-    if (isAdmin && Can("Settings")) items.Add((T("System"), "/Admin/WorkCalendar", T("WorkCalendar"), "ce-calendar"));
+    if (Can("Settings")) items.Add((T("System"), "/Admin/Settings", T("Settings"), "ce-settings"));
+    if (Can("Settings")) items.Add((T("System"), "/Admin/WorkCalendar", T("WorkCalendar"), "ce-calendar"));
     items.Add((T("System"), "/Profile", T("MyProfile"), "ce-user"));
     var currentPage = Context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
     string? lastGroup = null;

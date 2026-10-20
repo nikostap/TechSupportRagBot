@@ -57,7 +57,7 @@
         <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoTranslate")</span>
     </label>
 
-    @if (User.IsInRole("Operator") || User.IsInRole("Admin"))
+    @if (await Model.CanTrackTimeAsync())
     {
         <div class="inline-grid">
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "WorkdayStart")

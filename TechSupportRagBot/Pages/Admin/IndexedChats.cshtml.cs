@@ -9,7 +9,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class IndexedChatsModel : PageModel
 {
     private static readonly int[] AllowedPageSizes = [10, 20, 50, 100];

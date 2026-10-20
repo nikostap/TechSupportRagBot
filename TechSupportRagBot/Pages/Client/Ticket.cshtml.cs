@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +10,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Client;
 
-[Authorize(Roles = "Client,Admin")]
+[Authorize]
 public class TicketModel : PageModel
 {
     private static readonly ConcurrentDictionary<int, SemaphoreSlim> BotAnswerLocks = new();
@@ -443,7 +443,7 @@ public class TicketModel : PageModel
             .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
                 user.Id == x.ClientUserId && user.ClientId == clientId));
 
-        if (ticket == null && User.IsInRole("Admin"))
+        if (ticket == null && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
         {
             ticket = await _db.Tickets.FirstOrDefaultAsync(x => x.Id == id);
         }
@@ -463,7 +463,7 @@ public class TicketModel : PageModel
             .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
                 user.Id == x.ClientUserId && user.ClientId == clientId));
 
-        if (Ticket == null && User.IsInRole("Admin"))
+        if (Ticket == null && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
         {
             Ticket = await _db.Tickets
                 .Include(x => x.Machine)

@@ -9,7 +9,7 @@ using TechSupportRagBot.Services;
 namespace TechSupportRagBot.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize]
 [Route("api/qa")]
 public class QAController : ControllerBase
 {

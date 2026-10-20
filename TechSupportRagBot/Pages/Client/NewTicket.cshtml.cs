@@ -11,7 +11,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Client;
 
-[Authorize(Roles = "Client,Admin")]
+[Authorize]
 public class NewTicketModel : PageModel
 {
     private readonly ApplicationDbContext _db;

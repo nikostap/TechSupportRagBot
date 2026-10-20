@@ -9,7 +9,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class AdminsModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -20,9 +20,8 @@ public class AdminsModel : PageModel
     public AdminInput Input { get; set; } = new();
 
     public IList<ApplicationUser> Admins { get; private set; } = new List<ApplicationUser>();
-    public HashSet<string> AdminIds { get; private set; } = new();
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext);
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext, false);
 
     public async Task OnGetAsync() => await LoadAsync();
 
@@ -37,10 +36,9 @@ public class AdminsModel : PageModel
         {
             ModelState.AddModelError(nameof(Input.FullName), TechSupportRagBot.Services.UiText.T(HttpContext, "FullNameRequired"));
         }
-        if (Input.Role is not ("Admin" or "Operator"))
-        {
-            ModelState.AddModelError(nameof(Input.Role), TechSupportRagBot.Services.UiText.T(HttpContext, "AccountTypeRequired"));
-        }
+        var profile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile);
+        if (!AccessProfileOptions.Any(x => x.Key == profile))
+            ModelState.AddModelError(nameof(Input.AccessProfile), UiText.T(HttpContext, "AccessProfileRequired"));
 
         if (!ModelState.IsValid)
         {
@@ -62,7 +60,7 @@ public class AdminsModel : PageModel
             Email = Input.Email,
             FullName = Input.FullName.Trim(),
             Position = Input.Position,
-            AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile),
+            AccessProfile = profile,
             Gender = Input.Gender,
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             IssuedPassword = temporaryPassword,
@@ -73,7 +71,8 @@ public class AdminsModel : PageModel
         var result = await _userManager.CreateAsync(user, temporaryPassword);
         if (result.Succeeded)
         {
-            var roleResult = await _userManager.AddToRoleAsync(user, Input.Role);
+            var roleResult = await _userManager.AddToRoleAsync(user,
+                profile == AccessProfileService.Administrator ? "Admin" : "Operator");
             if (roleResult.Succeeded) return RedirectToPage();
             await _userManager.DeleteAsync(user);
             result = roleResult;
@@ -96,6 +95,14 @@ public class AdminsModel : PageModel
             return RedirectToPage();
         }
 
+        var profile = AccessProfileService.NormalizeProfileKey(input.AccessProfile);
+        if (!AccessProfileOptions.Any(x => x.Key == profile))
+        {
+            ModelState.AddModelError(nameof(input.AccessProfile), UiText.T(HttpContext, "AccessProfileRequired"));
+            await LoadAsync();
+            return Page();
+        }
+
         var existing = await _userManager.FindByNameAsync(input.UserName.Trim());
         if (existing != null && existing.Id != user.Id)
         {
@@ -108,7 +115,7 @@ public class AdminsModel : PageModel
         user.UserName = input.UserName.Trim();
         user.Email = input.Email;
         user.Position = input.Position;
-        user.AccessProfile = AccessProfileService.NormalizeProfileKey(input.AccessProfile);
+        user.AccessProfile = profile;
         user.Gender = input.Gender;
         user.Country = ChatTranslationService.NormalizeLanguage(input.Country);
         user.NormalizedUserName = _userManager.NormalizeName(user.UserName);
@@ -152,8 +159,6 @@ public class AdminsModel : PageModel
     {
         var clients = await _userManager.GetUsersInRoleAsync("Client");
         var clientIds = clients.Select(x => x.Id).ToHashSet();
-        var admins = await _userManager.GetUsersInRoleAsync("Admin");
-        AdminIds = admins.Select(x => x.Id).ToHashSet();
         Admins = await _userManager.Users
             .AsNoTracking()
             .Where(x => !clientIds.Contains(x.Id))
@@ -174,8 +179,6 @@ public class AdminsModel : PageModel
         public string? Email { get; set; }
 
         public string? Position { get; set; }
-
-        public string Role { get; set; } = "Operator";
 
         public string? AccessProfile { get; set; } = AccessProfileService.Operator;
 

@@ -250,7 +250,7 @@ app.Use(async (context, next) =>
             if (!await access.IsAllowedAsync(context.User, permission, context.RequestAborted))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsync("Access denied.", context.RequestAborted);
+                await context.Response.WriteAsync(UiText.T(context, "AccessDenied"), context.RequestAborted);
                 return;
             }
         }
@@ -308,7 +308,7 @@ using (var scope = app.Services.CreateScope())
     await services.GetRequiredService<SystemSettingsService>().SeedDefaultsAsync();
     var accessProfiles = services.GetRequiredService<AccessProfileService>();
     await accessProfiles.SaveProfilesAsync(await accessProfiles.GetProfilesAsync());
-    await accessProfiles.HardenClientProfilesAsync();
+    await accessProfiles.MigrateClientProfilesAsync();
     await accessProfiles.FillMissingUserProfilesAsync();
     await services.GetRequiredService<KnowledgeIngestionService>().EnsureVectorIndexCompatibleAsync();
     if (builder.Configuration.GetValue("Rag:RebuildFtsOnStartup", false))

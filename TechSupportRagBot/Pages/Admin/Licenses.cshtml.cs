@@ -10,7 +10,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class LicensesModel : PageModel
 {
     private readonly ApplicationDbContext _db;

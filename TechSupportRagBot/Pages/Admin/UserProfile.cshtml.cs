@@ -10,16 +10,18 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class UserProfileModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ApplicationDbContext _db;
+    private readonly AccessProfileService _access;
 
-    public UserProfileModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db)
+    public UserProfileModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, AccessProfileService access)
     {
         _userManager = userManager;
         _db = db;
+        _access = access;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -32,7 +34,8 @@ public class UserProfileModel : PageModel
     public IList<string> Roles { get; private set; } = new List<string>();
     public string Initials { get; private set; } = "CE";
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
-    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions => AccessProfileService.GetProfileOptions(HttpContext);
+    public IReadOnlyList<(string Key, string Name)> AccessProfileOptions =>
+        AccessProfileService.GetProfileOptions(HttpContext, EditedUser?.ClientId != null);
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -57,6 +60,13 @@ public class UserProfileModel : PageModel
             return Page();
         }
 
+        var profile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile);
+        if (!AccessProfileOptions.Any(x => x.Key == profile))
+        {
+            ModelState.AddModelError(nameof(Input.AccessProfile), UiText.T(HttpContext, "AccessProfileRequired"));
+            return Page();
+        }
+
         var existing = await _userManager.FindByNameAsync(Input.UserName.Trim());
         if (existing != null && existing.Id != EditedUser!.Id)
         {
@@ -68,7 +78,7 @@ public class UserProfileModel : PageModel
         EditedUser.UserName = Input.UserName.Trim();
         EditedUser.Email = Input.Email;
         EditedUser.Position = Input.Position;
-        EditedUser.AccessProfile = AccessProfileService.NormalizeProfileKey(Input.AccessProfile);
+        EditedUser.AccessProfile = profile;
         EditedUser.Gender = Input.Gender;
         EditedUser.Country = ChatTranslationService.NormalizeLanguage(Input.Country);
         EditedUser.NormalizedUserName = _userManager.NormalizeName(EditedUser.UserName);
@@ -133,6 +143,10 @@ public class UserProfileModel : PageModel
         {
             return false;
         }
+
+        if (!await _access.IsAllowedAsync(User,
+            EditedUser.ClientId.HasValue ? "ManageClients" : "ManageAdmins", HttpContext.RequestAborted))
+            return false;
 
         Roles = await _userManager.GetRolesAsync(EditedUser);
         Initials = string.Join("", (EditedUser.FullName ?? EditedUser.UserName ?? "CE")

@@ -8,7 +8,7 @@ using TechSupportRagBot.Data;
 
 namespace TechSupportRagBot.Pages.Client;
 
-[Authorize(Roles = "Client,Admin")]
+[Authorize]
 public class ActivateModel : PageModel
 {
     private readonly ApplicationDbContext _db;

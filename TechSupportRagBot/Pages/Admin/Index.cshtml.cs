@@ -6,7 +6,7 @@ using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class IndexModel : PageModel
 {
     private readonly ApplicationDbContext _db;

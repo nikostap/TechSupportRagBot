@@ -5,7 +5,7 @@ using TechSupportRagBot.Services;
 namespace TechSupportRagBot.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize]
 [Route("api/search")]
 public class SearchDebugController : ControllerBase
 {

@@ -7,7 +7,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class SettingsModel : PageModel
 {
     private readonly OllamaClient _ollama;

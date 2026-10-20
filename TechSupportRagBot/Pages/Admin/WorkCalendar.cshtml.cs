@@ -7,7 +7,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class WorkCalendarModel : PageModel
 {
     private readonly WorkCalendarService _calendar;

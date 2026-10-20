@@ -15,17 +15,20 @@ public class ProfileEditModel : PageModel
     private readonly FileStorageService _storage;
     private readonly FileUploadValidationService _uploads;
     private readonly ILogger<ProfileEditModel> _logger;
+    private readonly AccessProfileService _access;
 
     public ProfileEditModel(
         UserManager<ApplicationUser> userManager,
         FileStorageService storage,
         FileUploadValidationService uploads,
-        ILogger<ProfileEditModel> logger)
+        ILogger<ProfileEditModel> logger,
+        AccessProfileService access)
     {
         _userManager = userManager;
         _storage = storage;
         _uploads = uploads;
         _logger = logger;
+        _access = access;
     }
 
     [BindProperty]
@@ -39,6 +42,7 @@ public class ProfileEditModel : PageModel
     public string? UserName { get; private set; }
     public string Initials { get; private set; } = "CE";
     public IReadOnlyList<(string Code, string Name)> LanguageOptions => ChatTranslationService.SupportedLanguages;
+    public Task<bool> CanTrackTimeAsync() => _access.IsAllowedAsync(User, "OperatorQueue");
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -72,8 +76,11 @@ public class ProfileEditModel : PageModel
         user.Gender = Input.Gender;
         user.Country = ChatTranslationService.NormalizeLanguage(Input.Language);
         user.AutoTranslateMessages = Input.AutoTranslateMessages;
-        user.WorkdayStartMinutes = TimeToMinutes(Input.WorkdayStart, 8 * 60);
-        user.WorkdayEndMinutes = TimeToMinutes(Input.WorkdayEnd, 17 * 60);
+        if (await CanTrackTimeAsync())
+        {
+            user.WorkdayStartMinutes = TimeToMinutes(Input.WorkdayStart, 8 * 60);
+            user.WorkdayEndMinutes = TimeToMinutes(Input.WorkdayEnd, 17 * 60);
+        }
 
         string? previousAvatarPath = null;
         string? previousAvatarProvider = null;

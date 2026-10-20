@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -9,7 +9,7 @@ using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Operator;
 
-[Authorize(Roles = "Operator,Admin")]
+[Authorize]
 public class TicketModel : PageModel
 {
     private readonly ApplicationDbContext _db;

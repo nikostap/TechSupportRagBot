@@ -6,6 +6,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 @inject ApplicationDbContext Db
+@inject TechSupportRagBot.Services.AccessProfileService Access
 
 <ul class="login-links">
     <li><button class="theme-toggle" type="button" data-theme-toggle data-dark-label="@TechSupportRagBot.Services.UiText.T(Context, "ThemeDark")" data-light-label="@TechSupportRagBot.Services.UiText.T(Context, "ThemeLight")" aria-label="@TechSupportRagBot.Services.UiText.T(Context, "ThemeDark")" title="@TechSupportRagBot.Services.UiText.T(Context, "ThemeDark")">
@@ -22,7 +23,7 @@
     var notificationLink = Url.Page("/Index") ?? "/";
     if (!string.IsNullOrWhiteSpace(currentUserId))
     {
-        if (User.IsInRole("Client"))
+        if (currentUser?.ClientId != null && await Access.IsAllowedAsync(User, "ClientCabinet"))
         {
             var clientUnreadMessages = await Db.ChatMessages
                 .Include(x => x.Ticket)
@@ -44,7 +45,7 @@
             notificationLink = Url.Page("/Client/Tickets") ?? notificationLink;
         }
 
-        if (User.IsInRole("Operator") || User.IsInRole("Admin"))
+        if (await Access.IsAllowedAsync(User, "OperatorQueue"))
         {
             var operatorUnreadMessages = await Db.ChatMessages
                 .Include(x => x.Ticket)

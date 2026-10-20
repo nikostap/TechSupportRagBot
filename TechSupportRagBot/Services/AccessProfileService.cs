@@ -15,6 +15,8 @@ public class AccessProfileService
     public const string Programmer = "Programmer";
     public const string Administrator = "Administrator";
     public const string Observer = "Observer";
+    public const string Client = "Client";
+    public const string ClientOperator = "ClientOperator";
 
     public static readonly IReadOnlyList<(string Key, string NameKey)> ProfileOptions =
     [
@@ -23,7 +25,9 @@ public class AccessProfileService
         (Operator, "ProfileOperator"),
         (Programmer, "ProfileProgrammer"),
         (Administrator, "ProfileAdministrator"),
-        (Observer, "ProfileObserver")
+        (Observer, "ProfileObserver"),
+        (Client, "ProfileClient"),
+        (ClientOperator, "ProfileClientOperator")
     ];
 
     public static readonly IReadOnlyList<AccessPermissionDefinition> PermissionDefinitions =
@@ -123,12 +127,13 @@ public class AccessProfileService
         }
     }
 
-    public async Task HardenClientProfilesAsync(CancellationToken cancellationToken = default)
+    public async Task MigrateClientProfilesAsync(CancellationToken cancellationToken = default)
     {
-        var profiles = await GetProfilesAsync(cancellationToken);
-        ApplyExactPermissions(profiles, Manager, "ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite");
-        ApplyExactPermissions(profiles, Engineer, "ClientCabinet", "CreateTickets", "ChatWrite");
-        await SaveProfilesAsync(profiles, cancellationToken);
+        var clients = await _db.Users.Where(x => x.ClientId != null
+            && (x.AccessProfile == Manager || x.AccessProfile == Engineer)).ToListAsync(cancellationToken);
+        foreach (var client in clients)
+            client.AccessProfile = client.AccessProfile == Engineer ? ClientOperator : Client;
+        if (clients.Count > 0) await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<bool> IsAllowedAsync(ClaimsPrincipal principal, string permission, CancellationToken cancellationToken = default)
@@ -170,7 +175,7 @@ public class AccessProfileService
             return Operator;
         }
 
-        return Manager;
+        return user.ClientId.HasValue ? Client : Manager;
     }
 
     public static string NormalizeProfileKey(string? value)
@@ -193,6 +198,14 @@ public class AccessProfileService
             .Select(x => (x.Key, UiText.T(context, x.NameKey)))
             .ToList();
 
+    public static IReadOnlyList<(string Key, string Name)> GetProfileOptions(HttpContext context, bool clientAccount) =>
+        ProfileOptions
+            .Where(x => clientAccount
+                ? x.Key is Client or ClientOperator
+                : x.Key is not (Client or ClientOperator))
+            .Select(x => (x.Key, UiText.T(context, x.NameKey)))
+            .ToList();
+
     public static string DisplayProfile(HttpContext context, string? value)
     {
         var key = NormalizeProfileKey(value);
@@ -207,6 +220,7 @@ public class AccessProfileService
     {
         var value = path.Value ?? string.Empty;
         if (value.StartsWith("/Admin/AccessProfiles", StringComparison.OrdinalIgnoreCase)) return "AccessProfiles";
+        if (value.StartsWith("/Admin/WorkCalendar", StringComparison.OrdinalIgnoreCase)) return "Settings";
         if (value.StartsWith("/Admin/Admins", StringComparison.OrdinalIgnoreCase)) return "ManageAdmins";
         if (value.StartsWith("/Admin/Clients", StringComparison.OrdinalIgnoreCase)) return "ManageClients";
         if (value.StartsWith("/Admin/Machines", StringComparison.OrdinalIgnoreCase)) return "ManageMachines";
@@ -225,6 +239,8 @@ public class AccessProfileService
         if (value.StartsWith("/Client", StringComparison.OrdinalIgnoreCase)) return "ClientCabinet";
         if (value.StartsWith("/Operator/Ticket", StringComparison.OrdinalIgnoreCase)) return "Tickets";
         if (value.StartsWith("/Operator", StringComparison.OrdinalIgnoreCase)) return "OperatorQueue";
+        if (value.StartsWith("/api/qa", StringComparison.OrdinalIgnoreCase)) return "QA";
+        if (value.StartsWith("/api/search", StringComparison.OrdinalIgnoreCase)) return "QA";
         return null;
     }
 
@@ -300,22 +316,20 @@ public class AccessProfileService
                 Key = Observer,
                 Name = "ProfileObserver",
                 Permissions = Only("AdminDashboard", "Tickets", "ClientCabinet", "OperatorQueue")
+            },
+            new AccessProfileRule
+            {
+                Key = Client,
+                Name = "ProfileClient",
+                Permissions = Only("ClientCabinet", "CreateTickets", "CompanyUsers", "ChatWrite")
+            },
+            new AccessProfileRule
+            {
+                Key = ClientOperator,
+                Name = "ProfileClientOperator",
+                Permissions = Only("ClientCabinet", "ChatWrite")
             }
         ];
-    }
-
-    private static void ApplyExactPermissions(List<AccessProfileRule> profiles, string profileKey, params string[] allowed)
-    {
-        var profile = profiles.FirstOrDefault(x => x.Key.Equals(profileKey, StringComparison.OrdinalIgnoreCase));
-        if (profile == null)
-        {
-            return;
-        }
-
-        foreach (var permission in PermissionDefinitions)
-        {
-            profile.Permissions[permission.Key] = allowed.Contains(permission.Key);
-        }
     }
 }
 
