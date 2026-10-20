@@ -227,6 +227,7 @@ public class AccessProfileService
     {
         var value = path.Value ?? string.Empty;
         if (value.StartsWith("/Admin/AccessProfiles", StringComparison.OrdinalIgnoreCase)) return "AccessProfiles";
+        if (value.StartsWith("/Admin/NotificationRules", StringComparison.OrdinalIgnoreCase)) return "Settings";
         if (value.StartsWith("/Admin/WorkCalendar", StringComparison.OrdinalIgnoreCase)) return "Settings";
         if (value.StartsWith("/Admin/Admins", StringComparison.OrdinalIgnoreCase)) return "ManageAdmins";
         if (value.StartsWith("/Admin/Clients", StringComparison.OrdinalIgnoreCase)) return "ManageClients";

@@ -10,4 +10,5 @@ public static class SystemSettingKeys
     public const string AccessProfiles = "Access.Profiles";
     public const string StorageProvider = "Storage.Provider";
     public const string MachineModels = "Machines.Models";
+    public const string EmailNotificationRules = "Notifications.EmailRules";
 }

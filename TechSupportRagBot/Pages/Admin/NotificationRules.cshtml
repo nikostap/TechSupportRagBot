@@ -1,0 +1,71 @@
+@page
+@model TechSupportRagBot.Pages.Admin.NotificationRulesModel
+@using TechSupportRagBot.Services
+@{
+    ViewData["Title"] = UiText.T(HttpContext, "NotificationRules");
+}
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">@UiText.T(HttpContext, "System")</p>
+        <h1>@UiText.T(HttpContext, "NotificationRules")</h1>
+    </div>
+</section>
+
+<form method="post" class="panel">
+    <h2>@UiText.T(HttpContext, "MailTeamEvents")</h2>
+    <p class="muted-text">@UiText.T(HttpContext, "NotificationRulesHelp")</p>
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="notice-success" role="status">@Model.StatusMessage</div>
+    }
+    <div class="table-wrap">
+        <table class="notification-rules-table">
+            <thead>
+                <tr>
+                    <th>@UiText.T(HttpContext, "MailEvent")</th>
+                    <th>@UiText.T(HttpContext, "MailAudience")</th>
+                    @foreach (var profile in EmailNotificationRulesService.InternalProfiles)
+                    {
+                        <th>@UiText.T(HttpContext, profile.NameKey)</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var notification in EmailNotificationRulesService.EditableEvents)
+                {
+                    var selected = Model.Selected.GetValueOrDefault(notification.Key) ?? new List<string>();
+                    <tr>
+                        <td><strong>@UiText.T(HttpContext, notification.NameKey)</strong></td>
+                        <td>@UiText.T(HttpContext, notification.Key == EmailNotificationTypes.WaitingForOperator
+                            ? "MailScopeInternal" : notification.Key == EmailNotificationTypes.OperatorAssigned
+                                ? "MailScopeNewlyAssigned" : "MailScopeAssigned")</td>
+                        @foreach (var profile in EmailNotificationRulesService.InternalProfiles)
+                        {
+                            <td>
+                                <label class="check-line compact-check">
+                                    <input type="checkbox" name="rule_@(notification.Key)_@(profile.Key)"
+                                           checked="@(selected.Contains(profile.Key, StringComparer.OrdinalIgnoreCase))"
+                                           aria-label="@UiText.T(HttpContext, notification.NameKey): @UiText.T(HttpContext, profile.NameKey)" />
+                                    <span>@UiText.T(HttpContext, "EnabledShort")</span>
+                                </label>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <button class="btn-main" type="submit">@UiText.T(HttpContext, "Save")</button>
+</form>
+
+<section class="panel">
+    <h2>@UiText.T(HttpContext, "MailPersonalEvents")</h2>
+    <p class="muted-text">@UiText.T(HttpContext, "MailPersonalHelp")</p>
+    <ul class="notification-personal-list">
+        @foreach (var nameKey in EmailNotificationRulesService.PersonalEventNameKeys)
+        {
+            <li><span>@UiText.T(HttpContext, nameKey)</span><strong>@UiText.T(HttpContext, "MailPersonalRecipient")</strong></li>
+        }
+    </ul>
+</section>

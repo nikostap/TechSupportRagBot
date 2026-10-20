@@ -36,6 +36,7 @@
     if (Can("Settings")) items.Add((T("SidebarKnowledgeAi"), "/Admin/ApiStatistics", T("ApiStatisticsNav"), "ce-chart"));
 
     if (Can("Settings")) items.Add((T("System"), "/Admin/Settings", T("Settings"), "ce-settings"));
+    if (Can("Settings")) items.Add((T("System"), "/Admin/NotificationRules", T("NotificationRules"), "ce-inbox"));
     if (Can("Settings")) items.Add((T("System"), "/Admin/WorkCalendar", T("WorkCalendar"), "ce-calendar"));
     items.Add((T("System"), "/Profile", T("MyProfile"), "ce-user"));
     var currentPage = Context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;

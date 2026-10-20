@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
@@ -47,8 +46,8 @@ public class EmailNotificationBackgroundService : BackgroundService
 public class EmailNotificationService
 {
     private readonly ApplicationDbContext _db;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailSender _emailSender;
+    private readonly EmailNotificationRulesService _rules;
     private readonly SystemSettingsService _settings;
     private readonly IConfiguration _configuration;
     private readonly ILogger<EmailNotificationService> _logger;
@@ -56,16 +55,16 @@ public class EmailNotificationService
 
     public EmailNotificationService(
         ApplicationDbContext db,
-        UserManager<ApplicationUser> userManager,
         IEmailSender emailSender,
+        EmailNotificationRulesService rules,
         SystemSettingsService settings,
         LicenseMailService licenseMail,
         IConfiguration configuration,
         ILogger<EmailNotificationService> logger)
     {
         _db = db;
-        _userManager = userManager;
         _emailSender = emailSender;
+        _rules = rules;
         _settings = settings;
         _licenseMail = licenseMail;
         _configuration = configuration;
@@ -74,14 +73,15 @@ public class EmailNotificationService
 
     public async Task ProcessAsync(CancellationToken cancellationToken = default)
     {
-        await SendNewMessageNotificationsAsync(cancellationToken);
-        await SendAssignmentNotificationsAsync(cancellationToken);
-        await SendWaitingForOperatorNotificationsAsync(cancellationToken);
-        await SendUnreadMessageNotificationsAsync(cancellationToken);
+        var rules = await _rules.GetAsync(cancellationToken);
+        await SendNewMessageNotificationsAsync(rules, cancellationToken);
+        await SendAssignmentNotificationsAsync(rules, cancellationToken);
+        await SendWaitingForOperatorNotificationsAsync(rules, cancellationToken);
+        await SendUnreadMessageNotificationsAsync(rules, cancellationToken);
         await _licenseMail.SendExpiryRemindersAsync(cancellationToken);
     }
 
-    private async Task SendNewMessageNotificationsAsync(CancellationToken cancellationToken)
+    private async Task SendNewMessageNotificationsAsync(IReadOnlyDictionary<string, List<string>> rules, CancellationToken cancellationToken)
     {
         if (!_configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
             || !DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var enabledAt))
@@ -99,7 +99,8 @@ public class EmailNotificationService
             .Include(x => x.Ticket).ThenInclude(x => x!.ClientUser)
             .Include(x => x.Ticket).ThenInclude(x => x!.OperatorUser)
             .Include(x => x.Ticket).ThenInclude(x => x!.OperatorAssignments).ThenInclude(x => x.OperatorUser)
-            .Where(x => x.CreatedAt >= threshold && !x.IsBotMessage && x.Ticket != null)
+            .Where(x => x.CreatedAt >= threshold && !x.IsBotMessage && !x.IsReadByOperator
+                && x.Ticket != null && x.Ticket.Status != TicketStatuses.Closed)
             .OrderByDescending(x => x.CreatedAt)
             .Take(300)
             .ToListAsync(cancellationToken);
@@ -109,13 +110,9 @@ public class EmailNotificationService
             var ticket = message.Ticket!;
             var clientId = ticket.ClientUser?.ClientId;
             var authorIsClient = clientId != null && message.AuthorUser?.ClientId == clientId;
-            var recipients = authorIsClient
-                ? GetAssignedOperators(ticket).ToList()
-                : clientId == null
-                    ? new List<ApplicationUser>()
-                    : await _db.Users.AsNoTracking().Where(x => x.ClientId == clientId).ToListAsync(cancellationToken);
-            if (authorIsClient && recipients.Count == 0)
-                recipients = await GetQueueRecipientsAsync(cancellationToken);
+            if (!authorIsClient) continue;
+            var recipients = GetAssignedOperators(ticket, message.CreatedAt)
+                .Where(x => EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.NewMessage, x));
 
             foreach (var recipient in recipients.Where(x => x.Id != message.AuthorUserId && !string.IsNullOrWhiteSpace(x.Email)))
             {
@@ -132,7 +129,7 @@ public class EmailNotificationService
         }
     }
 
-    private async Task SendAssignmentNotificationsAsync(CancellationToken cancellationToken)
+    private async Task SendAssignmentNotificationsAsync(IReadOnlyDictionary<string, List<string>> rules, CancellationToken cancellationToken)
     {
         var query = _db.TicketOperatorAssignments
             .AsNoTracking()
@@ -150,7 +147,8 @@ public class EmailNotificationService
         {
             var ticket = assignment.Ticket!;
             var user = assignment.OperatorUser;
-            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+            if (user == null || string.IsNullOrWhiteSpace(user.Email)
+                || !EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.OperatorAssigned, user))
             {
                 continue;
             }
@@ -167,7 +165,7 @@ public class EmailNotificationService
         }
     }
 
-    private async Task SendWaitingForOperatorNotificationsAsync(CancellationToken cancellationToken)
+    private async Task SendWaitingForOperatorNotificationsAsync(IReadOnlyDictionary<string, List<string>> rules, CancellationToken cancellationToken)
     {
         var query = _db.Tickets
             .AsNoTracking()
@@ -177,7 +175,8 @@ public class EmailNotificationService
                 && x.OperatorUserId == null
                 && !x.OperatorAssignments.Any());
         if (GetNotificationStartUtc() is { } startUtc)
-            query = query.Where(x => x.CreatedAt >= startUtc);
+            query = query.Where(x => x.CreatedAt >= startUtc
+                || x.Messages.Any(message => message.IsBotMessage && message.CreatedAt >= startUtc));
         var tickets = await query.ToListAsync(cancellationToken);
 
         if (tickets.Count == 0)
@@ -185,7 +184,9 @@ public class EmailNotificationService
             return;
         }
 
-        var recipients = await GetQueueRecipientsAsync(cancellationToken);
+        var recipients = (await GetQueueRecipientsAsync(cancellationToken))
+            .Where(x => EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.WaitingForOperator, x))
+            .ToList();
         foreach (var ticket in tickets)
         {
             foreach (var recipient in recipients)
@@ -208,7 +209,7 @@ public class EmailNotificationService
         }
     }
 
-    private async Task SendUnreadMessageNotificationsAsync(CancellationToken cancellationToken)
+    private async Task SendUnreadMessageNotificationsAsync(IReadOnlyDictionary<string, List<string>> rules, CancellationToken cancellationToken)
     {
         var delayMinutes = await _settings.GetUnreadEmailDelayMinutesAsync(cancellationToken);
         var threshold = DateTime.UtcNow.AddMinutes(-delayMinutes);
@@ -225,8 +226,7 @@ public class EmailNotificationService
                 .ThenInclude(x => x!.OperatorAssignments)
                     .ThenInclude(x => x.OperatorUser)
             .Include(x => x.AuthorUser)
-            .Where(x => x.CreatedAt <= threshold && !x.IsBotMessage
-                && (!x.IsReadByClient || !x.IsReadByOperator)
+            .Where(x => x.CreatedAt <= threshold && !x.IsBotMessage && !x.IsReadByOperator
                 && x.Ticket != null
                 && x.Ticket.Status != TicketStatuses.Closed);
         var oldest = DateTime.UtcNow.AddDays(-7);
@@ -242,28 +242,12 @@ public class EmailNotificationService
                 var ticket = message.Ticket!;
                 var authorIsClient = message.AuthorUser?.ClientId != null
                     && message.AuthorUser.ClientId == ticket.ClientUser?.ClientId;
-                if (!authorIsClient && !message.IsReadByClient)
+                if (authorIsClient)
                 {
-                    var client = ticket.ClientUser;
-                    if (!string.IsNullOrWhiteSpace(client?.Email))
+                    foreach (var recipient in GetAssignedOperators(ticket, message.CreatedAt))
                     {
-                        await SendOnceAsync(
-                            EmailNotificationTypes.UnreadMessage,
-                            ticket.Id,
-                            message.Id,
-                            client,
-                            client.Email,
-                            $"Новое сообщение в обращении #{ticket.Id}",
-                            BuildUnreadBody(ticket, message, delayMinutes),
-                            cancellationToken);
-                    }
-                }
-
-                if (authorIsClient && !message.IsReadByOperator)
-                {
-                    foreach (var recipient in GetAssignedOperators(ticket))
-                    {
-                        if (string.IsNullOrWhiteSpace(recipient.Email))
+                        if (string.IsNullOrWhiteSpace(recipient.Email)
+                            || !EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.UnreadMessage, recipient))
                         {
                             continue;
                         }
@@ -293,33 +277,18 @@ public class EmailNotificationService
 
     private async Task<List<ApplicationUser>> GetQueueRecipientsAsync(CancellationToken cancellationToken)
     {
-        var admins = await _userManager.GetUsersInRoleAsync("Admin");
-        var operators = await _userManager.GetUsersInRoleAsync("Operator");
-        var managers = operators
-            .Where(x => x.AccessProfile == AccessProfileService.Manager
-                || ContainsManagerPosition(x.Position))
-            .ToList();
-
-        return admins
-            .Concat(managers)
-            .GroupBy(x => x.Id)
-            .Select(x => x.First())
-            .ToList();
+        return await _db.Users.AsNoTracking()
+            .Where(x => x.ClientId == null && x.AccessProfile != null && x.Email != null)
+            .ToListAsync(cancellationToken);
     }
 
-    private static IEnumerable<ApplicationUser> GetAssignedOperators(Ticket ticket)
+    private static IEnumerable<ApplicationUser> GetAssignedOperators(Ticket ticket, DateTime messageCreatedAt)
     {
-        var assigned = ticket.OperatorAssignments
-            .Where(x => x.OperatorUser != null)
+        return ticket.OperatorAssignments
+            .Where(x => x.OperatorUser != null && x.AssignedAt <= messageCreatedAt)
             .Select(x => x.OperatorUser!)
-            .ToList();
-
-        if (assigned.Count > 0)
-        {
-            return assigned.GroupBy(x => x.Id).Select(x => x.First());
-        }
-
-        return ticket.OperatorUser == null ? Array.Empty<ApplicationUser>() : new[] { ticket.OperatorUser };
+            .GroupBy(x => x.Id)
+            .Select(x => x.First());
     }
 
     private async Task SendOnceAsync(
@@ -363,13 +332,6 @@ public class EmailNotificationService
         {
             _logger.LogWarning(ex, "Failed to send email notification. Type={Type}, TicketId={TicketId}, Recipient={Recipient}", notificationType, ticketId, recipientEmail);
         }
-    }
-
-    private static bool ContainsManagerPosition(string? position)
-    {
-        return !string.IsNullOrWhiteSpace(position)
-            && (position.Contains("менеджер", StringComparison.OrdinalIgnoreCase)
-                || position.Contains("manager", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string BuildAssignedBody(Ticket ticket, ApplicationUser user)

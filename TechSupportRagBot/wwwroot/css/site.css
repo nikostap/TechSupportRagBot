@@ -2025,6 +2025,19 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 .machine-model-settings-list form { margin: 0; }
 .machine-model-settings-list button { margin: 0; }
 
+.notification-rules-table { min-width: 1000px; }
+.notification-rules-table th:not(:first-child),
+.notification-rules-table td:not(:first-child) { text-align: center; }
+.notification-rules-table td:first-child { min-width: 190px; }
+.notification-rules-table td:nth-child(2) { min-width: 180px; }
+.notification-rules-table .compact-check { justify-content: center; }
+.notification-personal-list { display: grid; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.notification-personal-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 9px 11px; border: 1px solid var(--line); border-radius: 5px; background: var(--soft-2);
+}
+.notification-personal-list strong { color: var(--muted); font-size: 12px; text-align: right; }
+
 .operator-chip-list {
   display: flex;
   flex-wrap: wrap;

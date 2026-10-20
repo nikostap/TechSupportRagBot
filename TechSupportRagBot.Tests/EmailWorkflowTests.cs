@@ -28,6 +28,11 @@ public sealed class EmailWorkflowTests
         };
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync();
+        db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            TicketId = ticket.Id, OperatorUserId = operatorUser.Id,
+            AssignedAt = DateTime.UtcNow.AddHours(-3)
+        });
         db.ChatMessages.Add(new ChatMessage
         {
             TicketId = ticket.Id, AuthorUserId = client.Id, Text = "Need help",
@@ -61,6 +66,11 @@ public sealed class EmailWorkflowTests
         };
         fixture.Db.Tickets.Add(ticket);
         await fixture.Db.SaveChangesAsync();
+        fixture.Db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            TicketId = ticket.Id, OperatorUserId = operatorUser.Id,
+            AssignedAt = DateTime.UtcNow.AddHours(-3)
+        });
         var message = new ChatMessage
         {
             TicketId = ticket.Id, AuthorUserId = client.Id, Text = "Read soon",
@@ -98,6 +108,11 @@ public sealed class EmailWorkflowTests
             Title = "Many messages", Status = TicketStatuses.InProgress
         };
         fixture.Db.Tickets.Add(ticket);
+        fixture.Db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            Ticket = ticket, OperatorUserId = operatorUser.Id,
+            AssignedAt = DateTime.UtcNow.AddHours(-3)
+        });
         fixture.Db.SystemSettings.Add(new SystemSetting
         {
             Key = SystemSettingKeys.UnreadEmailDelayMinutes, Value = "5"
@@ -112,7 +127,8 @@ public sealed class EmailWorkflowTests
 
         await fixture.Notifications.ProcessAsync();
 
-        Assert.Equal(201, fixture.Sender.Sent.Count);
+        Assert.Equal(201, fixture.Db.EmailNotificationLogs.Count(x =>
+            x.NotificationType == EmailNotificationTypes.UnreadMessage));
     }
 
     [Fact]
@@ -125,19 +141,123 @@ public sealed class EmailWorkflowTests
         manager.AccessProfile = AccessProfileService.Manager;
         await fixture.Db.SaveChangesAsync();
         var machine = await fixture.MachineAsync();
+        var waiting = new Ticket { ClientUserId = client.Id, MachineId = machine.Id, Title = "Waiting",
+            Status = TicketStatuses.WaitingForOperator };
         fixture.Db.Tickets.AddRange(
-            new Ticket { ClientUserId = client.Id, MachineId = machine.Id, Title = "Waiting",
-                Status = TicketStatuses.WaitingForOperator },
+            waiting,
             new Ticket { ClientUserId = client.Id, OperatorUserId = admin.Id,
                 MachineId = machine.Id, Title = "Assigned", Status = TicketStatuses.WaitingForOperator });
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessages.Add(new ChatMessage
+        {
+            TicketId = waiting.Id, AuthorUserId = client.Id, Text = "Waiting for help",
+            IsReadByClient = true
+        });
         await fixture.Db.SaveChangesAsync();
 
         await fixture.Notifications.ProcessAsync();
         await fixture.Notifications.ProcessAsync();
 
-        Assert.Equal(2, fixture.Sender.Sent.Count);
-        Assert.Contains(fixture.Sender.Sent, x => x.To == admin.Email && x.Body.Contains("Waiting"));
-        Assert.Contains(fixture.Sender.Sent, x => x.To == manager.Email && x.Body.Contains("Waiting"));
+        Assert.Single(fixture.Sender.Sent);
+        Assert.Equal(manager.Email, fixture.Sender.Sent[0].To);
+        Assert.Contains(fixture.Db.EmailNotificationLogs, x => x.NotificationType == EmailNotificationTypes.WaitingForOperator);
+        Assert.DoesNotContain(fixture.Db.EmailNotificationLogs, x => x.NotificationType == EmailNotificationTypes.NewMessage);
+    }
+
+    [Fact]
+    public async Task UnassignedBotConversation_SendsNoMessageEmail()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var manager = await fixture.UserAsync("manager", "manager@example.test", "Operator");
+        manager.AccessProfile = AccessProfileService.Manager;
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket { ClientUserId = client.Id, MachineId = machine.Id,
+            Title = "Bot help", Status = TicketStatuses.BotAnswered };
+        fixture.Db.Tickets.Add(ticket);
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessages.Add(new ChatMessage { TicketId = ticket.Id, AuthorUserId = client.Id,
+            Text = "Question for bot", IsReadByClient = true, CreatedAt = DateTime.UtcNow.AddMinutes(-10) });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.Empty(fixture.Sender.Sent);
+    }
+
+    [Fact]
+    public async Task AssignmentEmailDoesNotReplayEarlierUnreadMessages()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var operatorUser = await fixture.UserAsync("operator", "operator@example.test", "Operator");
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket { ClientUserId = client.Id, MachineId = machine.Id,
+            Title = "Assignment", Status = TicketStatuses.InProgress, OperatorUserId = operatorUser.Id };
+        fixture.Db.Tickets.Add(ticket);
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessages.Add(new ChatMessage { TicketId = ticket.Id, AuthorUserId = client.Id,
+            Text = "Before assignment", IsReadByClient = true, CreatedAt = DateTime.UtcNow.AddMinutes(-10) });
+        fixture.Db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            TicketId = ticket.Id, OperatorUserId = operatorUser.Id, AssignedAt = DateTime.UtcNow
+        });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.Single(fixture.Sender.Sent);
+        Assert.Equal(operatorUser.Email, fixture.Sender.Sent[0].To);
+        Assert.Contains(fixture.Db.EmailNotificationLogs, x => x.NotificationType == EmailNotificationTypes.OperatorAssigned);
+        Assert.DoesNotContain(fixture.Db.EmailNotificationLogs, x => x.NotificationType == EmailNotificationTypes.NewMessage
+            || x.NotificationType == EmailNotificationTypes.UnreadMessage);
+    }
+
+    [Fact]
+    public async Task OperatorMessageDoesNotEmailClient()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var operatorUser = await fixture.UserAsync("operator", "operator@example.test", "Operator");
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket { ClientUserId = client.Id, MachineId = machine.Id,
+            Title = "Reply", Status = TicketStatuses.InProgress, OperatorUserId = operatorUser.Id };
+        fixture.Db.Tickets.Add(ticket);
+        fixture.Db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            Ticket = ticket, OperatorUserId = operatorUser.Id, AssignedAt = DateTime.UtcNow.AddHours(-3)
+        });
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessages.Add(new ChatMessage { TicketId = ticket.Id, AuthorUserId = operatorUser.Id,
+            Text = "Operator reply", IsReadByOperator = true, CreatedAt = DateTime.UtcNow.AddMinutes(-10) });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.Empty(fixture.Sender.Sent);
+    }
+
+    [Fact]
+    public async Task WaitingRecipientsFollowSavedProfileRules()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var admin = await fixture.UserAsync("admin", "admin@example.test", "Admin");
+        var manager = await fixture.UserAsync("manager", "manager@example.test", "Operator");
+        manager.AccessProfile = AccessProfileService.Manager;
+        var machine = await fixture.MachineAsync();
+        fixture.Db.Tickets.Add(new Ticket { ClientUserId = client.Id, MachineId = machine.Id,
+            Title = "Queue", Status = TicketStatuses.WaitingForOperator });
+        await fixture.Db.SaveChangesAsync();
+        var rulesService = fixture.Services.GetRequiredService<EmailNotificationRulesService>();
+        var rules = await rulesService.GetAsync();
+        rules[EmailNotificationTypes.WaitingForOperator] = [AccessProfileService.Administrator];
+        await rulesService.SaveAsync(rules);
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.Single(fixture.Sender.Sent);
+        Assert.Equal(admin.Email, fixture.Sender.Sent[0].To);
     }
 
     [Fact]
@@ -223,6 +343,7 @@ public sealed class EmailWorkflowTests
             collection.AddSingleton(Options.Create(new RagOptions()));
             collection.AddSingleton(Options.Create(new StorageOptions()));
             collection.AddScoped<SystemSettingsService>();
+            collection.AddScoped<EmailNotificationRulesService>();
             collection.AddScoped<LicenseMailService>();
             collection.AddScoped<EmailNotificationService>();
             collection.AddScoped<AccountWelcomeEmailService>();
@@ -239,6 +360,12 @@ public sealed class EmailWorkflowTests
         {
             var manager = Services.GetRequiredService<UserManager<ApplicationUser>>();
             var user = new ApplicationUser { UserName = name, Email = email,
+                AccessProfile = role switch
+                {
+                    "Admin" => AccessProfileService.Administrator,
+                    "Operator" => AccessProfileService.Operator,
+                    _ => AccessProfileService.Client
+                },
                 ClientId = role == "Client" ? await EnsureClientAsync() : null };
             Assert.True((await manager.CreateAsync(user)).Succeeded);
             Assert.True((await manager.AddToRoleAsync(user, role)).Succeeded);

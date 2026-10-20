@@ -162,6 +162,14 @@ public class TicketModel : PageModel
         }
 
         Ticket!.OperatorUserId = CurrentUserId;
+        if (!Ticket.OperatorAssignments.Any(x => x.OperatorUserId == CurrentUserId))
+        {
+            _db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+            {
+                TicketId = id,
+                OperatorUserId = CurrentUserId
+            });
+        }
         Ticket.Status = TicketStatuses.InProgress;
         await _db.SaveChangesAsync();
 
