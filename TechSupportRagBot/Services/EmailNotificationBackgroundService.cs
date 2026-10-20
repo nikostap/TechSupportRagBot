@@ -122,18 +122,18 @@ public class EmailNotificationService
 
             foreach (var recipient in recipients.Where(x => x.Id != message.AuthorUserId))
             {
+                if (emailEnabled && message.CreatedAt >= emailStart && !string.IsNullOrWhiteSpace(recipient.Email))
+                    await SendOnceAsync(
+                        EmailNotificationTypes.NewMessage,
+                        ticket.Id,
+                        message.Id,
+                        recipient,
+                        recipient.Email!,
+                        string.Format(UiText.ForLanguage("ru", "NewMessageMailSubject"), ticket.Id),
+                        BuildNewMessageBody(ticket, message),
+                        cancellationToken);
                 if (pushStart != null && message.CreatedAt >= pushStart)
                     await _push.SendAsync(EmailNotificationTypes.NewMessage, ticket.Id, message.Id, recipient, cancellationToken);
-                if (!emailEnabled || message.CreatedAt < emailStart || string.IsNullOrWhiteSpace(recipient.Email)) continue;
-                await SendOnceAsync(
-                    EmailNotificationTypes.NewMessage,
-                    ticket.Id,
-                    message.Id,
-                    recipient,
-                    recipient.Email!,
-                    string.Format(UiText.ForLanguage("ru", "NewMessageMailSubject"), ticket.Id),
-                    BuildNewMessageBody(ticket, message),
-                    cancellationToken);
             }
         }
     }
@@ -162,18 +162,18 @@ public class EmailNotificationService
                 continue;
             }
 
+            if (!string.IsNullOrWhiteSpace(user.Email))
+                await SendOnceAsync(
+                    EmailNotificationTypes.OperatorAssigned,
+                    ticket.Id,
+                    null,
+                    user,
+                    user.Email,
+                    $"Вам назначено обращение #{ticket.Id}",
+                    BuildAssignedBody(ticket, user),
+                    cancellationToken);
             if (GetPushStartUtc() is { } pushStart && assignment.AssignedAt >= pushStart)
                 await _push.SendAsync(EmailNotificationTypes.OperatorAssigned, ticket.Id, null, user, cancellationToken);
-            if (string.IsNullOrWhiteSpace(user.Email)) continue;
-            await SendOnceAsync(
-                EmailNotificationTypes.OperatorAssigned,
-                ticket.Id,
-                null,
-                user,
-                user.Email,
-                $"Вам назначено обращение #{ticket.Id}",
-                BuildAssignedBody(ticket, user),
-                cancellationToken);
         }
     }
 
@@ -203,21 +203,20 @@ public class EmailNotificationService
         {
             foreach (var recipient in recipients)
             {
+                if (!string.IsNullOrWhiteSpace(recipient.Email))
+                    await SendOnceAsync(
+                        EmailNotificationTypes.WaitingForOperator,
+                        ticket.Id,
+                        null,
+                        recipient,
+                        recipient.Email,
+                        $"Обращение #{ticket.Id} ждёт оператора",
+                        BuildWaitingBody(ticket),
+                        cancellationToken);
                 if (GetPushStartUtc() is { } pushStart && (ticket.CreatedAt >= pushStart
                     || await _db.ChatMessages.AnyAsync(x => x.TicketId == ticket.Id && x.IsBotMessage
                         && x.CreatedAt >= pushStart, cancellationToken)))
                     await _push.SendAsync(EmailNotificationTypes.WaitingForOperator, ticket.Id, null, recipient, cancellationToken);
-                if (string.IsNullOrWhiteSpace(recipient.Email)) continue;
-
-                await SendOnceAsync(
-                    EmailNotificationTypes.WaitingForOperator,
-                    ticket.Id,
-                    null,
-                    recipient,
-                    recipient.Email,
-                    $"Обращение #{ticket.Id} ждёт оператора",
-                    BuildWaitingBody(ticket),
-                    cancellationToken);
             }
         }
     }
@@ -264,19 +263,18 @@ public class EmailNotificationService
                             continue;
                         }
 
+                        if (!string.IsNullOrWhiteSpace(recipient.Email))
+                            await SendOnceAsync(
+                                EmailNotificationTypes.UnreadMessage,
+                                ticket.Id,
+                                message.Id,
+                                recipient,
+                                recipient.Email,
+                                $"Непрочитанное сообщение в обращении #{ticket.Id}",
+                                BuildUnreadBody(ticket, message, delayMinutes),
+                                cancellationToken);
                         if (GetPushStartUtc() is { } pushStart && message.CreatedAt >= pushStart)
                             await _push.SendAsync(EmailNotificationTypes.UnreadMessage, ticket.Id, message.Id, recipient, cancellationToken);
-                        if (string.IsNullOrWhiteSpace(recipient.Email)) continue;
-
-                        await SendOnceAsync(
-                            EmailNotificationTypes.UnreadMessage,
-                            ticket.Id,
-                            message.Id,
-                            recipient,
-                            recipient.Email,
-                            $"Непрочитанное сообщение в обращении #{ticket.Id}",
-                            BuildUnreadBody(ticket, message, delayMinutes),
-                            cancellationToken);
                     }
                 }
             }
