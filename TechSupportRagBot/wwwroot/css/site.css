@@ -2025,6 +2025,26 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 .machine-model-settings-list form { margin: 0; }
 .machine-model-settings-list button { margin: 0; }
 
+.machine-model-delete-details { margin-top: 18px; }
+.machine-model-delete-details > summary {
+  display: flex; align-items: center; gap: 10px; list-style: none; cursor: pointer;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--soft-2); font-weight: 700;
+}
+.machine-model-delete-details > summary::-webkit-details-marker { display: none; }
+.machine-model-delete-details > summary::after {
+  content: ""; width: 8px; height: 8px; margin-left: auto;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform .15s ease;
+}
+.machine-model-delete-details[open] > summary::after { transform: rotate(225deg); }
+.machine-model-delete-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.machine-model-delete-count {
+  min-width: 24px; padding: 2px 7px; border-radius: 4px;
+  background: var(--panel-solid); color: var(--muted); font-size: 12px; text-align: center;
+}
+.machine-model-delete-details > .field-hint { margin: 12px 0 0; }
+
 .notification-rules-table { min-width: 1000px; }
 .notification-rules-table th:not(:first-child),
 .notification-rules-table td:not(:first-child) { text-align: center; }
