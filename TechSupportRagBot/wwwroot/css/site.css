@@ -2038,7 +2038,7 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 }
 .notification-personal-list strong { color: var(--muted); font-size: 12px; text-align: right; }
 @media (max-width: 760px) {
-  .notification-rules-table { display: block; min-width: 0; }
+  .table-wrap .notification-rules-table { display: block; width: 100%; min-width: 0; }
   .notification-rules-table thead { display: none; }
   .notification-rules-table tbody { display: grid; gap: 12px; }
   .notification-rules-table tr {
