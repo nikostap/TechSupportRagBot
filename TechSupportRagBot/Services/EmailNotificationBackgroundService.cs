@@ -7,7 +7,7 @@ namespace TechSupportRagBot.Services;
 
 public class EmailNotificationBackgroundService : BackgroundService
 {
-    private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(1);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<EmailNotificationBackgroundService> _logger;
@@ -50,6 +50,7 @@ public class EmailNotificationService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SmtpEmailSender _emailSender;
     private readonly SystemSettingsService _settings;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<EmailNotificationService> _logger;
 
     public EmailNotificationService(
@@ -57,33 +58,89 @@ public class EmailNotificationService
         UserManager<ApplicationUser> userManager,
         SmtpEmailSender emailSender,
         SystemSettingsService settings,
+        IConfiguration configuration,
         ILogger<EmailNotificationService> logger)
     {
         _db = db;
         _userManager = userManager;
         _emailSender = emailSender;
         _settings = settings;
+        _configuration = configuration;
         _logger = logger;
     }
 
     public async Task ProcessAsync(CancellationToken cancellationToken = default)
     {
+        await SendNewMessageNotificationsAsync(cancellationToken);
         await SendAssignmentNotificationsAsync(cancellationToken);
         await SendWaitingForOperatorNotificationsAsync(cancellationToken);
         await SendUnreadMessageNotificationsAsync(cancellationToken);
     }
 
+    private async Task SendNewMessageNotificationsAsync(CancellationToken cancellationToken)
+    {
+        if (!_configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
+            || !DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var enabledAt))
+        {
+            return;
+        }
+
+        var threshold = enabledAt.UtcDateTime > DateTime.UtcNow.AddDays(-7)
+            ? enabledAt.UtcDateTime
+            : DateTime.UtcNow.AddDays(-7);
+        var messages = await _db.ChatMessages
+            .AsNoTracking()
+            .Include(x => x.AuthorUser)
+            .Include(x => x.Ticket).ThenInclude(x => x!.Machine)
+            .Include(x => x.Ticket).ThenInclude(x => x!.ClientUser)
+            .Include(x => x.Ticket).ThenInclude(x => x!.OperatorUser)
+            .Include(x => x.Ticket).ThenInclude(x => x!.OperatorAssignments).ThenInclude(x => x.OperatorUser)
+            .Where(x => x.CreatedAt >= threshold && !x.IsBotMessage && x.Ticket != null)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(300)
+            .ToListAsync(cancellationToken);
+
+        foreach (var message in messages.OrderBy(x => x.CreatedAt))
+        {
+            var ticket = message.Ticket!;
+            var clientId = ticket.ClientUser?.ClientId;
+            var authorIsClient = clientId != null && message.AuthorUser?.ClientId == clientId;
+            var recipients = authorIsClient
+                ? GetAssignedOperators(ticket).ToList()
+                : clientId == null
+                    ? new List<ApplicationUser>()
+                    : await _db.Users.AsNoTracking().Where(x => x.ClientId == clientId).ToListAsync(cancellationToken);
+            if (authorIsClient && recipients.Count == 0)
+                recipients = await GetQueueRecipientsAsync(cancellationToken);
+
+            foreach (var recipient in recipients.Where(x => x.Id != message.AuthorUserId && !string.IsNullOrWhiteSpace(x.Email)))
+            {
+                await SendOnceAsync(
+                    EmailNotificationTypes.NewMessage,
+                    ticket.Id,
+                    message.Id,
+                    recipient,
+                    recipient.Email!,
+                    string.Format(UiText.ForLanguage("ru", "NewMessageMailSubject"), ticket.Id),
+                    BuildNewMessageBody(ticket, message),
+                    cancellationToken);
+            }
+        }
+    }
+
     private async Task SendAssignmentNotificationsAsync(CancellationToken cancellationToken)
     {
-        var assignments = await _db.TicketOperatorAssignments
+        var query = _db.TicketOperatorAssignments
             .AsNoTracking()
             .Include(x => x.Ticket)
                 .ThenInclude(x => x!.Machine)
             .Include(x => x.Ticket)
                 .ThenInclude(x => x!.ClientUser)
             .Include(x => x.OperatorUser)
-            .Where(x => x.Ticket != null && x.Ticket.Status != TicketStatuses.Closed)
-            .ToListAsync(cancellationToken);
+            .Where(x => x.Ticket != null && x.Ticket.Status != TicketStatuses.Closed);
+        if (GetNotificationStartUtc() is { } startUtc)
+            query = query.Where(x => x.AssignedAt >= startUtc);
+        var assignments = await query.ToListAsync(cancellationToken);
 
         foreach (var assignment in assignments)
         {
@@ -108,12 +165,14 @@ public class EmailNotificationService
 
     private async Task SendWaitingForOperatorNotificationsAsync(CancellationToken cancellationToken)
     {
-        var tickets = await _db.Tickets
+        var query = _db.Tickets
             .AsNoTracking()
             .Include(x => x.Machine)
             .Include(x => x.ClientUser)
-            .Where(x => x.Status == TicketStatuses.WaitingForOperator)
-            .ToListAsync(cancellationToken);
+            .Where(x => x.Status == TicketStatuses.WaitingForOperator);
+        if (GetNotificationStartUtc() is { } startUtc)
+            query = query.Where(x => x.CreatedAt >= startUtc);
+        var tickets = await query.ToListAsync(cancellationToken);
 
         if (tickets.Count == 0)
         {
@@ -148,7 +207,7 @@ public class EmailNotificationService
         var delayMinutes = await _settings.GetUnreadEmailDelayMinutesAsync(cancellationToken);
         var threshold = DateTime.UtcNow.AddMinutes(-delayMinutes);
 
-        var messages = await _db.ChatMessages
+        var query = _db.ChatMessages
             .AsNoTracking()
             .Include(x => x.Ticket)
                 .ThenInclude(x => x!.Machine)
@@ -162,7 +221,10 @@ public class EmailNotificationService
             .Include(x => x.AuthorUser)
             .Where(x => x.CreatedAt <= threshold
                 && x.Ticket != null
-                && x.Ticket.Status != TicketStatuses.Closed)
+                && x.Ticket.Status != TicketStatuses.Closed);
+        if (GetNotificationStartUtc() is { } startUtc)
+            query = query.Where(x => x.CreatedAt >= startUtc);
+        var messages = await query
             .OrderBy(x => x.CreatedAt)
             .Take(200)
             .ToListAsync(cancellationToken);
@@ -209,6 +271,12 @@ public class EmailNotificationService
             }
         }
     }
+
+    private DateTime? GetNotificationStartUtc() =>
+        _configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
+        && DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var start)
+            ? start.UtcDateTime
+            : null;
 
     private async Task<List<ApplicationUser>> GetQueueRecipientsAsync(CancellationToken cancellationToken)
     {
@@ -258,6 +326,16 @@ public class EmailNotificationService
             cancellationToken);
 
         if (exists)
+        {
+            return;
+        }
+
+        if (notificationType == EmailNotificationTypes.UnreadMessage && messageId != null
+            && await _db.EmailNotificationLogs.AnyAsync(x =>
+                x.NotificationType == EmailNotificationTypes.NewMessage
+                && x.ChatMessageId == messageId
+                && x.RecipientUserId == recipient.Id,
+                cancellationToken))
         {
             return;
         }
@@ -319,6 +397,18 @@ public class EmailNotificationService
         <p><b>Сообщение:</b></p>
         <blockquote>{Html(preview)}</blockquote>
         """;
+    }
+
+    private static string BuildNewMessageBody(Ticket ticket, ChatMessage message)
+    {
+        var preview = string.IsNullOrWhiteSpace(message.Text)
+            ? UiText.ForLanguage("ru", "NewMessageMailAttachment")
+            : message.Text.Length > 400 ? message.Text[..400] + "..." : message.Text;
+        var link = message.AuthorUser?.ClientId != null
+            ? $"https://support.classeng.com/Operator/Ticket/{ticket.Id}"
+            : $"https://support.classeng.com/Client/Ticket/{ticket.Id}";
+        return string.Format(UiText.ForLanguage("ru", "NewMessageMailBody"),
+            ticket.Id, Html(ticket.Title), Html(preview), link);
     }
 
     private static string TicketInfo(Ticket ticket)

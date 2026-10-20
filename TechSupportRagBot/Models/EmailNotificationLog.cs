@@ -25,6 +25,7 @@ public class EmailNotificationLog
 
 public static class EmailNotificationTypes
 {
+    public const string NewMessage = "NewMessage";
     public const string OperatorAssigned = "OperatorAssigned";
     public const string WaitingForOperator = "WaitingForOperator";
     public const string UnreadMessage = "UnreadMessage";

@@ -518,6 +518,21 @@ public static class UiText
         ["WorkdayStart"] = "Рабочий день с",
         ["WorkingTime"] = "Рабочее время",
         ["WriteMessage"] = "Напишите сообщение",
+        ["RecoveryEmail"] = "Адрес электронной почты",
+        ["RecoveryEmailInvalid"] = "Укажите корректный адрес электронной почты.",
+        ["RecoveryRequestHint"] = "Укажите почту вашей учётной записи. Мы отправим шестизначный код для смены пароля.",
+        ["RecoveryRequestButton"] = "Отправить код",
+        ["RecoveryCodeSent"] = "Если учётная запись с таким адресом существует, код отправлен на почту. Он действует 10 минут.",
+        ["RecoveryCode"] = "Код из письма",
+        ["RecoveryVerify"] = "Проверить код",
+        ["RecoveryRequestAgain"] = "Запросить новый код",
+        ["RecoveryCodeInvalid"] = "Код неверный или срок его действия истёк. Запросите новый код.",
+        ["RecoveryPasswordRejected"] = "Пароль не подходит требованиям безопасности. Выберите другой пароль.",
+        ["RecoveryEmailSubject"] = "Class Engineering Support — код восстановления пароля",
+        ["RecoveryEmailBody"] = "<p>Код для восстановления пароля: <strong>{0}</strong>.</p><p>Код действует 10 минут. Если вы не запрашивали его, просто проигнорируйте письмо.</p>",
+        ["NewMessageMailSubject"] = "Новое сообщение в обращении #{0}",
+        ["NewMessageMailBody"] = "<p>Новое сообщение в обращении <b>#{0}</b> — {1}.</p><blockquote>{2}</blockquote><p><a href=\"{3}\">Открыть чат</a></p>",
+        ["NewMessageMailAttachment"] = "Сообщение с вложением",
         ["DeepSeekKeyMissing"] = "DeepSeek API key не задан. Укажите переменную окружения"
     };
 
@@ -1037,6 +1052,21 @@ public static class UiText
         ["WorkdayStart"] = "Workday starts",
         ["WorkingTime"] = "Working time",
         ["WriteMessage"] = "Write a message",
+        ["RecoveryEmail"] = "Email address",
+        ["RecoveryEmailInvalid"] = "Enter a valid email address.",
+        ["RecoveryRequestHint"] = "Enter your account email. We will send a six-digit code to change your password.",
+        ["RecoveryRequestButton"] = "Send code",
+        ["RecoveryCodeSent"] = "If an account with this address exists, a code has been sent. It expires in 10 minutes.",
+        ["RecoveryCode"] = "Code from email",
+        ["RecoveryVerify"] = "Verify code",
+        ["RecoveryRequestAgain"] = "Request a new code",
+        ["RecoveryCodeInvalid"] = "The code is invalid or has expired. Request a new code.",
+        ["RecoveryPasswordRejected"] = "The password does not meet security requirements. Choose another password.",
+        ["RecoveryEmailSubject"] = "Class Engineering Support — password recovery code",
+        ["RecoveryEmailBody"] = "<p>Your password recovery code is <strong>{0}</strong>.</p><p>It expires in 10 minutes. If you did not request it, ignore this email.</p>",
+        ["NewMessageMailSubject"] = "New message in ticket #{0}",
+        ["NewMessageMailBody"] = "<p>New message in ticket <b>#{0}</b> — {1}.</p><blockquote>{2}</blockquote><p><a href=\"{3}\">Open chat</a></p>",
+        ["NewMessageMailAttachment"] = "Message with an attachment",
         ["DeepSeekKeyMissing"] = "DeepSeek API key is missing. Set environment variable"
     };
 
@@ -1071,6 +1101,9 @@ public static class UiText
 
         return ru ?? key;
     }
+
+    public static string ForLanguage(string language, string key) =>
+        (language == "en" ? En : Ru).TryGetValue(key, out var value) ? value : key;
 
     public static string Status(HttpContext context, string status)
     {
