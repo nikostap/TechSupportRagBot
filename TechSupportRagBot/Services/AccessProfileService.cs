@@ -129,11 +129,18 @@ public class AccessProfileService
 
     public async Task MigrateClientProfilesAsync(CancellationToken cancellationToken = default)
     {
-        var clients = await _db.Users.Where(x => x.ClientId != null
-            && (x.AccessProfile == Manager || x.AccessProfile == Engineer)).ToListAsync(cancellationToken);
-        foreach (var client in clients)
-            client.AccessProfile = client.AccessProfile == Engineer ? ClientOperator : Client;
-        if (clients.Count > 0) await _db.SaveChangesAsync(cancellationToken);
+        var clients = await _db.Users.Where(x => x.ClientId != null)
+            .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken);
+        var owners = clients.GroupBy(x => x.ClientId!.Value)
+            .ToDictionary(x => x.Key, x => x.First().Id);
+        var changed = false;
+        foreach (var client in clients.Where(x => x.AccessProfile is Manager or Engineer))
+        {
+            client.AccessProfile = client.AccessProfile == Manager && owners[client.ClientId!.Value] == client.Id
+                ? Client : ClientOperator;
+            changed = true;
+        }
+        if (changed) await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<bool> IsAllowedAsync(ClaimsPrincipal principal, string permission, CancellationToken cancellationToken = default)

@@ -37,9 +37,12 @@ public sealed class AccessProfilePermissionTests
         await db.SaveChangesAsync();
         var internalManager = new ApplicationUser { UserName = "internal", AccessProfile = AccessProfileService.Manager };
         var clientManager = new ApplicationUser { UserName = "client", ClientId = company.Id,
-            AccessProfile = AccessProfileService.Manager };
+            AccessProfile = AccessProfileService.Manager, CreatedAt = DateTime.UtcNow.AddDays(-2) };
+        var clientStaff = new ApplicationUser { UserName = "staff", ClientId = company.Id,
+            AccessProfile = AccessProfileService.Manager, CreatedAt = DateTime.UtcNow.AddDays(-1) };
         Assert.True((await users.CreateAsync(internalManager)).Succeeded);
         Assert.True((await users.CreateAsync(clientManager)).Succeeded);
+        Assert.True((await users.CreateAsync(clientStaff)).Succeeded);
 
         var profiles = await access.GetProfilesAsync();
         profiles.Single(x => x.Key == AccessProfileService.Manager).Permissions["ManageClients"] = true;
@@ -47,6 +50,7 @@ public sealed class AccessProfilePermissionTests
         await access.MigrateClientProfilesAsync();
 
         Assert.Equal(AccessProfileService.Client, clientManager.AccessProfile);
+        Assert.Equal(AccessProfileService.ClientOperator, clientStaff.AccessProfile);
         Assert.True(await access.IsAllowedAsync(Principal(internalManager), "ManageClients"));
         Assert.False(await access.IsAllowedAsync(Principal(clientManager), "ManageClients"));
         Assert.True((await access.GetProfilesAsync()).Single(x => x.Key == AccessProfileService.Manager)
