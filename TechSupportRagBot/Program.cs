@@ -140,6 +140,7 @@ builder.Services.AddScoped<QAService>();
 builder.Services.AddScoped<OperatorTimeTrackingService>();
 builder.Services.AddHttpClient<WorkCalendarService>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<EmailNotificationService>();
+builder.Services.AddScoped<BrowserPushService>();
 builder.Services.AddScoped<EmailNotificationRulesService>();
 builder.Services.AddScoped<AccessProfileService>();
 builder.Services.AddScoped<FileStorageService>();

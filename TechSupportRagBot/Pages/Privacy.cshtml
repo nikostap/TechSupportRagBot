@@ -1,0 +1,26 @@
+@page "/privacy"
+@using TechSupportRagBot.Services
+@{
+    ViewData["Title"] = UiText.T(HttpContext, "PrivacyPolicy");
+}
+<section class="page-head"><div><p class="eyebrow">CLASS / SERVICE</p><h1>@UiText.T(HttpContext, "PrivacyPolicy")</h1></div></section>
+<article class="panel narrow privacy-policy">
+    <p>@UiText.T(HttpContext, "PrivacyIntro")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyOperatorTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyOperatorBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyDataTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyDataBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyPurposeTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyPurposeBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyServicesTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyServicesBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyCookiesTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyCookiesBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyPushTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyPushBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyStorageTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyStorageBody")</p>
+    <h2>@UiText.T(HttpContext, "PrivacyRightsTitle")</h2>
+    <p>@UiText.T(HttpContext, "PrivacyRightsBody")</p>
+    <p>@UiText.T(HttpContext, "PrivacyOriginal") <a href="https://www.classeng.com/politika/" rel="noopener noreferrer">classeng.com</a>.</p>
+</article>

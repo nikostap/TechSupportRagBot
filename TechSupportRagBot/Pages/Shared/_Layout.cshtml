@@ -1,3 +1,4 @@
+@inject TechSupportRagBot.Services.BrowserPushService PushService
 <!DOCTYPE html>
 <html lang="@(Context.Request.Cookies["lang"] == "en" ? "en" : "ru")">
 <head>
@@ -7,11 +8,13 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/images/class-engineering-mark-32.png" asp-append-version="true" />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" asp-append-version="true" />
     <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" asp-append-version="true" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <script>try{const theme=localStorage.getItem('classeng-theme');if(theme==='dark'){document.documentElement.dataset.theme='dark';document.documentElement.dataset.bsTheme='dark'}}catch{}</script>
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/dispatch.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/dark.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/css/privacy-push.css" asp-append-version="true" />
 </head>
 <body class="dispatch-theme @(User.Identity?.IsAuthenticated == true ? "dispatch-signed-in" : "dispatch-guest")">
     <a class="skip-to-content" href="#main-content">@TechSupportRagBot.Services.UiText.T(Context, "SkipToContent")</a>
@@ -46,9 +49,35 @@
             <div class="app-container">
                 <main id="main-content" role="main">@RenderBody()</main>
             </div>
-            <footer class="app-footer"><span>© 2026 Class Engineering</span><small class="app-version">1.1.4</small></footer>
+            <footer class="app-footer">
+                <span>© 2026 Class Engineering</span>
+                <a asp-page="/Privacy">@TechSupportRagBot.Services.UiText.T(Context, "PrivacyPolicy")</a>
+                <button type="button" data-cookie-settings>@TechSupportRagBot.Services.UiText.T(Context, "CookieSettings")</button>
+                <small class="app-version">1.1.4</small>
+            </footer>
         </div>
     </div>
+
+    <aside class="cookie-banner" data-cookie-banner hidden aria-label="@TechSupportRagBot.Services.UiText.T(Context, "CookieSettings")">
+        <p>@TechSupportRagBot.Services.UiText.T(Context, "CookieNotice") <a asp-page="/Privacy">@TechSupportRagBot.Services.UiText.T(Context, "PrivacyPolicy")</a></p>
+        <div class="cookie-actions">
+            <button type="button" data-cookie-choice="reject">@TechSupportRagBot.Services.UiText.T(Context, "CookieReject")</button>
+            <button type="button" data-cookie-choice="accept">@TechSupportRagBot.Services.UiText.T(Context, "CookieAccept")</button>
+        </div>
+    </aside>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <form method="post" asp-page="/Push" data-push-form data-public-key="@PushService.PublicKey"
+              data-enable="@TechSupportRagBot.Services.UiText.T(Context, "PushEnable")"
+              data-disable="@TechSupportRagBot.Services.UiText.T(Context, "PushDisable")"
+              data-enabled="@TechSupportRagBot.Services.UiText.T(Context, "PushEnabled")"
+              data-disabled="@TechSupportRagBot.Services.UiText.T(Context, "PushDisabled")"
+              data-unsupported="@TechSupportRagBot.Services.UiText.T(Context, "PushUnsupported")"
+              data-denied="@TechSupportRagBot.Services.UiText.T(Context, "PushDenied")"
+              data-error="@TechSupportRagBot.Services.UiText.T(Context, "PushError")" hidden>
+            @Html.AntiForgeryToken()
+        </form>
+    }
 
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
@@ -58,6 +87,8 @@
     <script src="/js/dispatch.js" asp-append-version="true"></script>
     <script src="/js/theme.js" asp-append-version="true"></script>
     <script src="/js/focus-lists.js" asp-append-version="true"></script>
+    <script src="/js/cookie-consent.js" asp-append-version="true"></script>
+    <script src="/js/push.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

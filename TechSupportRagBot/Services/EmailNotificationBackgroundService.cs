@@ -52,6 +52,7 @@ public class EmailNotificationService
     private readonly IConfiguration _configuration;
     private readonly ILogger<EmailNotificationService> _logger;
     private readonly LicenseMailService _licenseMail;
+    private readonly BrowserPushService _push;
 
     public EmailNotificationService(
         ApplicationDbContext db,
@@ -59,6 +60,7 @@ public class EmailNotificationService
         EmailNotificationRulesService rules,
         SystemSettingsService settings,
         LicenseMailService licenseMail,
+        BrowserPushService push,
         IConfiguration configuration,
         ILogger<EmailNotificationService> logger)
     {
@@ -67,6 +69,7 @@ public class EmailNotificationService
         _rules = rules;
         _settings = settings;
         _licenseMail = licenseMail;
+        _push = push;
         _configuration = configuration;
         _logger = logger;
     }
@@ -83,15 +86,18 @@ public class EmailNotificationService
 
     private async Task SendNewMessageNotificationsAsync(IReadOnlyDictionary<string, List<string>> rules, CancellationToken cancellationToken)
     {
-        if (!_configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
-            || !DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var enabledAt))
+        var emailEnabled = _configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
+            && DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out _);
+        var pushStart = GetPushStartUtc();
+        if (!emailEnabled && pushStart == null)
         {
             return;
         }
-
-        var threshold = enabledAt.UtcDateTime > DateTime.UtcNow.AddDays(-7)
-            ? enabledAt.UtcDateTime
-            : DateTime.UtcNow.AddDays(-7);
+        var emailStart = DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var enabledAt)
+            ? enabledAt.UtcDateTime : DateTime.UtcNow;
+        var threshold = new[] { emailEnabled ? emailStart : DateTime.MaxValue,
+            pushStart ?? DateTime.MaxValue }.Min();
+        if (threshold < DateTime.UtcNow.AddDays(-7)) threshold = DateTime.UtcNow.AddDays(-7);
         var messages = await _db.ChatMessages
             .AsNoTracking()
             .Include(x => x.AuthorUser)
@@ -114,8 +120,11 @@ public class EmailNotificationService
             var recipients = GetAssignedOperators(ticket, message.CreatedAt)
                 .Where(x => EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.NewMessage, x));
 
-            foreach (var recipient in recipients.Where(x => x.Id != message.AuthorUserId && !string.IsNullOrWhiteSpace(x.Email)))
+            foreach (var recipient in recipients.Where(x => x.Id != message.AuthorUserId))
             {
+                if (pushStart != null && message.CreatedAt >= pushStart)
+                    await _push.SendAsync(EmailNotificationTypes.NewMessage, ticket.Id, message.Id, recipient, cancellationToken);
+                if (!emailEnabled || message.CreatedAt < emailStart || string.IsNullOrWhiteSpace(recipient.Email)) continue;
                 await SendOnceAsync(
                     EmailNotificationTypes.NewMessage,
                     ticket.Id,
@@ -147,12 +156,15 @@ public class EmailNotificationService
         {
             var ticket = assignment.Ticket!;
             var user = assignment.OperatorUser;
-            if (user == null || string.IsNullOrWhiteSpace(user.Email)
+            if (user == null
                 || !EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.OperatorAssigned, user))
             {
                 continue;
             }
 
+            if (GetPushStartUtc() is { } pushStart && assignment.AssignedAt >= pushStart)
+                await _push.SendAsync(EmailNotificationTypes.OperatorAssigned, ticket.Id, null, user, cancellationToken);
+            if (string.IsNullOrWhiteSpace(user.Email)) continue;
             await SendOnceAsync(
                 EmailNotificationTypes.OperatorAssigned,
                 ticket.Id,
@@ -191,10 +203,11 @@ public class EmailNotificationService
         {
             foreach (var recipient in recipients)
             {
-                if (string.IsNullOrWhiteSpace(recipient.Email))
-                {
-                    continue;
-                }
+                if (GetPushStartUtc() is { } pushStart && (ticket.CreatedAt >= pushStart
+                    || await _db.ChatMessages.AnyAsync(x => x.TicketId == ticket.Id && x.IsBotMessage
+                        && x.CreatedAt >= pushStart, cancellationToken)))
+                    await _push.SendAsync(EmailNotificationTypes.WaitingForOperator, ticket.Id, null, recipient, cancellationToken);
+                if (string.IsNullOrWhiteSpace(recipient.Email)) continue;
 
                 await SendOnceAsync(
                     EmailNotificationTypes.WaitingForOperator,
@@ -246,11 +259,14 @@ public class EmailNotificationService
                 {
                     foreach (var recipient in GetAssignedOperators(ticket, message.CreatedAt))
                     {
-                        if (string.IsNullOrWhiteSpace(recipient.Email)
-                            || !EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.UnreadMessage, recipient))
+                        if (!EmailNotificationRulesService.Allows(rules, EmailNotificationTypes.UnreadMessage, recipient))
                         {
                             continue;
                         }
+
+                        if (GetPushStartUtc() is { } pushStart && message.CreatedAt >= pushStart)
+                            await _push.SendAsync(EmailNotificationTypes.UnreadMessage, ticket.Id, message.Id, recipient, cancellationToken);
+                        if (string.IsNullOrWhiteSpace(recipient.Email)) continue;
 
                         await SendOnceAsync(
                             EmailNotificationTypes.UnreadMessage,
@@ -270,15 +286,22 @@ public class EmailNotificationService
     }
 
     private DateTime? GetNotificationStartUtc() =>
-        _configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
-        && DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var start)
-            ? start.UtcDateTime
-            : null;
+        new[]
+        {
+            _configuration.GetValue("Notifications:NewMessageEmailEnabled", false)
+            && DateTimeOffset.TryParse(_configuration["Notifications:NewMessageEmailSinceUtc"], out var start)
+                ? start.UtcDateTime : DateTime.MaxValue,
+            GetPushStartUtc() ?? DateTime.MaxValue
+        }.Min() is var earliest && earliest != DateTime.MaxValue ? earliest : null;
+
+    private DateTime? GetPushStartUtc() =>
+        _push.IsConfigured && DateTimeOffset.TryParse(_configuration["Push:EnabledSinceUtc"], out var start)
+            ? start.UtcDateTime : null;
 
     private async Task<List<ApplicationUser>> GetQueueRecipientsAsync(CancellationToken cancellationToken)
     {
         return await _db.Users.AsNoTracking()
-            .Where(x => x.ClientId == null && x.AccessProfile != null && x.Email != null)
+            .Where(x => x.ClientId == null && x.AccessProfile != null)
             .ToListAsync(cancellationToken);
     }
 

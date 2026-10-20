@@ -12,6 +12,14 @@
     <a class="btn-main as-link" asp-page="/ProfileEdit">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditProfile")</a>
 </section>
 
+<section class="panel narrow push-settings">
+    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "PushSettings")</h2>
+    <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "PushHelp")</p>
+    <p data-push-status>@TechSupportRagBot.Services.UiText.T(HttpContext, "PushDisabled")</p>
+    <button type="button" class="btn-main" data-push-toggle>@TechSupportRagBot.Services.UiText.T(HttpContext, "PushEnable")</button>
+    <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "PushIosHelp")</p>
+</section>
+
 <section class="panel narrow profile-card">
     <div class="profile-head">
         @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))

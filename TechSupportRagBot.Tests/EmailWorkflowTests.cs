@@ -344,6 +344,7 @@ public sealed class EmailWorkflowTests
             collection.AddSingleton(Options.Create(new StorageOptions()));
             collection.AddScoped<SystemSettingsService>();
             collection.AddScoped<EmailNotificationRulesService>();
+            collection.AddScoped<BrowserPushService>();
             collection.AddScoped<LicenseMailService>();
             collection.AddScoped<EmailNotificationService>();
             collection.AddScoped<AccountWelcomeEmailService>();

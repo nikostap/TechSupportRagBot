@@ -92,6 +92,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<EmailNotificationLog> EmailNotificationLogs => Set<EmailNotificationLog>();
 
+    public DbSet<BrowserPushSubscription> BrowserPushSubscriptions => Set<BrowserPushSubscription>();
+
+    public DbSet<BrowserPushLog> BrowserPushLogs => Set<BrowserPushLog>();
+
     public DbSet<LicenseEmailLog> LicenseEmailLogs => Set<LicenseEmailLog>();
 
     public DbSet<ApiUsageRecord> ApiUsageRecords => Set<ApiUsageRecord>();
@@ -201,6 +205,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<EmailNotificationLog>()
             .HasIndex(x => new { x.NotificationType, x.TicketId, x.ChatMessageId, x.RecipientUserId })
             .IsUnique();
+
+        builder.Entity<BrowserPushSubscription>()
+            .HasIndex(x => x.Endpoint).IsUnique();
+        builder.Entity<BrowserPushSubscription>()
+            .Property(x => x.Endpoint).HasMaxLength(2048);
+        builder.Entity<BrowserPushSubscription>()
+            .HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<BrowserPushLog>()
+            .HasIndex(x => new { x.SubscriptionId, x.EventKey }).IsUnique();
+        builder.Entity<BrowserPushLog>()
+            .Property(x => x.EventKey).HasMaxLength(120);
+        builder.Entity<BrowserPushLog>()
+            .HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.SubscriptionId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<EmailNotificationLog>()
             .Property(x => x.NotificationType)
