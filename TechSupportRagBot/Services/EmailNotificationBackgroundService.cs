@@ -322,6 +322,7 @@ public class EmailNotificationService
         string body,
         CancellationToken cancellationToken)
     {
+        if (!recipient.EmailNotificationsEnabled) return;
         var exists = await _db.EmailNotificationLogs.AnyAsync(x =>
             x.NotificationType == notificationType
             && x.TicketId == ticketId

@@ -20,6 +20,18 @@
     <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "PushIosHelp")</p>
 </section>
 
+<section class="panel narrow push-settings">
+    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProfileEmailNotifications")</h2>
+    <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProfileEmailNotificationsHelp")</p>
+    <form method="post" asp-page-handler="EmailNotifications">
+        <label class="check-line profile-toggle">
+            <input type="checkbox" name="enabled" value="true" checked="@Model.EmailNotificationsEnabled" />
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProfileEmailNotificationsEnable")</span>
+        </label>
+        <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
+    </form>
+</section>
+
 <section class="panel narrow profile-card">
     <div class="profile-head">
         @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarPath))

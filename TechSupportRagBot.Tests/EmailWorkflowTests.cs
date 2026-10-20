@@ -14,6 +14,40 @@ namespace TechSupportRagBot.Tests;
 public sealed class EmailWorkflowTests
 {
     [Fact]
+    public async Task DisabledChatEmails_DoNotSendOrLogAndCanBeEnabledLater()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var operatorUser = await fixture.UserAsync("operator", "operator@example.test", "Operator");
+        operatorUser.EmailNotificationsEnabled = false;
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket { ClientUserId = client.Id, OperatorUserId = operatorUser.Id,
+            MachineId = machine.Id, Title = "Help", Status = TicketStatuses.InProgress };
+        fixture.Db.Tickets.Add(ticket);
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.TicketOperatorAssignments.Add(new TicketOperatorAssignment
+        {
+            TicketId = ticket.Id, OperatorUserId = operatorUser.Id,
+            AssignedAt = DateTime.UtcNow.AddHours(-1)
+        });
+        fixture.Db.ChatMessages.Add(new ChatMessage
+        {
+            TicketId = ticket.Id, AuthorUserId = client.Id, Text = "Need help",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10), IsReadByClient = true
+        });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+        Assert.Empty(fixture.Sender.Sent);
+        Assert.Empty(fixture.Db.EmailNotificationLogs);
+
+        operatorUser.EmailNotificationsEnabled = true;
+        await fixture.Db.SaveChangesAsync();
+        await fixture.Notifications.ProcessAsync();
+        Assert.Equal(2, fixture.Sender.Sent.Count(x => x.To == operatorUser.Email));
+    }
+
+    [Fact]
     public async Task AssignedUnreadMessage_SendsImmediateAndDelayedOnce()
     {
         await using var fixture = await Fixture.CreateAsync();

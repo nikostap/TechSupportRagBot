@@ -131,6 +131,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasDefaultValue(true);
 
         builder.Entity<ApplicationUser>()
+            .Property(x => x.EmailNotificationsEnabled)
+            .HasDefaultValue(true);
+
+        builder.Entity<ApplicationUser>()
             .Property(x => x.WorkdayStartMinutes)
             .HasDefaultValue(8 * 60);
 

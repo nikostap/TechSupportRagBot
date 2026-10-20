@@ -36,6 +36,8 @@ public class ApplicationUser : IdentityUser
 
     public bool AutoTranslateMessages { get; set; } = true;
 
+    public bool EmailNotificationsEnabled { get; set; } = true;
+
     public string? AvatarPath { get; set; }
 
     public Guid? AvatarPublicId { get; set; }

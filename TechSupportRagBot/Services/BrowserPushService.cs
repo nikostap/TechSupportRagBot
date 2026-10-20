@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
@@ -62,6 +63,14 @@ public sealed class BrowserPushService(
         var subscriptions = await db.BrowserPushSubscriptions
             .Where(x => x.UserId == recipient.Id)
             .ToListAsync(ct);
+        if (subscriptions.Count == 0) return;
+        var ticket = await db.Tickets.AsNoTracking()
+            .Include(x => x.Machine)
+            .Include(x => x.ClientUser).ThenInclude(x => x!.Client)
+            .FirstOrDefaultAsync(x => x.Id == ticketId, ct);
+        if (ticket == null) return;
+        var message = messageId == null ? null : await db.ChatMessages.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == messageId && x.TicketId == ticketId, ct);
         var details = new VapidDetails("mailto:support@classeng.com", PublicKey!, configuration["Push:PrivateKey"]!);
         var titleKey = type switch
         {
@@ -72,10 +81,10 @@ public sealed class BrowserPushService(
         };
         var payload = JsonSerializer.Serialize(new
         {
-            titleRu = UiText.ForLanguage("ru", titleKey),
-            titleEn = UiText.ForLanguage("en", titleKey),
-            bodyRu = string.Format(UiText.ForLanguage("ru", "PushTicketBody"), ticketId),
-            bodyEn = string.Format(UiText.ForLanguage("en", "PushTicketBody"), ticketId),
+            titleRu = BuildTitle("ru", titleKey, ticket),
+            titleEn = BuildTitle("en", titleKey, ticket),
+            bodyRu = BuildBody("ru", ticket, message),
+            bodyEn = BuildBody("en", ticket, message),
             url = $"/Operator/Ticket/{ticketId}",
             tag = eventKey
         });
@@ -101,6 +110,34 @@ public sealed class BrowserPushService(
                 logger.LogWarning(ex, "Browser push delivery failed for event {EventKey}, subscription {Id}", eventKey, subscription.Id);
             }
         }
+    }
+
+    private static string BuildTitle(string language, string titleKey, Ticket ticket)
+    {
+        var subject = Shorten(ticket.Title, 48);
+        var client = Shorten(ticket.ClientUser?.Client?.Name ?? ticket.ClientUser?.FullName
+            ?? ticket.ClientUser?.UserName, 32);
+        return string.Format(UiText.ForLanguage(language, "PushContextTitle"),
+            UiText.ForLanguage(language, titleKey), subject, client);
+    }
+
+    private static string BuildBody(string language, Ticket ticket, ChatMessage? message)
+    {
+        var machine = ticket.Machine;
+        var machineName = Shorten(machine?.Name, 24);
+        var model = Shorten(machine?.Model, 28);
+        var serial = Shorten(machine?.SerialNumber, 20);
+        var equipment = string.Join(" ", new[] { machineName, model, serial }.Where(x => x.Length > 0));
+        var preview = message == null ? string.Empty : string.IsNullOrWhiteSpace(message.Text)
+            ? UiText.ForLanguage(language, "PushAttachmentPreview") : Shorten(message.Text, 100);
+        return preview.Length == 0 ? equipment : string.Format(UiText.ForLanguage(language, "PushContextBody"),
+            equipment, preview);
+    }
+
+    private static string Shorten(string? value, int maxLength)
+    {
+        var normalized = Regex.Replace(value ?? string.Empty, @"\s+", " ").Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..(maxLength - 1)].TrimEnd() + "…";
     }
 
     private static bool ValidKey(string value, int min, int max) =>

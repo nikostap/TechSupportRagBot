@@ -25,6 +25,7 @@ public class ProfileModel : PageModel
     public string? Gender { get; private set; }
     public string? Language { get; private set; }
     public bool AutoTranslateMessages { get; private set; }
+    public bool EmailNotificationsEnabled { get; private set; }
     public string Initials { get; private set; } = "CE";
 
     public async Task<IActionResult> OnGetAsync()
@@ -39,6 +40,16 @@ public class ProfileModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostEmailNotificationsAsync(bool enabled)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Challenge();
+        user.EmailNotificationsEnabled = enabled;
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded) return RedirectToPage("/Error");
+        return RedirectToPage();
+    }
+
     private void Fill(ApplicationUser user)
     {
         CurrentAvatarPath = user.AvatarPublicId.HasValue
@@ -51,6 +62,7 @@ public class ProfileModel : PageModel
         Gender = user.Gender;
         Language = ChatTranslationService.NormalizeLanguage(user.Country);
         AutoTranslateMessages = user.AutoTranslateMessages;
+        EmailNotificationsEnabled = user.EmailNotificationsEnabled;
         Initials = string.Join("", (user.FullName ?? user.UserName ?? "CE")
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Take(2)

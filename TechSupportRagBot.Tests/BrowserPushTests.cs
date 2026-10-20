@@ -23,7 +23,9 @@ public sealed class BrowserPushTests
     [InlineData("en")]
     public void NewInterfaceWords_HaveTranslations(string language)
     {
-        foreach (var key in new[] { "PushEnable", "PushDisable", "PushDenied", "PushTicketBody",
+        foreach (var key in new[] { "PushEnable", "PushDisable", "PushDenied", "PushContextTitle",
+            "PushContextBody", "PushAttachmentPreview", "ProfileEmailNotifications",
+            "ProfileEmailNotificationsHelp", "ProfileEmailNotificationsEnable",
             "CookieNotice", "CookieAccept", "CookieReject", "PrivacyPolicy", "PrivacyRightsBody" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
