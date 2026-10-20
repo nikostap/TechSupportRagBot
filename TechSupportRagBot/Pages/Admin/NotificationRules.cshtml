@@ -42,7 +42,7 @@
                                 ? "MailScopeNewlyAssigned" : "MailScopeAssigned")</td>
                         @foreach (var profile in EmailNotificationRulesService.InternalProfiles)
                         {
-                            <td>
+                            <td data-profile="@UiText.T(HttpContext, profile.NameKey)">
                                 <label class="check-line compact-check">
                                     <input type="checkbox" name="rule_@(notification.Key)_@(profile.Key)"
                                            checked="@(selected.Contains(profile.Key, StringComparer.OrdinalIgnoreCase))"
