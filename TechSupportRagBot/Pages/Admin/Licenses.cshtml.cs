@@ -14,8 +14,15 @@ namespace TechSupportRagBot.Pages.Admin;
 public class LicensesModel : PageModel
 {
     private readonly ApplicationDbContext _db;
+    private readonly LicenseMailService _mail;
+    private readonly ILogger<LicensesModel> _logger;
 
-    public LicensesModel(ApplicationDbContext db) => _db = db;
+    public LicensesModel(ApplicationDbContext db, LicenseMailService mail, ILogger<LicensesModel> logger)
+    {
+        _db = db;
+        _mail = mail;
+        _logger = logger;
+    }
 
     [BindProperty]
     public LicenseInput Input { get; set; } = new();
@@ -30,6 +37,14 @@ public class LicensesModel : PageModel
     {
         if (!ModelState.IsValid)
         {
+            await LoadAsync();
+            return Page();
+        }
+
+        if (!await _db.Clients.AnyAsync(x => x.Id == Input.ClientId)
+            || !await _db.Machines.AnyAsync(x => x.Id == Input.MachineId))
+        {
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "LicenseSelectionInvalid"));
             await LoadAsync();
             return Page();
         }
@@ -52,12 +67,33 @@ public class LicensesModel : PageModel
             MachineId = Input.MachineId,
             Key = LicenseKeyGenerator.Generate(),
             ExpiresAt = Input.ExpiresAt.HasValue
-                ? DateTime.SpecifyKind(Input.ExpiresAt.Value.Date, DateTimeKind.Utc)
+                ? DateTime.SpecifyKind(Input.ExpiresAt.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)
                 : null
         };
 
         _db.Licenses.Add(license);
         await _db.SaveChangesAsync();
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostSendKeyAsync(int id)
+    {
+        try
+        {
+            var result = await _mail.SendKeyAsync(id, HttpContext.RequestAborted);
+            var key = result switch
+            {
+                LicenseKeyMailResult.Sent => "LicenseMailSent",
+                LicenseKeyMailResult.NoEmail => "LicenseMailNoEmail",
+                _ => "LicenseMailUnavailable"
+            };
+            TempData["LicenseMailStatus"] = UiText.T(HttpContext, key);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not send license key for license {LicenseId}.", id);
+            TempData["LicenseMailStatus"] = UiText.T(HttpContext, "LicenseMailFailed");
+        }
         return RedirectToPage();
     }
 

@@ -17,16 +17,19 @@ public class ClientsModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TicketDeletionService _ticketDeletion;
     private readonly ILogger<ClientsModel> _logger;
+    private readonly AccountWelcomeEmailService _welcomeMail;
 
     public ClientsModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
         TicketDeletionService ticketDeletion,
+        AccountWelcomeEmailService welcomeMail,
         ILogger<ClientsModel> logger)
     {
         _db = db;
         _userManager = userManager;
         _ticketDeletion = ticketDeletion;
+        _welcomeMail = welcomeMail;
         _logger = logger;
     }
 
@@ -90,6 +93,8 @@ public class ClientsModel : PageModel
                 FullName = Input.FullName.Trim(),
                 ClientId = client.Id,
                 IssuedPassword = password,
+                MustChangePassword = true,
+                Country = "ru",
                 EmailConfirmed = true
             };
 
@@ -120,6 +125,7 @@ public class ClientsModel : PageModel
             }
 
             await transaction.CommitAsync();
+            await _welcomeMail.SendIfAddressAvailableAsync(user, password, HttpContext.RequestAborted);
             return RedirectToPage();
         }
         catch (Exception ex)

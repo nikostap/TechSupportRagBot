@@ -92,6 +92,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<EmailNotificationLog> EmailNotificationLogs => Set<EmailNotificationLog>();
 
+    public DbSet<LicenseEmailLog> LicenseEmailLogs => Set<LicenseEmailLog>();
+
     public DbSet<ApiUsageRecord> ApiUsageRecords => Set<ApiUsageRecord>();
 
     /// <summary>
@@ -225,6 +227,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(x => x.RecipientUserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<LicenseEmailLog>()
+            .HasIndex(x => new { x.LicenseId, x.Kind, x.RecipientEmail })
+            .IsUnique();
+
+        builder.Entity<LicenseEmailLog>()
+            .Property(x => x.Kind).HasMaxLength(40);
+
+        builder.Entity<LicenseEmailLog>()
+            .Property(x => x.RecipientEmail).HasMaxLength(256);
+
+        builder.Entity<LicenseEmailLog>()
+            .HasOne(x => x.License)
+            .WithMany()
+            .HasForeignKey(x => x.LicenseId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<TicketOperatorAssignment>()
             .HasIndex(x => new { x.TicketId, x.OperatorUserId })

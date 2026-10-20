@@ -17,15 +17,18 @@ public class UsersModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TicketDeletionService _ticketDeletion;
+    private readonly AccountWelcomeEmailService _welcomeMail;
 
     public UsersModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
-        TicketDeletionService ticketDeletion)
+        TicketDeletionService ticketDeletion,
+        AccountWelcomeEmailService welcomeMail)
     {
         _db = db;
         _userManager = userManager;
         _ticketDeletion = ticketDeletion;
+        _welcomeMail = welcomeMail;
     }
 
     [BindProperty]
@@ -94,6 +97,7 @@ public class UsersModel : PageModel
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             ClientId = clientId,
             IssuedPassword = password,
+            MustChangePassword = true,
             EmailConfirmed = true
         };
 
@@ -101,7 +105,11 @@ public class UsersModel : PageModel
         if (result.Succeeded)
         {
             var roleResult = await _userManager.AddToRoleAsync(user, "Client");
-            if (roleResult.Succeeded) return RedirectToPage();
+            if (roleResult.Succeeded)
+            {
+                await _welcomeMail.SendIfAddressAvailableAsync(user, password, HttpContext.RequestAborted);
+                return RedirectToPage();
+            }
             await _userManager.DeleteAsync(user);
             result = roleResult;
         }

@@ -533,6 +533,20 @@ public static class UiText
         ["NewMessageMailSubject"] = "Новое сообщение в обращении #{0}",
         ["NewMessageMailBody"] = "<p>Новое сообщение в обращении <b>#{0}</b> — {1}.</p><blockquote>{2}</blockquote><p><a href=\"{3}\">Открыть чат</a></p>",
         ["NewMessageMailAttachment"] = "Сообщение с вложением",
+        ["WelcomeMailSubject"] = "Class Engineering Support — доступ к личному кабинету",
+        ["WelcomeMailBody"] = "<p>Для вас создана учётная запись в центре поддержки Class Engineering.</p><p>Логин: <strong>{0}</strong><br>Временный пароль: <strong>{1}</strong></p><p>Войдите на <a href=\"{2}\">сайт поддержки</a> и смените пароль при первом входе.</p>",
+        ["LicenseRecipientHint"] = "Выберите компанию для лицензии. После создания ключ можно отправить кнопкой в списке на контактную почту компании или первого пользователя с почтой.",
+        ["SendLicenseMail"] = "Отправить ключ",
+        ["LicenseMailSent"] = "Письмо с ключом отправлено компании.",
+        ["LicenseMailNoEmail"] = "У компании и её пользователей не указана почта. Добавьте адрес, чтобы отправить ключ.",
+        ["LicenseMailFailed"] = "Не удалось отправить письмо с ключом. Повторите позже.",
+        ["LicenseMailUnavailable"] = "Лицензия не найдена, отключена или её срок истёк.",
+        ["LicenseSelectionInvalid"] = "Выберите существующую компанию и станок.",
+        ["NoExpiry"] = "без ограничения срока",
+        ["LicenseKeyMailSubject"] = "Class Engineering Support — лицензионный ключ",
+        ["LicenseKeyMailBody"] = "<p>Здравствуйте, {0}.</p><p>Ключ для станка {1} ({2}): <strong>{3}</strong>.</p><p>Срок действия: {4}.</p><p>Введите ключ на <a href=\"{5}\">странице активации</a>.</p>",
+        ["LicenseExpiryMailSubject"] = "Class Engineering Support — срок лицензии подходит к концу",
+        ["LicenseExpiryMailBody"] = "<p>Здравствуйте, {0}.</p><p>Лицензия на станок {1} действует до {2} (осталось дней: {3}).</p><p>Для продления обратитесь к менеджеру или <a href=\"{4}\">создайте обращение</a> с темой продления лицензии.</p>",
         ["DeepSeekKeyMissing"] = "DeepSeek API key не задан. Укажите переменную окружения"
     };
 
@@ -1067,6 +1081,20 @@ public static class UiText
         ["NewMessageMailSubject"] = "New message in ticket #{0}",
         ["NewMessageMailBody"] = "<p>New message in ticket <b>#{0}</b> — {1}.</p><blockquote>{2}</blockquote><p><a href=\"{3}\">Open chat</a></p>",
         ["NewMessageMailAttachment"] = "Message with an attachment",
+        ["WelcomeMailSubject"] = "Class Engineering Support — account access",
+        ["WelcomeMailBody"] = "<p>An account has been created for you in Class Engineering Support.</p><p>Login: <strong>{0}</strong><br>Temporary password: <strong>{1}</strong></p><p>Sign in at the <a href=\"{2}\">support site</a> and change your password on first sign-in.</p>",
+        ["LicenseRecipientHint"] = "Choose the company for the license. After creating it, use the list button to email the key to the company contact or its first user with an email address.",
+        ["SendLicenseMail"] = "Email key",
+        ["LicenseMailSent"] = "The key was emailed to the company.",
+        ["LicenseMailNoEmail"] = "Neither the company nor its users have an email address. Add one to send the key.",
+        ["LicenseMailFailed"] = "The key email could not be sent. Try again later.",
+        ["LicenseMailUnavailable"] = "The license was not found, is inactive, or has expired.",
+        ["LicenseSelectionInvalid"] = "Choose an existing company and machine.",
+        ["NoExpiry"] = "no expiration",
+        ["LicenseKeyMailSubject"] = "Class Engineering Support — license key",
+        ["LicenseKeyMailBody"] = "<p>Hello, {0}.</p><p>Key for machine {1} ({2}): <strong>{3}</strong>.</p><p>Expiration: {4}.</p><p>Enter the key on the <a href=\"{5}\">activation page</a>.</p>",
+        ["LicenseExpiryMailSubject"] = "Class Engineering Support — license expiring soon",
+        ["LicenseExpiryMailBody"] = "<p>Hello, {0}.</p><p>The license for machine {1} expires on {2} ({3} days left).</p><p>To renew it, contact your manager or <a href=\"{4}\">create a support request</a> about renewal.</p>",
         ["DeepSeekKeyMissing"] = "DeepSeek API key is missing. Set environment variable"
     };
 

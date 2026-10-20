@@ -37,7 +37,7 @@ public sealed class PasswordRecoveryThrottle(IMemoryCache cache)
 
 public sealed class PasswordRecoveryService(
     UserManager<ApplicationUser> users,
-    SmtpEmailSender emailSender,
+    IEmailSender emailSender,
     IDataProtectionProvider dataProtection,
     PasswordRecoveryThrottle throttle,
     ILogger<PasswordRecoveryService> logger)

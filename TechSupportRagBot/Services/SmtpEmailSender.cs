@@ -7,7 +7,12 @@ using MimeKit;
 
 namespace TechSupportRagBot.Services;
 
-public class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEmailSender> logger)
+public interface IEmailSender
+{
+    Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default);
+}
+
+public class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEmailSender> logger) : IEmailSender
 {
     public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
