@@ -97,25 +97,20 @@
             <input id="machine-model-new" name="machineModel" maxlength="50" required />
             <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
         </form>
-        <details class="machine-model-delete-details" open="@(Request.Query["deleteModels"].ToString() == "open")">
-            <summary>
-                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModelsForDeletion")</span>
-                <span class="machine-model-delete-count">@Model.MachineModels.Count</span>
-            </summary>
+        <form method="post" asp-page-handler="DeleteMachineModel" class="machine-model-delete-form">
+            <label for="machine-model-delete">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMachineModel")</label>
+            <div class="machine-model-delete-controls">
+                <select id="machine-model-delete" name="machineModel" required>
+                    <option value="" selected disabled>@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectMachineModel")</option>
+                    @foreach (var modelName in Model.MachineModels)
+                    {
+                        <option value="@modelName">@modelName</option>
+                    }
+                </select>
+                <button class="btn-danger" type="submit" disabled="@(Model.MachineModels.Count == 0)">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+            </div>
             <p class="field-hint">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModelRemovalHint")</p>
-            <ul class="machine-model-settings-list">
-                @foreach (var modelName in Model.MachineModels)
-                {
-                    <li>
-                        <span>@modelName</span>
-                        <form method="post" asp-page-handler="DeleteMachineModel">
-                            <input type="hidden" name="machineModel" value="@modelName" />
-                            <button class="btn-danger small" type="submit" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMachineModel") @modelName">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
-                        </form>
-                    </li>
-                }
-            </ul>
-        </details>
+        </form>
     </section>
     <form method="post" class="panel" id="rag-settings-form">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ModelsAndProviders")</h2>

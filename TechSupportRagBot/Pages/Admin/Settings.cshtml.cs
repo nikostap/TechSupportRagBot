@@ -114,7 +114,7 @@ public class SettingsModel : PageModel
             && await _settings.RemoveMachineModelAsync(machineModel, HttpContext.RequestAborted)
             ? UiText.T(HttpContext, "MachineModelRemoved")
             : UiText.T(HttpContext, "MachineModelNotFound");
-        return RedirectToPage(new { deleteModels = "open" });
+        return RedirectToPage();
     }
 
     private async Task LoadAsync(bool fillInput = true)
