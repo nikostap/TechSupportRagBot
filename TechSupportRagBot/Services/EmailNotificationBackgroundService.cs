@@ -229,55 +229,59 @@ public class EmailNotificationService
                 && (!x.IsReadByClient || !x.IsReadByOperator)
                 && x.Ticket != null
                 && x.Ticket.Status != TicketStatuses.Closed);
-        if (GetNotificationStartUtc() is { } startUtc)
-            query = query.Where(x => x.CreatedAt >= startUtc);
-        var messages = await query
-            .OrderBy(x => x.CreatedAt)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var oldest = DateTime.UtcNow.AddDays(-7);
+        if (GetNotificationStartUtc() is { } startUtc && startUtc > oldest) oldest = startUtc;
+        query = query.Where(x => x.CreatedAt >= oldest);
 
-        foreach (var message in messages)
+        for (var offset = 0; ; offset += 200)
         {
-            var ticket = message.Ticket!;
-            var authorIsClient = message.AuthorUser?.ClientId != null
-                && message.AuthorUser.ClientId == ticket.ClientUser?.ClientId;
-            if (!authorIsClient && !message.IsReadByClient)
+            var messages = await query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id)
+                .Skip(offset).Take(200).ToListAsync(cancellationToken);
+            foreach (var message in messages)
             {
-                var client = ticket.ClientUser;
-                if (!string.IsNullOrWhiteSpace(client?.Email))
+                var ticket = message.Ticket!;
+                var authorIsClient = message.AuthorUser?.ClientId != null
+                    && message.AuthorUser.ClientId == ticket.ClientUser?.ClientId;
+                if (!authorIsClient && !message.IsReadByClient)
                 {
-                    await SendOnceAsync(
-                        EmailNotificationTypes.UnreadMessage,
-                        ticket.Id,
-                        message.Id,
-                        client,
-                        client.Email,
-                        $"Новое сообщение в обращении #{ticket.Id}",
-                        BuildUnreadBody(ticket, message, delayMinutes),
-                        cancellationToken);
-                }
-            }
-
-            if (authorIsClient && !message.IsReadByOperator)
-            {
-                foreach (var recipient in GetAssignedOperators(ticket))
-                {
-                    if (string.IsNullOrWhiteSpace(recipient.Email))
+                    var client = ticket.ClientUser;
+                    if (!string.IsNullOrWhiteSpace(client?.Email))
                     {
-                        continue;
+                        await SendOnceAsync(
+                            EmailNotificationTypes.UnreadMessage,
+                            ticket.Id,
+                            message.Id,
+                            client,
+                            client.Email,
+                            $"Новое сообщение в обращении #{ticket.Id}",
+                            BuildUnreadBody(ticket, message, delayMinutes),
+                            cancellationToken);
                     }
+                }
 
-                    await SendOnceAsync(
-                        EmailNotificationTypes.UnreadMessage,
-                        ticket.Id,
-                        message.Id,
-                        recipient,
-                        recipient.Email,
-                        $"Непрочитанное сообщение в обращении #{ticket.Id}",
-                        BuildUnreadBody(ticket, message, delayMinutes),
-                        cancellationToken);
+                if (authorIsClient && !message.IsReadByOperator)
+                {
+                    foreach (var recipient in GetAssignedOperators(ticket))
+                    {
+                        if (string.IsNullOrWhiteSpace(recipient.Email))
+                        {
+                            continue;
+                        }
+
+                        await SendOnceAsync(
+                            EmailNotificationTypes.UnreadMessage,
+                            ticket.Id,
+                            message.Id,
+                            recipient,
+                            recipient.Email,
+                            $"Непрочитанное сообщение в обращении #{ticket.Id}",
+                            BuildUnreadBody(ticket, message, delayMinutes),
+                            cancellationToken);
+                    }
                 }
             }
+
+            if (messages.Count < 200) break;
         }
     }
 

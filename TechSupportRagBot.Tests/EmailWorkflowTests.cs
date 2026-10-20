@@ -85,6 +85,37 @@ public sealed class EmailWorkflowTests
     }
 
     [Fact]
+    public async Task UnreadScan_ContinuesPastFirstTwoHundredMessages()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Services.GetRequiredService<IConfiguration>()["Notifications:NewMessageEmailEnabled"] = "false";
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var operatorUser = await fixture.UserAsync("operator", "operator@example.test", "Operator");
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket
+        {
+            ClientUserId = client.Id, OperatorUserId = operatorUser.Id, MachineId = machine.Id,
+            Title = "Many messages", Status = TicketStatuses.InProgress
+        };
+        fixture.Db.Tickets.Add(ticket);
+        fixture.Db.SystemSettings.Add(new SystemSetting
+        {
+            Key = SystemSettingKeys.UnreadEmailDelayMinutes, Value = "5"
+        });
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessages.AddRange(Enumerable.Range(0, 201).Select(index => new ChatMessage
+        {
+            TicketId = ticket.Id, AuthorUserId = client.Id, Text = $"Message {index}",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10), IsReadByClient = true
+        }));
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.Equal(201, fixture.Sender.Sent.Count);
+    }
+
+    [Fact]
     public async Task WaitingTicket_NotifiesQueueOnlyWhenUnassigned()
     {
         await using var fixture = await Fixture.CreateAsync();
