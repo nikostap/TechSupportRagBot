@@ -67,7 +67,8 @@ public class LicensesModel : PageModel
             MachineId = Input.MachineId,
             Key = LicenseKeyGenerator.Generate(),
             ExpiresAt = Input.ExpiresAt.HasValue
-                ? DateTime.SpecifyKind(Input.ExpiresAt.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)
+                ? TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(Input.ExpiresAt.Value.Date.AddDays(1), DateTimeKind.Unspecified),
+                    TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow")).AddTicks(-1)
                 : null
         };
 
