@@ -2003,6 +2003,28 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   align-items: start;
 }
 
+.machine-model-settings-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.machine-model-settings-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--soft-2);
+}
+
+.machine-model-settings-list form { margin: 0; }
+.machine-model-settings-list button { margin: 0; }
+
 .operator-chip-list {
   display: flex;
   flex-wrap: wrap;

@@ -413,14 +413,7 @@ public class QAModel : PageModel
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync();
-        MachineModelOptions = (await _settings.GetMachineModelsAsync(HttpContext.RequestAborted))
-            .Concat(Machines.Select(x => x.Model))
-            .Concat(MachineFilterOptions)
-            .Concat(PreviewEntries.Select(x => x.MachineModel ?? string.Empty))
-            .Concat([Input.MachineModel ?? string.Empty, EditInput.MachineModel ?? string.Empty])
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        MachineModelOptions = await _settings.GetMachineModelsAsync(HttpContext.RequestAborted);
         SerialFilterOptions = await _db.QAEntries.AsNoTracking()
             .Where(x => x.SerialNumber != null && x.SerialNumber != "")
             .Select(x => x.SerialNumber!)

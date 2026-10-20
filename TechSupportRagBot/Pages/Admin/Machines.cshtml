@@ -30,7 +30,7 @@
                     }
                 </select>
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")<input asp-for="Input.SerialNumber" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")<input asp-for="Input.SerialNumber" data-machine-serial /></label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")<input asp-for="Input.Description" /></label>
             <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
         </div>
@@ -52,6 +52,10 @@
                             <label>
                                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</span>
                                 <select name="input.Model">
+                                    @if (!Model.MachineModelOptions.Contains(machine.Model, StringComparer.OrdinalIgnoreCase))
+                                    {
+                                        <option value="@machine.Model" selected>@machine.Model</option>
+                                    }
                                     @foreach (var modelName in Model.MachineModelOptions)
                                     {
                                         <option value="@modelName" selected="@(string.Equals(modelName, machine.Model, StringComparison.OrdinalIgnoreCase))">@modelName</option>
@@ -60,7 +64,7 @@
                             </label>
                             <label>
                                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")</span>
-                                <input name="input.SerialNumber" value="@machine.SerialNumber" />
+                                <input name="input.SerialNumber" value="@machine.SerialNumber" data-machine-serial />
                             </label>
                             <label>
                                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")</span>
@@ -81,3 +85,14 @@
         </div>
     </div>
 </div>
+
+<script>
+document.querySelectorAll("[data-machine-serial]").forEach(input => {
+    const normalize = () => {
+        const value = input.value.trim();
+        input.value = /^[0-9]{1,2}$/.test(value) ? value.padStart(3, "0") : value;
+    };
+    input.addEventListener("blur", normalize);
+    input.form?.addEventListener("submit", normalize);
+});
+</script>

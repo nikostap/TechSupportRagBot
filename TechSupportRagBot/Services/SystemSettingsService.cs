@@ -83,7 +83,8 @@ public class SystemSettingsService
             .Where(x => x.Key == SystemSettingKeys.MachineModels)
             .Select(x => x.Value)
             .FirstOrDefaultAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(raw)) return DefaultMachineModels;
+        if (string.IsNullOrWhiteSpace(raw))
+            return DefaultMachineModels.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
 
         try
         {
@@ -91,11 +92,12 @@ public class SystemSettingsService
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         catch (JsonException)
         {
-            return DefaultMachineModels;
+            return DefaultMachineModels.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
 
@@ -105,6 +107,17 @@ public class SystemSettingsService
         var value = model.Trim();
         if (models.Contains(value, StringComparer.OrdinalIgnoreCase)) return false;
         models.Add(value);
+        await SetValueAsync(SystemSettingKeys.MachineModels, JsonSerializer.Serialize(models), cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> RemoveMachineModelAsync(string model, CancellationToken cancellationToken = default)
+    {
+        var models = (await GetMachineModelsAsync(cancellationToken)).ToList();
+        if (models.RemoveAll(x => string.Equals(x, model.Trim(), StringComparison.OrdinalIgnoreCase)) == 0)
+            return false;
+
         await SetValueAsync(SystemSettingKeys.MachineModels, JsonSerializer.Serialize(models), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return true;

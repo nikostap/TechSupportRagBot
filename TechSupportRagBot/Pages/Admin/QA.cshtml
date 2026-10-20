@@ -38,6 +38,10 @@
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
                 <select asp-for="EditInput.MachineModel">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                    @if (!string.IsNullOrWhiteSpace(Model.EditInput.MachineModel) && !Model.MachineModelOptions.Contains(Model.EditInput.MachineModel, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <option value="@Model.EditInput.MachineModel">@Model.EditInput.MachineModel</option>
+                    }
                     @foreach (var modelName in Model.MachineModelOptions)
                     {
                         <option value="@modelName">@modelName</option>
@@ -126,6 +130,10 @@
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
                 <select asp-for="Input.MachineModel">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                    @if (!string.IsNullOrWhiteSpace(Model.Input.MachineModel) && !Model.MachineModelOptions.Contains(Model.Input.MachineModel, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <option value="@Model.Input.MachineModel">@Model.Input.MachineModel</option>
+                    }
                     @foreach (var modelName in Model.MachineModelOptions)
                     {
                         <option value="@modelName">@modelName</option>
@@ -221,6 +229,10 @@
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
                             <select class="qa-import-model" name="ConfirmEntries[@i].MachineModel" data-serial-list="qa-serials-import-@i">
                                 <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                                @if (!string.IsNullOrWhiteSpace(Model.PreviewEntries[i].MachineModel) && !Model.MachineModelOptions.Contains(Model.PreviewEntries[i].MachineModel!, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    <option value="@Model.PreviewEntries[i].MachineModel" selected>@Model.PreviewEntries[i].MachineModel</option>
+                                }
                                 @foreach (var modelName in Model.MachineModelOptions)
                                 {
                                     <option value="@modelName" selected="@(string.Equals(modelName, Model.PreviewEntries[i].MachineModel, StringComparison.OrdinalIgnoreCase))">@modelName</option>
@@ -561,7 +573,8 @@
 
     function normalizeSerialRule(input) {
         const match = input.value.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
-        input.value = match ? (match[2] ? `${match[1]}-${match[2]}` : match[1]) : "";
+        const pad = value => value.length < 3 ? value.padStart(3, "0") : value;
+        input.value = match ? (match[2] ? `${pad(match[1])}-${pad(match[2])}` : pad(match[1])) : "";
     }
 
     document.querySelectorAll("[data-serial-rule]").forEach(input => {

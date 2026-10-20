@@ -108,6 +108,15 @@ public class SettingsModel : PageModel
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostDeleteMachineModelAsync(string machineModel)
+    {
+        MachineModelStatus = !string.IsNullOrWhiteSpace(machineModel)
+            && await _settings.RemoveMachineModelAsync(machineModel, HttpContext.RequestAborted)
+            ? UiText.T(HttpContext, "MachineModelRemoved")
+            : UiText.T(HttpContext, "MachineModelNotFound");
+        return RedirectToPage();
+    }
+
     private async Task LoadAsync(bool fillInput = true)
     {
         Models = await _ollama.ListModelsAsync(HttpContext.RequestAborted);

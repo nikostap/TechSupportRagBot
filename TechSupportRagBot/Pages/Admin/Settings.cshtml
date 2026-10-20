@@ -92,12 +92,24 @@
         {
             <div class="notice-soft" role="status">@Model.MachineModelStatus</div>
         }
-        <p>@string.Join(", ", Model.MachineModels)</p>
         <form method="post" asp-page-handler="AddMachineModel">
             <label for="machine-model-new">@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMachineModel")</label>
             <input id="machine-model-new" name="machineModel" maxlength="50" required />
             <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
         </form>
+        <p class="field-hint">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModelRemovalHint")</p>
+        <ul class="machine-model-settings-list">
+            @foreach (var modelName in Model.MachineModels)
+            {
+                <li>
+                    <span>@modelName</span>
+                    <form method="post" asp-page-handler="DeleteMachineModel">
+                        <input type="hidden" name="machineModel" value="@modelName" />
+                        <button class="btn-danger small" type="submit" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "DeleteMachineModel") @modelName">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                    </form>
+                </li>
+            }
+        </ul>
     </section>
     <form method="post" class="panel" id="rag-settings-form">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ModelsAndProviders")</h2>

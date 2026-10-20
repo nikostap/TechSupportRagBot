@@ -46,7 +46,7 @@ public class MachinesModel : PageModel
         {
             Name = Input.Name.Trim(),
             Model = Input.Model.Trim(),
-            SerialNumber = Input.SerialNumber.Trim(),
+            SerialNumber = SerialNumberFormatter.NormalizeMachine(Input.SerialNumber),
             Description = Input.Description,
             LicenseKey = LicenseKeyGenerator.Generate()
         });
@@ -65,7 +65,8 @@ public class MachinesModel : PageModel
 
         await LoadAsync();
         if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.SerialNumber)
-            || !MachineModelOptions.Contains(input.Model, StringComparer.OrdinalIgnoreCase))
+            || (!MachineModelOptions.Contains(input.Model, StringComparer.OrdinalIgnoreCase)
+                && !string.Equals(input.Model, machine.Model, StringComparison.OrdinalIgnoreCase)))
         {
             AlertMessage = UiText.T(HttpContext, "MachineModelInvalidSelection");
             return RedirectToPage();
@@ -73,7 +74,7 @@ public class MachinesModel : PageModel
 
         machine.Name = input.Name.Trim();
         machine.Model = input.Model.Trim();
-        machine.SerialNumber = input.SerialNumber.Trim();
+        machine.SerialNumber = SerialNumberFormatter.NormalizeMachine(input.SerialNumber);
         machine.Description = input.Description;
         await _db.SaveChangesAsync();
         return RedirectToPage();
@@ -107,11 +108,7 @@ public class MachinesModel : PageModel
     private async Task LoadAsync()
     {
         Machines = await _db.Machines.OrderBy(x => x.Name).ToListAsync();
-        MachineModelOptions = (await _settings.GetMachineModelsAsync(HttpContext.RequestAborted))
-            .Concat(Machines.Select(x => x.Model))
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        MachineModelOptions = await _settings.GetMachineModelsAsync(HttpContext.RequestAborted);
     }
 
     public class MachineInput
