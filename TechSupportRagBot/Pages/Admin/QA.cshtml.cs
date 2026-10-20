@@ -17,15 +17,18 @@ public class QAModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly QAService _qa;
     private readonly FileUploadValidationService _uploads;
+    private readonly SystemSettingsService _settings;
 
     public QAModel(
         ApplicationDbContext db,
         QAService qa,
-        FileUploadValidationService uploads)
+        FileUploadValidationService uploads,
+        SystemSettingsService settings)
     {
         _db = db;
         _qa = qa;
         _uploads = uploads;
+        _settings = settings;
     }
 
     [BindProperty]
@@ -75,6 +78,7 @@ public class QAModel : PageModel
     public List<KnowledgeCategory> Categories { get; private set; } = new();
 
     public List<Machine> Machines { get; private set; } = new();
+    public IReadOnlyList<string> MachineModelOptions { get; private set; } = Array.Empty<string>();
 
     public List<string> MachineFilterOptions { get; private set; } = new();
 
@@ -409,6 +413,14 @@ public class QAModel : PageModel
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync();
+        MachineModelOptions = (await _settings.GetMachineModelsAsync(HttpContext.RequestAborted))
+            .Concat(Machines.Select(x => x.Model))
+            .Concat(MachineFilterOptions)
+            .Concat(PreviewEntries.Select(x => x.MachineModel ?? string.Empty))
+            .Concat([Input.MachineModel ?? string.Empty, EditInput.MachineModel ?? string.Empty])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         SerialFilterOptions = await _db.QAEntries.AsNoTracking()
             .Where(x => x.SerialNumber != null && x.SerialNumber != "")
             .Select(x => x.SerialNumber!)

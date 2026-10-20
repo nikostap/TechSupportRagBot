@@ -86,6 +86,19 @@
 </section>
 
 <div class="settings-layout">
+    <section class="panel">
+        <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModels")</h2>
+        @if (!string.IsNullOrWhiteSpace(Model.MachineModelStatus))
+        {
+            <div class="notice-soft" role="status">@Model.MachineModelStatus</div>
+        }
+        <p>@string.Join(", ", Model.MachineModels)</p>
+        <form method="post" asp-page-handler="AddMachineModel">
+            <label for="machine-model-new">@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMachineModel")</label>
+            <input id="machine-model-new" name="machineModel" maxlength="50" required />
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
+        </form>
+    </section>
     <form method="post" class="panel" id="rag-settings-form">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ModelsAndProviders")</h2>
 

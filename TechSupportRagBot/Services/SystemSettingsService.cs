@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TechSupportRagBot.Data;
@@ -7,6 +8,8 @@ namespace TechSupportRagBot.Services;
 
 public class SystemSettingsService
 {
+    private static readonly string[] DefaultMachineModels =
+        ["L", "M", "S", "PS", "CL", "EVO", "PRO", "PM", "PB", "CS2", "CF", "ALF", "MS"];
     private readonly ApplicationDbContext _db;
     private readonly RagOptions _ragOptions;
     private readonly StorageOptions _storageOptions;
@@ -72,6 +75,39 @@ public class SystemSettingsService
     {
         await SetValueAsync(SystemSettingKeys.StorageProvider, NormalizeStorageProvider(provider), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetMachineModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var raw = await _db.SystemSettings.AsNoTracking()
+            .Where(x => x.Key == SystemSettingKeys.MachineModels)
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(raw)) return DefaultMachineModels;
+
+        try
+        {
+            return (JsonSerializer.Deserialize<string[]>(raw) ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return DefaultMachineModels;
+        }
+    }
+
+    public async Task<bool> AddMachineModelAsync(string model, CancellationToken cancellationToken = default)
+    {
+        var models = (await GetMachineModelsAsync(cancellationToken)).ToList();
+        var value = model.Trim();
+        if (models.Contains(value, StringComparer.OrdinalIgnoreCase)) return false;
+        models.Add(value);
+        await SetValueAsync(SystemSettingKeys.MachineModels, JsonSerializer.Serialize(models), cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task SeedDefaultsAsync(CancellationToken cancellationToken = default)

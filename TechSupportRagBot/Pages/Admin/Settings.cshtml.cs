@@ -55,6 +55,9 @@ public class SettingsModel : PageModel
         && !string.IsNullOrWhiteSpace(_storageOptions.S3.SecretKey);
 
     public string? StatusMessage { get; private set; }
+    [TempData]
+    public string? MachineModelStatus { get; set; }
+    public IReadOnlyList<string> MachineModels { get; private set; } = Array.Empty<string>();
 
     public async Task OnGetAsync()
     {
@@ -90,9 +93,25 @@ public class SettingsModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostAddMachineModelAsync(string machineModel)
+    {
+        var value = machineModel?.Trim();
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 50 || value.Any(char.IsControl))
+        {
+            MachineModelStatus = UiText.T(HttpContext, "MachineModelInvalid");
+            return RedirectToPage();
+        }
+
+        MachineModelStatus = await _settings.AddMachineModelAsync(value, HttpContext.RequestAborted)
+            ? UiText.T(HttpContext, "MachineModelAdded")
+            : UiText.T(HttpContext, "MachineModelExists");
+        return RedirectToPage();
+    }
+
     private async Task LoadAsync(bool fillInput = true)
     {
         Models = await _ollama.ListModelsAsync(HttpContext.RequestAborted);
+        MachineModels = await _settings.GetMachineModelsAsync(HttpContext.RequestAborted);
 
         if (fillInput)
         {

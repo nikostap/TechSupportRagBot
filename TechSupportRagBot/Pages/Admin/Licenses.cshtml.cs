@@ -119,7 +119,9 @@ public class LicensesModel : PageModel
             .ToListAsync();
 
         ClientOptions = new SelectList(await _db.Clients.OrderBy(x => x.Name).ToListAsync(), "Id", "Name");
-        MachineOptions = new SelectList(await _db.Machines.OrderBy(x => x.Name).ToListAsync(), "Id", "Name");
+        MachineOptions = new SelectList(await _db.Machines.OrderBy(x => x.Model).ThenBy(x => x.Name)
+            .Select(x => new { x.Id, DisplayName = x.Model + " · " + x.Name + " · " + x.SerialNumber })
+            .ToListAsync(), "Id", "DisplayName");
     }
 
     public class LicenseInput

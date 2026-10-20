@@ -13,8 +13,13 @@ namespace TechSupportRagBot.Pages.Admin;
 public class MachinesModel : PageModel
 {
     private readonly ApplicationDbContext _db;
+    private readonly SystemSettingsService _settings;
 
-    public MachinesModel(ApplicationDbContext db) => _db = db;
+    public MachinesModel(ApplicationDbContext db, SystemSettingsService settings)
+    {
+        _db = db;
+        _settings = settings;
+    }
 
     [BindProperty]
     public MachineInput Input { get; set; } = new();
@@ -23,14 +28,17 @@ public class MachinesModel : PageModel
     public string? AlertMessage { get; set; }
 
     public List<Machine> Machines { get; private set; } = new();
+    public IReadOnlyList<string> MachineModelOptions { get; private set; } = Array.Empty<string>();
 
     public async Task OnGetAsync() => await LoadAsync();
 
     public async Task<IActionResult> OnPostAsync()
     {
+        await LoadAsync();
+        if (!MachineModelOptions.Contains(Input.Model, StringComparer.OrdinalIgnoreCase))
+            ModelState.AddModelError(nameof(Input.Model), UiText.T(HttpContext, "SelectMachineModel"));
         if (!ModelState.IsValid)
         {
-            await LoadAsync();
             return Page();
         }
 
@@ -52,6 +60,14 @@ public class MachinesModel : PageModel
         var machine = await _db.Machines.FindAsync(id);
         if (machine == null)
         {
+            return RedirectToPage();
+        }
+
+        await LoadAsync();
+        if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.SerialNumber)
+            || !MachineModelOptions.Contains(input.Model, StringComparer.OrdinalIgnoreCase))
+        {
+            AlertMessage = UiText.T(HttpContext, "MachineModelInvalidSelection");
             return RedirectToPage();
         }
 
@@ -91,6 +107,11 @@ public class MachinesModel : PageModel
     private async Task LoadAsync()
     {
         Machines = await _db.Machines.OrderBy(x => x.Name).ToListAsync();
+        MachineModelOptions = (await _settings.GetMachineModelsAsync(HttpContext.RequestAborted))
+            .Concat(Machines.Select(x => x.Model))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public class MachineInput

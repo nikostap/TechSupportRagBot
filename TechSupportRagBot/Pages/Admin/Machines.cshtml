@@ -21,7 +21,15 @@
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMachine")</h2>
         <div class="machine-create-grid">
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Name")<input asp-for="Input.Name" /></label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")<input asp-for="Input.Model" /></label>
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
+                <select asp-for="Input.Model">
+                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectMachineModel")</option>
+                    @foreach (var modelName in Model.MachineModelOptions)
+                    {
+                        <option value="@modelName">@modelName</option>
+                    }
+                </select>
+            </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")<input asp-for="Input.SerialNumber" /></label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Description")<input asp-for="Input.Description" /></label>
             <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Add")</button>
@@ -43,7 +51,12 @@
                             </label>
                             <label>
                                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</span>
-                                <input name="input.Model" value="@machine.Model" />
+                                <select name="input.Model">
+                                    @foreach (var modelName in Model.MachineModelOptions)
+                                    {
+                                        <option value="@modelName" selected="@(string.Equals(modelName, machine.Model, StringComparison.OrdinalIgnoreCase))">@modelName</option>
+                                    }
+                                </select>
                             </label>
                             <label>
                                 <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber")</span>
