@@ -4,6 +4,8 @@
     const status = document.querySelector('[data-push-status]');
     if (!form || !button || !status) return;
     const key = form.dataset.publicKey;
+    let registration;
+    let currentSubscription;
     const t = name => form.dataset[name] || '';
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     const setStatus = (text, enabled) => {
@@ -25,30 +27,31 @@
         return Uint8Array.from(raw, character => character.charCodeAt(0));
     };
     const refresh = async () => {
+        button.disabled = true;
         if (!key || !supported) {
             setStatus(t('unsupported'), false);
-            button.disabled = true;
             return;
         }
-        const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
-        const subscription = await registration.pushManager.getSubscription();
-        if (subscription && Notification.permission === 'granted') {
-            const details = subscription.toJSON();
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
+        registration = await Promise.race([navigator.serviceWorker.register('/push-sw.js', { scope: '/' }), timeout]);
+        currentSubscription = await Promise.race([registration.pushManager.getSubscription(), timeout]);
+        if (currentSubscription && Notification.permission === 'granted') {
+            const details = currentSubscription.toJSON();
             await post('Subscribe', { endpoint: details.endpoint, p256dh: details.keys.p256dh, auth: details.keys.auth });
             setStatus(t('enabled'), true);
         } else {
             setStatus(Notification.permission === 'denied' ? t('denied') : t('disabled'), false);
         }
+        button.disabled = false;
     };
     button.addEventListener('click', async () => {
         button.disabled = true;
         try {
             if (button.dataset.enabled === 'true') {
-                const registration = await navigator.serviceWorker.ready;
-                const existing = await registration.pushManager.getSubscription();
-                if (existing) {
-                    await post('Unsubscribe', { endpoint: existing.endpoint });
-                    await existing.unsubscribe();
+                if (currentSubscription) {
+                    await post('Unsubscribe', { endpoint: currentSubscription.endpoint });
+                    await currentSubscription.unsubscribe();
+                    currentSubscription = null;
                 }
                 setStatus(t('disabled'), false);
             } else {
@@ -56,13 +59,11 @@
                 if (permission !== 'granted') {
                     setStatus(t('denied'), false);
                 } else {
-                    const registration = await navigator.serviceWorker.ready;
-                    const existing = await registration.pushManager.getSubscription();
-                    const subscription = existing || await registration.pushManager.subscribe({
+                    currentSubscription = currentSubscription || await registration.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: decodeKey(key)
                     });
-                    const details = subscription.toJSON();
+                    const details = currentSubscription.toJSON();
                     await post('Subscribe', { endpoint: details.endpoint, p256dh: details.keys.p256dh, auth: details.keys.auth });
                     setStatus(t('enabled'), true);
                 }
@@ -73,5 +74,5 @@
             button.disabled = false;
         }
     });
-    refresh().catch(() => setStatus(t('error'), false));
+    refresh().catch(() => { setStatus(t('error'), false); button.disabled = true; });
 })();
