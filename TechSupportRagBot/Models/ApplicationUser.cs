@@ -22,7 +22,6 @@ public class ApplicationUser : IdentityUser
     /// Пароль, выданный администратором при создании учетной записи.
     /// Для оператора это временный пароль до первой смены.
     /// </summary>
-    public string? IssuedPassword { get; set; }
 
     public bool MustChangePassword { get; set; }
 

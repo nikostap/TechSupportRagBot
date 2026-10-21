@@ -21,6 +21,7 @@ public class TicketModel : PageModel
     private readonly RagAuditLogger _auditLogger;
     private readonly ChatMessageDeletionService _messageDeletion;
     private readonly AccessProfileService _access;
+    private readonly ChatTicketAccessService _ticketAccess;
     private readonly FileStorageService _storage;
     private readonly FileUploadValidationService _uploads;
 
@@ -34,6 +35,7 @@ public class TicketModel : PageModel
         RagAuditLogger auditLogger,
         ChatMessageDeletionService messageDeletion,
         AccessProfileService access,
+        ChatTicketAccessService ticketAccess,
         FileStorageService storage,
         FileUploadValidationService uploads)
     {
@@ -46,6 +48,7 @@ public class TicketModel : PageModel
         _auditLogger = auditLogger;
         _messageDeletion = messageDeletion;
         _access = access;
+        _ticketAccess = ticketAccess;
         _storage = storage;
         _uploads = uploads;
     }
@@ -119,14 +122,16 @@ public class TicketModel : PageModel
             return NotFound();
         }
 
-        var messages = await _db.ChatMessages.AsNoTracking()
+        var messages = await _db.ChatMessages
             .Include(x => x.AuthorUser)
             .Include(x => x.Attachments)
             .Include(x => x.Translations)
+            .Include(x => x.OperatorReads)
             .Where(x => x.TicketId == id && x.Id > afterId)
             .OrderBy(x => x.Id)
             .Take(100)
             .ToListAsync();
+        await MarkMessagesReadAsync(messages);
         var currentUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == CurrentUserId);
         return new JsonResult(new
         {
@@ -466,6 +471,11 @@ public class TicketModel : PageModel
 
     private async Task<Ticket?> LoadTicketForCurrentOperatorAsync(int id)
     {
+        if (!await _ticketAccess.CanReadAsync(User, id, HttpContext.RequestAborted))
+        {
+            return null;
+        }
+
         var ticket = await _db.Tickets
             .Include(x => x.OperatorAssignments)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -480,6 +490,11 @@ public class TicketModel : PageModel
 
     private async Task<bool> LoadAsync(int id)
     {
+        if (!await _ticketAccess.CanReadAsync(User, id, HttpContext.RequestAborted))
+        {
+            return false;
+        }
+
         CurrentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         CanWriteChat = await _access.IsAllowedAsync(User, "ChatWrite", HttpContext.RequestAborted);
         CanCloseTickets = await _access.IsAllowedAsync(User, "CloseTickets", HttpContext.RequestAborted);
@@ -501,6 +516,7 @@ public class TicketModel : PageModel
             .Include(x => x.AuthorUser)
             .Include(x => x.Attachments)
             .Include(x => x.Translations)
+            .Include(x => x.OperatorReads)
             .Where(x => x.TicketId == id)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
@@ -508,18 +524,31 @@ public class TicketModel : PageModel
         var currentUser = await _db.Users.FirstOrDefaultAsync(x => x.Id == CurrentUserId);
         Messages = BuildMessageViews(rawMessages, currentUser);
 
-        var unread = rawMessages.Where(x => x.AuthorUserId != CurrentUserId && !x.IsReadByOperator).ToList();
+        await MarkMessagesReadAsync(rawMessages);
+
+        return true;
+    }
+
+    private async Task MarkMessagesReadAsync(IEnumerable<ChatMessage> messages)
+    {
+        if (string.IsNullOrWhiteSpace(CurrentUserId)) return;
+
+        var unread = messages.Where(x => x.AuthorUserId != CurrentUserId
+            && !x.OperatorReads.Any(read => read.OperatorUserId == CurrentUserId)).ToList();
         if (unread.Count > 0)
         {
             foreach (var message in unread)
             {
                 message.IsReadByOperator = true;
+                _db.ChatMessageOperatorReads.Add(new ChatMessageOperatorRead
+                {
+                    ChatMessageId = message.Id,
+                    OperatorUserId = CurrentUserId
+                });
             }
 
             await _db.SaveChangesAsync();
         }
-
-        return true;
     }
 
     private List<ChatMessageView> BuildMessageViews(List<ChatMessage> messages, ApplicationUser? currentUser)

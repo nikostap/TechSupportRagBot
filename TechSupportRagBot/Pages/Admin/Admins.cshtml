@@ -11,6 +11,11 @@
     </div>
 </section>
 
+@if (TempData["IssuedPasswordOnce"] is string issuedPassword)
+{
+    <div class="panel"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "OneTimePasswordNotice")</strong> @TempData["IssuedUserOnce"]: <code>@issuedPassword</code></div>
+}
+
 <div class="split-layout">
     <form method="post" class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewEmployee")</h2>
@@ -54,7 +59,6 @@
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "FullName")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username")</th>
                         <th>Email</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "TemporaryPassword")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Position")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")</th>
@@ -69,7 +73,6 @@
                         <td>@user.FullName</td>
                         <td><code>@user.UserName</code></td>
                         <td>@user.Email</td>
-                        <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></td>
                         <td>@user.Position</td>
                         <td>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</td>
                         <td>@user.Gender</td>
@@ -77,7 +80,7 @@
                         <td class="table-actions">
                             <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</a>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
-                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                                <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeactivateUser")</button>
                             </form>
                         </td>
                     </tr>

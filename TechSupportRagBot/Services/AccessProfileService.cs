@@ -151,7 +151,7 @@ public class AccessProfileService
         }
 
         var user = await _userManager.GetUserAsync(principal);
-        if (user == null)
+        if (user == null || AccountDeactivationService.IsDisabled(user))
         {
             return false;
         }

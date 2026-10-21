@@ -46,6 +46,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     /// Таблица сообщений в обращениях.
     /// </summary>
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatMessageOperatorRead> ChatMessageOperatorReads => Set<ChatMessageOperatorRead>();
 
     /// <summary>
     /// Таблица вложений к сообщениям.
@@ -111,6 +112,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Обязательно вызываем базовую настройку Identity.
         // Без этого таблицы пользователей и ролей будут созданы неправильно.
         base.OnModelCreating(builder);
+
+        builder.Entity<ChatMessageOperatorRead>()
+            .HasKey(x => new { x.ChatMessageId, x.OperatorUserId });
+        builder.Entity<ChatMessageOperatorRead>()
+            .HasOne(x => x.ChatMessage).WithMany(x => x.OperatorReads)
+            .HasForeignKey(x => x.ChatMessageId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<ChatMessageOperatorRead>()
+            .HasOne(x => x.OperatorUser).WithMany()
+            .HasForeignKey(x => x.OperatorUserId).OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<ApplicationUser>()
             .HasOne(x => x.Client)

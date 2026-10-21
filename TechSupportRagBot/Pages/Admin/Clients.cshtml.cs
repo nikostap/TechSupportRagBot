@@ -93,7 +93,6 @@ public class ClientsModel : PageModel
                 FullName = Input.FullName.Trim(),
                 ClientId = client.Id,
                 AccessProfile = AccessProfileService.Client,
-                IssuedPassword = password,
                 MustChangePassword = true,
                 Country = "ru",
                 EmailConfirmed = true
@@ -127,6 +126,8 @@ public class ClientsModel : PageModel
 
             await transaction.CommitAsync();
             await _welcomeMail.SendIfAddressAvailableAsync(user, password, HttpContext.RequestAborted);
+            TempData["IssuedPasswordOnce"] = password;
+            TempData["IssuedUserOnce"] = user.UserName;
             return RedirectToPage();
         }
         catch (Exception ex)
@@ -175,13 +176,14 @@ public class ClientsModel : PageModel
         var user = await _userManager.FindByIdAsync(userId);
         if (user != null && await _userManager.IsInRoleAsync(user, "Client") && !string.IsNullOrWhiteSpace(password))
         {
-            await _userManager.RemovePasswordAsync(user);
-            var result = await _userManager.AddPasswordAsync(user, password);
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, password);
             if (result.Succeeded)
             {
-                user.IssuedPassword = password;
-                user.MustChangePassword = false;
+                user.MustChangePassword = true;
                 await _userManager.UpdateAsync(user);
+                TempData["IssuedPasswordOnce"] = password;
+                TempData["IssuedUserOnce"] = user.UserName;
             }
         }
 

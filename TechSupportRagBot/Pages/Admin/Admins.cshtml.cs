@@ -13,8 +13,13 @@ namespace TechSupportRagBot.Pages.Admin;
 public class AdminsModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AccountDeactivationService _deactivation;
 
-    public AdminsModel(UserManager<ApplicationUser> userManager) => _userManager = userManager;
+    public AdminsModel(UserManager<ApplicationUser> userManager, AccountDeactivationService deactivation)
+    {
+        _userManager = userManager;
+        _deactivation = deactivation;
+    }
 
     [BindProperty]
     public AdminInput Input { get; set; } = new();
@@ -63,7 +68,6 @@ public class AdminsModel : PageModel
             AccessProfile = profile,
             Gender = Input.Gender,
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
-            IssuedPassword = temporaryPassword,
             MustChangePassword = true,
             EmailConfirmed = true
         };
@@ -73,7 +77,12 @@ public class AdminsModel : PageModel
         {
             var roleResult = await _userManager.AddToRoleAsync(user,
                 profile == AccessProfileService.Administrator ? "Admin" : "Operator");
-            if (roleResult.Succeeded) return RedirectToPage();
+            if (roleResult.Succeeded)
+            {
+                TempData["IssuedPasswordOnce"] = temporaryPassword;
+                TempData["IssuedUserOnce"] = user.UserName;
+                return RedirectToPage();
+            }
             await _userManager.DeleteAsync(user);
             result = roleResult;
         }
@@ -129,13 +138,14 @@ public class AdminsModel : PageModel
         var user = await _userManager.FindByIdAsync(id);
         if (user != null && !await _userManager.IsInRoleAsync(user, "Client") && !string.IsNullOrWhiteSpace(password))
         {
-            await _userManager.RemovePasswordAsync(user);
-            var result = await _userManager.AddPasswordAsync(user, password);
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, password);
             if (result.Succeeded)
             {
-                user.IssuedPassword = password;
                 user.MustChangePassword = true;
                 await _userManager.UpdateAsync(user);
+                TempData["IssuedPasswordOnce"] = password;
+                TempData["IssuedUserOnce"] = user.UserName;
             }
         }
 
@@ -144,12 +154,13 @@ public class AdminsModel : PageModel
 
     public async Task<IActionResult> OnPostDeleteAsync(string id)
     {
-        var admins = await _userManager.GetUsersInRoleAsync("Admin");
+        var admins = (await _userManager.GetUsersInRoleAsync("Admin"))
+            .Where(x => !AccountDeactivationService.IsDisabled(x)).ToList();
         var user = await _userManager.FindByIdAsync(id);
         if (user != null && !await _userManager.IsInRoleAsync(user, "Client")
             && (!await _userManager.IsInRoleAsync(user, "Admin") || admins.Count > 1))
         {
-            await _userManager.DeleteAsync(user);
+            await _deactivation.DeactivateAsync(user);
         }
 
         return RedirectToPage();
@@ -161,7 +172,7 @@ public class AdminsModel : PageModel
         var clientIds = clients.Select(x => x.Id).ToHashSet();
         Admins = await _userManager.Users
             .AsNoTracking()
-            .Where(x => !clientIds.Contains(x.Id))
+            .Where(x => !clientIds.Contains(x.Id) && x.LockoutEnd != AccountDeactivationService.DisabledUntil)
             .OrderBy(x => x.FullName)
             .ThenBy(x => x.UserName)
             .ToListAsync();

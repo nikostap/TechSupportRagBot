@@ -11,6 +11,11 @@
     </div>
 </section>
 
+@if (TempData["IssuedPasswordOnce"] is string issuedPassword)
+{
+    <div class="panel"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "OneTimePasswordNotice")</strong> @TempData["IssuedUserOnce"]: <code>@issuedPassword</code></div>
+}
+
 <div class="split-layout">
     <form method="post" class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewCompanyUser")</h2>
@@ -58,13 +63,12 @@
                 <dl class="company-user-meta">
                     <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, user.AccessProfile)</dd></div>
                     <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, user.Country)</dd></div>
-                    <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
                 </dl>
                 <div class="company-user-actions">
                     @if (user.Id != Model.CurrentUserId)
                     {
                         <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" class="row-action">
-                            <button class="btn-danger small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
+                            <button class="btn-danger small" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "DeactivateUser")</button>
                         </form>
                     }
                 </div>

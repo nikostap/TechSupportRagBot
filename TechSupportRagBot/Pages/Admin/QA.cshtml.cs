@@ -453,7 +453,8 @@ public class QAModel : PageModel
             SerialNumber = input.SerialNumber,
             NodeName = input.NodeName,
             ProblemType = input.ProblemType,
-            Status = string.IsNullOrWhiteSpace(input.Status) ? QAEntryStatuses.Verified : input.Status,
+            Status = string.IsNullOrWhiteSpace(input.Status) ? QAEntryStatuses.Draft : input.Status,
+            AvailableToClients = input.AvailableToClients,
             Source = source,
             CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
         };
@@ -474,6 +475,7 @@ public class QAModel : PageModel
             NodeName = entry.NodeName,
             ProblemType = entry.ProblemType,
             Status = string.IsNullOrWhiteSpace(entry.Status) ? QAEntryStatuses.Verified : entry.Status,
+            AvailableToClients = entry.AvailableToClients,
             Source = string.IsNullOrWhiteSpace(entry.Source) ? QAEntrySources.Import : entry.Source
         };
     }
@@ -500,7 +502,9 @@ public class QAModel : PageModel
 
         public string? ProblemType { get; set; }
 
-        public string Status { get; set; } = QAEntryStatuses.Verified;
+        public string Status { get; set; } = QAEntryStatuses.Draft;
+
+        public bool AvailableToClients { get; set; }
 
         public string Source { get; set; } = QAEntrySources.Import;
     }

@@ -160,6 +160,10 @@
   .dispatch-theme .tickets-focus-actions .tickets-open-chat,.dispatch-theme .tickets-focus-actions .row-action{width:100%}
   .dispatch-theme .tickets-focus-actions .row-action button{width:100%}
 }
+.dispatch-theme .qa-tools{margin-bottom:18px}
+.dispatch-theme .qa-tools>summary{cursor:pointer;font-weight:700;line-height:1.5}
+.dispatch-theme .qa-tools>summary:focus-visible{outline:2px solid currentColor;outline-offset:4px}
+.dispatch-theme .qa-tools[open]>.knowledge-layout{margin-top:16px}
 
 /* Один принцип выбора для QA, решений, поиска и списков обращений. */
 .dispatch-theme .focus-list-workspace{display:grid;grid-template-columns:230px minmax(0,1fr);gap:16px;min-height:0;height:clamp(420px,calc(100dvh - 300px),900px)}

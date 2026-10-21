@@ -40,15 +40,7 @@ public sealed class ChatTicketAccessService
             return null;
         }
 
-        var canReadAllTickets = await _accessProfiles.IsAllowedAsync(principal, "Tickets", cancellationToken);
-        var hasTicketAccess = canReadAllTickets
-            ? await _db.Tickets.AnyAsync(x => x.Id == ticketId, cancellationToken)
-            : user.ClientId.HasValue && await _db.Tickets.AnyAsync(
-                x => x.Id == ticketId
-                    && _db.Users.Any(owner => owner.Id == x.ClientUserId && owner.ClientId == user.ClientId),
-                cancellationToken);
-
-        if (!hasTicketAccess)
+        if (!await CanReadAsync(principal, ticketId, cancellationToken))
         {
             return null;
         }
@@ -57,6 +49,56 @@ public sealed class ChatTicketAccessService
             ? user.UserName ?? "User"
             : user.FullName;
         return new ChatTicketAccess(ticketId, displayName);
+    }
+
+    public async Task<bool> CanReadAsync(
+        ClaimsPrincipal principal,
+        int ticketId,
+        CancellationToken cancellationToken = default)
+    {
+        if (ticketId <= 0 || principal.Identity?.IsAuthenticated != true)
+        {
+            return false;
+        }
+
+        var user = await _userManager.GetUserAsync(principal);
+        if (user == null)
+        {
+            return false;
+        }
+
+        var hasTicketPermission = await _accessProfiles.IsAllowedAsync(principal, "Tickets", cancellationToken);
+        if (user.ClientId.HasValue)
+        {
+            if (!hasTicketPermission
+                && !await _accessProfiles.IsAllowedAsync(principal, "ClientCabinet", cancellationToken))
+            {
+                return false;
+            }
+
+            return await _db.Tickets.AnyAsync(x => x.Id == ticketId
+                && _db.Users.Any(owner => owner.Id == x.ClientUserId && owner.ClientId == user.ClientId),
+                cancellationToken);
+        }
+
+        return hasTicketPermission && await _db.Tickets.AnyAsync(x => x.Id == ticketId, cancellationToken);
+    }
+
+    public async Task<IQueryable<Ticket>> ScopeTicketsAsync(
+        ClaimsPrincipal principal,
+        IQueryable<Ticket> tickets,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.GetUserAsync(principal);
+        if (user == null)
+        {
+            return tickets.Where(_ => false);
+        }
+
+        return user.ClientId.HasValue
+            ? tickets.Where(ticket => _db.Users.Any(owner =>
+                owner.Id == ticket.ClientUserId && owner.ClientId == user.ClientId))
+            : tickets;
     }
 }
 

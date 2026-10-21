@@ -55,7 +55,7 @@
                 .Where(x =>
                     x.Ticket!.Status != TicketStatuses.Closed &&
                     x.AuthorUserId != currentUserId &&
-                    !x.IsReadByOperator &&
+                    !x.OperatorReads.Any(read => read.OperatorUserId == currentUserId) &&
                     (x.Ticket.OperatorUserId == currentUserId ||
                      x.Ticket.OperatorAssignments.Any(a => a.OperatorUserId == currentUserId)))
                 .ToListAsync();

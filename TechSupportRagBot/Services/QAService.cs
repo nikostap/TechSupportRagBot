@@ -71,6 +71,7 @@ public class QAService
         entry.Category = input.Category;
         entry.ProblemType = input.ProblemType;
         entry.Status = input.Status;
+        entry.AvailableToClients = input.AvailableToClients;
         entry.Source = input.Source;
         entry.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
@@ -233,6 +234,9 @@ public class QAService
 
         _db.KnowledgeChunks.RemoveRange(entry.Chunks);
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (entry.Status != QAEntryStatuses.Verified || !entry.AvailableToClients)
+            return true;
 
         var searchText = BuildSearchText(entry);
         var chunk = new KnowledgeChunk

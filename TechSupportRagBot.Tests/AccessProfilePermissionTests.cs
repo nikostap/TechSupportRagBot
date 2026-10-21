@@ -75,6 +75,95 @@ public sealed class AccessProfilePermissionTests
         Assert.True(string.IsNullOrEmpty(attribute.Roles));
     }
 
+    [Fact]
+    public async Task TicketsPermissionNeverGrantsClientAccessToAnotherCompany()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection));
+        services.AddIdentityCore<ApplicationUser>().AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<ApplicationDbContext>();
+        services.AddScoped<AccessProfileService>();
+        services.AddScoped<ChatTicketAccessService>();
+        await using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var profiles = scope.ServiceProvider.GetRequiredService<AccessProfileService>();
+        var ticketAccess = scope.ServiceProvider.GetRequiredService<ChatTicketAccessService>();
+
+        var first = new Client { Name = "First company" };
+        var second = new Client { Name = "Second company" };
+        var machine = new Machine { Name = "Machine", Model = "ALF" };
+        db.AddRange(first, second, machine);
+        await db.SaveChangesAsync();
+        var firstUser = new ApplicationUser { UserName = "first", ClientId = first.Id,
+            AccessProfile = AccessProfileService.Client };
+        var secondUser = new ApplicationUser { UserName = "second", ClientId = second.Id,
+            AccessProfile = AccessProfileService.Client };
+        var internalUser = new ApplicationUser { UserName = "internal", AccessProfile = AccessProfileService.Operator };
+        Assert.True((await users.CreateAsync(firstUser)).Succeeded);
+        Assert.True((await users.CreateAsync(secondUser)).Succeeded);
+        Assert.True((await users.CreateAsync(internalUser)).Succeeded);
+        var firstTicket = new Ticket { Title = "First ticket", ClientUserId = firstUser.Id, MachineId = machine.Id };
+        var secondTicket = new Ticket { Title = "Second ticket", ClientUserId = secondUser.Id, MachineId = machine.Id };
+        db.Tickets.AddRange(firstTicket, secondTicket);
+        await db.SaveChangesAsync();
+
+        var rules = await profiles.GetProfilesAsync();
+        rules.Single(x => x.Key == AccessProfileService.Client).Permissions["Tickets"] = true;
+        await profiles.SaveProfilesAsync(rules);
+
+        Assert.True(await ticketAccess.CanReadAsync(Principal(firstUser), firstTicket.Id));
+        Assert.False(await ticketAccess.CanReadAsync(Principal(firstUser), secondTicket.Id));
+        Assert.True(await ticketAccess.CanReadAsync(Principal(internalUser), secondTicket.Id));
+        var visibleIds = await (await ticketAccess.ScopeTicketsAsync(Principal(firstUser), db.Tickets))
+            .Select(x => x.Id).ToListAsync();
+        Assert.Equal([firstTicket.Id], visibleIds);
+    }
+
+    [Fact]
+    public async Task DeactivatingCompanyUserPreservesTicketAndMessages()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection));
+        services.AddIdentityCore<ApplicationUser>().AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<ApplicationDbContext>();
+        services.AddScoped<AccessProfileService>();
+        services.AddScoped<AccountDeactivationService>();
+        await using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var access = scope.ServiceProvider.GetRequiredService<AccessProfileService>();
+        var deactivation = scope.ServiceProvider.GetRequiredService<AccountDeactivationService>();
+
+        var company = new Client { Name = "Company" };
+        var machine = new Machine { Name = "Machine", Model = "ALF" };
+        db.AddRange(company, machine);
+        await db.SaveChangesAsync();
+        var employee = new ApplicationUser { UserName = "employee", ClientId = company.Id,
+            AccessProfile = AccessProfileService.ClientOperator };
+        Assert.True((await users.CreateAsync(employee)).Succeeded);
+        var ticket = new Ticket { Title = "Existing ticket", ClientUserId = employee.Id, MachineId = machine.Id };
+        db.Tickets.Add(ticket);
+        await db.SaveChangesAsync();
+        db.ChatMessages.Add(new ChatMessage { TicketId = ticket.Id, AuthorUserId = employee.Id, Text = "History" });
+        await db.SaveChangesAsync();
+
+        Assert.True((await deactivation.DeactivateAsync(employee)).Succeeded);
+        Assert.False(await access.IsAllowedAsync(Principal(employee), "ClientCabinet"));
+        Assert.Equal(1, await db.Tickets.CountAsync());
+        Assert.Equal(1, await db.ChatMessages.CountAsync());
+    }
+
     private static ClaimsPrincipal Principal(ApplicationUser user) => new(new ClaimsIdentity(
         [new Claim(ClaimTypes.NameIdentifier, user.Id)], "test"));
 }

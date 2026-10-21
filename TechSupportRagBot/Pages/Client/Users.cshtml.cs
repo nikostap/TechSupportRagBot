@@ -16,18 +16,18 @@ public class UsersModel : PageModel
 {
     private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly TicketDeletionService _ticketDeletion;
+    private readonly AccountDeactivationService _deactivation;
     private readonly AccountWelcomeEmailService _welcomeMail;
 
     public UsersModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
-        TicketDeletionService ticketDeletion,
+        AccountDeactivationService deactivation,
         AccountWelcomeEmailService welcomeMail)
     {
         _db = db;
         _userManager = userManager;
-        _ticketDeletion = ticketDeletion;
+        _deactivation = deactivation;
         _welcomeMail = welcomeMail;
     }
 
@@ -93,7 +93,6 @@ public class UsersModel : PageModel
             AccessProfile = AccessProfileService.ClientOperator,
             Country = ChatTranslationService.NormalizeLanguage(Input.Country),
             ClientId = clientId,
-            IssuedPassword = password,
             MustChangePassword = true,
             EmailConfirmed = true
         };
@@ -105,6 +104,8 @@ public class UsersModel : PageModel
             if (roleResult.Succeeded)
             {
                 await _welcomeMail.SendIfAddressAvailableAsync(user, password, HttpContext.RequestAborted);
+                TempData["IssuedPasswordOnce"] = password;
+                TempData["IssuedUserOnce"] = user.UserName;
                 return RedirectToPage();
             }
             await _userManager.DeleteAsync(user);
@@ -132,8 +133,7 @@ public class UsersModel : PageModel
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (user != null && user.Id != currentUserId)
         {
-            await _ticketDeletion.DeleteTicketsForUsersAsync(new[] { user.Id });
-            await _userManager.DeleteAsync(user);
+            await _deactivation.DeactivateAsync(user);
         }
 
         return RedirectToPage();
@@ -149,7 +149,7 @@ public class UsersModel : PageModel
         }
 
         Users = await _db.Users
-            .Where(x => x.ClientId == clientId)
+            .Where(x => x.ClientId == clientId && x.LockoutEnd != AccountDeactivationService.DisabledUntil)
             .OrderBy(x => x.FullName ?? x.UserName)
             .ToListAsync();
 

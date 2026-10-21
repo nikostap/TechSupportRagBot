@@ -28,4 +28,6 @@ public class ChatMessage
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 
     public ICollection<ChatMessageTranslation> Translations { get; set; } = new List<ChatMessageTranslation>();
+
+    public ICollection<ChatMessageOperatorRead> OperatorReads { get; set; } = new List<ChatMessageOperatorRead>();
 }

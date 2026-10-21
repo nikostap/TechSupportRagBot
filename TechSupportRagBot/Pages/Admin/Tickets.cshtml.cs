@@ -16,17 +16,20 @@ public class TicketsModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TicketDeletionService _ticketDeletion;
     private readonly AccessProfileService _access;
+    private readonly ChatTicketAccessService _ticketAccess;
 
     public TicketsModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
         TicketDeletionService ticketDeletion,
-        AccessProfileService access)
+        AccessProfileService access,
+        ChatTicketAccessService ticketAccess)
     {
         _db = db;
         _userManager = userManager;
         _ticketDeletion = ticketDeletion;
         _access = access;
+        _ticketAccess = ticketAccess;
     }
 
     [BindProperty]
@@ -47,6 +50,11 @@ public class TicketsModel : PageModel
 
     public async Task<IActionResult> OnPostAddOperatorAsync(int id)
     {
+        if (!await _ticketAccess.CanReadAsync(User, id, HttpContext.RequestAborted))
+        {
+            return NotFound();
+        }
+
         if (!await _access.IsAllowedAsync(User, "AssignOperatorsToTickets", HttpContext.RequestAborted))
         {
             return Forbid();
@@ -82,6 +90,11 @@ public class TicketsModel : PageModel
 
     public async Task<IActionResult> OnPostRemoveOperatorAsync(int id, string operatorId)
     {
+        if (!await _ticketAccess.CanReadAsync(User, id, HttpContext.RequestAborted))
+        {
+            return NotFound();
+        }
+
         if (!await _access.IsAllowedAsync(User, "AssignOperatorsToTickets", HttpContext.RequestAborted))
         {
             return Forbid();
@@ -101,6 +114,11 @@ public class TicketsModel : PageModel
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
+        if (!await _ticketAccess.CanReadAsync(User, id, HttpContext.RequestAborted))
+        {
+            return NotFound();
+        }
+
         if (!await _access.IsAllowedAsync(User, "DeleteTickets", HttpContext.RequestAborted))
         {
             return Forbid();
@@ -115,16 +133,17 @@ public class TicketsModel : PageModel
         CanAssignOperatorsToTickets = await _access.IsAllowedAsync(User, "AssignOperatorsToTickets", HttpContext.RequestAborted);
         CanDeleteTickets = await _access.IsAllowedAsync(User, "DeleteTickets", HttpContext.RequestAborted);
 
-        var ticketsQuery = _db.Tickets
+        var ticketsQuery = await _ticketAccess.ScopeTicketsAsync(User, _db.Tickets
             .Include(x => x.Machine)
             .Include(x => x.ClientUser)
                 .ThenInclude(x => x!.Client)
             .Include(x => x.OperatorUser)
             .Include(x => x.Messages)
+                .ThenInclude(x => x.OperatorReads)
             .Include(x => x.ResolvedAnswers)
             .Include(x => x.OperatorAssignments)
                 .ThenInclude(x => x.OperatorUser)
-            .AsQueryable();
+            .AsQueryable(), HttpContext.RequestAborted);
 
         if (!string.IsNullOrWhiteSpace(StatusFilter))
         {
@@ -144,7 +163,7 @@ public class TicketsModel : PageModel
                     : ticket.Messages.Count(x =>
                         x.AuthorUserId != currentUserId &&
                         !x.IsBotMessage &&
-                        !x.IsReadByOperator)))
+                        !x.OperatorReads.Any(read => read.OperatorUserId == currentUserId))))
             .ToList();
 
         TotalUnreadCount = rows.Sum(x => x.UnreadCount);

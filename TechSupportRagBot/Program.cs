@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -38,8 +39,11 @@ builder.Services.Configure<IISServerOptions>(options =>
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    var proxyAddresses = builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [];
+    foreach (var address in proxyAddresses)
+    {
+        if (System.Net.IPAddress.TryParse(address, out var parsed)) options.KnownProxies.Add(parsed);
+    }
 });
 
 var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtectionKeys");
@@ -83,6 +87,9 @@ builder.Services
         // Пока отключаем обязательное подтверждение email,
         // чтобы на этапе разработки можно было сразу входить в систему.
         options.SignIn.RequireConfirmedAccount = false;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -125,6 +132,7 @@ builder.Services.AddSingleton<DocumentTypeDetector>();
 builder.Services.AddScoped<KnowledgeIngestionService>();
 builder.Services.AddScoped<SupportBotService>();
 builder.Services.AddScoped<TicketDeletionService>();
+builder.Services.AddScoped<AccountDeactivationService>();
 builder.Services.AddScoped<ChatMessageDeletionService>();
 builder.Services.AddScoped<KnowledgeFtsService>();
 builder.Services.AddScoped<SmtpEmailSender>();
@@ -245,6 +253,15 @@ app.Use(async (context, next) =>
 {
     if (context.User.Identity?.IsAuthenticated == true)
     {
+        var userManager = context.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+        var currentUser = await userManager.GetUserAsync(context.User);
+        if (currentUser == null || AccountDeactivationService.IsDisabled(currentUser))
+        {
+            await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+            context.Response.Redirect("/Identity/Account/Login");
+            return;
+        }
+
         var permission = AccessProfileService.PermissionForPath(context.Request.Path);
         if (!string.IsNullOrWhiteSpace(permission))
         {

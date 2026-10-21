@@ -24,6 +24,8 @@ public class QAEntry
 
     public string Status { get; set; } = QAEntryStatuses.Draft;
 
+    public bool AvailableToClients { get; set; }
+
     public string Source { get; set; } = QAEntrySources.Manual;
 
     public string? CreatedBy { get; set; }

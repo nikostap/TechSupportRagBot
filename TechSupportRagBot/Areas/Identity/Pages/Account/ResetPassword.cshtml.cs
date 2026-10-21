@@ -46,7 +46,6 @@ public class ResetPasswordModel(
         }
 
         user.MustChangePassword = false;
-        user.IssuedPassword = null;
         var token = await users.GeneratePasswordResetTokenAsync(user);
         var result = await users.ResetPasswordAsync(user, token, Input.Password!);
         if (!result.Succeeded)

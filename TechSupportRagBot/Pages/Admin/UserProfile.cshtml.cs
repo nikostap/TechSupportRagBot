@@ -114,8 +114,8 @@ public class UserProfileModel : PageModel
             return Page();
         }
 
-        await _userManager.RemovePasswordAsync(EditedUser!);
-        var result = await _userManager.AddPasswordAsync(EditedUser!, password);
+        var token = await _userManager.GeneratePasswordResetTokenAsync(EditedUser!);
+        var result = await _userManager.ResetPasswordAsync(EditedUser!, token, password);
         if (!result.Succeeded)
         {
             foreach (var error in result.Errors)
@@ -127,9 +127,10 @@ public class UserProfileModel : PageModel
             return Page();
         }
 
-        EditedUser!.IssuedPassword = password;
-        EditedUser.MustChangePassword = Roles.Contains("Operator") || Roles.Contains("Admin");
+        EditedUser!.MustChangePassword = true;
         await _userManager.UpdateAsync(EditedUser);
+        TempData["IssuedPasswordOnce"] = password;
+        TempData["IssuedUserOnce"] = EditedUser.UserName;
         return RedirectToPage(new { id = Id });
     }
 

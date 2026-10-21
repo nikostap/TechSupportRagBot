@@ -14,15 +14,18 @@ namespace TechSupportRagBot.Pages
         private readonly ApplicationDbContext _db;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AccessProfileService _access;
+        private readonly ChatTicketAccessService _ticketAccess;
 
         public IndexModel(
             ApplicationDbContext db,
             UserManager<ApplicationUser> userManager,
-            AccessProfileService access)
+            AccessProfileService access,
+            ChatTicketAccessService ticketAccess)
         {
             _db = db;
             _userManager = userManager;
             _access = access;
+            _ticketAccess = ticketAccess;
         }
 
         public string DisplayName { get; private set; } = string.Empty;
@@ -136,12 +139,15 @@ namespace TechSupportRagBot.Pages
 
             if (Can("Tickets"))
             {
-                OpenTicketCount = await _db.Tickets.CountAsync(x => x.Status != TicketStatuses.Closed, HttpContext.RequestAborted);
-                WaitingForOperatorCount = await _db.Tickets.CountAsync(x => x.Status == TicketStatuses.WaitingForOperator, HttpContext.RequestAborted);
-                AttentionTickets = await _db.Tickets
+                var visibleTickets = await _ticketAccess.ScopeTicketsAsync(
+                    User, _db.Tickets, HttpContext.RequestAborted);
+                OpenTicketCount = await visibleTickets.CountAsync(x => x.Status != TicketStatuses.Closed, HttpContext.RequestAborted);
+                WaitingForOperatorCount = await visibleTickets.CountAsync(x => x.Status == TicketStatuses.WaitingForOperator, HttpContext.RequestAborted);
+                AttentionTickets = await visibleTickets
                     .Include(x => x.Machine)
                     .Include(x => x.ClientUser)
                     .Include(x => x.Messages)
+                        .ThenInclude(x => x.OperatorReads)
                     .Where(x => x.Status != TicketStatuses.Closed)
                     .OrderByDescending(x => x.Status == TicketStatuses.WaitingForOperator)
                     .ThenByDescending(x => x.CreatedAt)
@@ -155,7 +161,7 @@ namespace TechSupportRagBot.Pages
                         ticket.Messages.Count(message =>
                             message.AuthorUserId != currentUserId &&
                             !message.IsBotMessage &&
-                            !message.IsReadByOperator),
+                            !message.OperatorReads.Any(read => read.OperatorUserId == currentUserId)),
                         Url.Page("/Operator/Ticket", new { id = ticket.Id }) ?? $"/Operator/Ticket/{ticket.Id}")));
             }
         }
@@ -199,6 +205,7 @@ namespace TechSupportRagBot.Pages
             RecentClientTickets = await _db.Tickets
                 .Include(x => x.Machine)
                 .Include(x => x.Messages)
+                    .ThenInclude(x => x.OperatorReads)
                 .Where(x => clientId != null && _db.Users.Any(user =>
                     user.Id == x.ClientUserId && user.ClientId == clientId))
                 .OrderByDescending(x => x.CreatedAt)
@@ -236,7 +243,8 @@ namespace TechSupportRagBot.Pages
                 .Include(x => x.Messages)
                 .Where(x => x.Status != TicketStatuses.Closed)
                 .Where(x => x.OperatorUserId == userId || x.OperatorAssignments.Any(a => a.OperatorUserId == userId))
-                .OrderByDescending(x => x.Messages.Any(m => m.AuthorUserId != userId && !m.IsReadByOperator))
+                .OrderByDescending(x => x.Messages.Any(m => m.AuthorUserId != userId
+                    && !m.OperatorReads.Any(read => read.OperatorUserId == userId)))
                 .ThenByDescending(x => x.CreatedAt)
                 .Take(12)
                 .ToListAsync(HttpContext.RequestAborted);
@@ -246,7 +254,8 @@ namespace TechSupportRagBot.Pages
             AssignedTicketGroups = BuildDashboardGroups(AssignedTickets.Select(ticket =>
                 new DashboardTicketRow(
                     ticket,
-                    ticket.Messages.Count(message => message.AuthorUserId != userId && !message.IsReadByOperator),
+                    ticket.Messages.Count(message => message.AuthorUserId != userId
+                        && !message.OperatorReads.Any(read => read.OperatorUserId == userId)),
                     Url.Page("/Operator/Ticket", new { id = ticket.Id }) ?? $"/Operator/Ticket/{ticket.Id}")));
         }
     }

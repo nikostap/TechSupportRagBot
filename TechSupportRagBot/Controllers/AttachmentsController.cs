@@ -15,18 +15,18 @@ namespace TechSupportRagBot.Controllers;
 public sealed class AttachmentsController : Controller
 {
     private readonly ApplicationDbContext _db;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ChatTicketAccessService _ticketAccess;
     private readonly AccessProfileService _access;
     private readonly FileStorageService _storage;
 
     public AttachmentsController(
         ApplicationDbContext db,
-        UserManager<ApplicationUser> userManager,
+        ChatTicketAccessService ticketAccess,
         AccessProfileService access,
         FileStorageService storage)
     {
         _db = db;
-        _userManager = userManager;
+        _ticketAccess = ticketAccess;
         _access = access;
         _storage = storage;
     }
@@ -147,19 +147,7 @@ public sealed class AttachmentsController : Controller
 
     private async Task<bool> CanReadTicketAsync(Ticket ticket, CancellationToken cancellationToken)
     {
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null)
-        {
-            return false;
-        }
-
-        if (await _access.IsAllowedAsync(User, "Tickets", cancellationToken))
-        {
-            return true;
-        }
-
-        return await _access.IsAllowedAsync(User, "ClientCabinet", cancellationToken)
-            && user.ClientId.HasValue && ticket.ClientUser?.ClientId == user.ClientId;
+        return await _ticketAccess.CanReadAsync(User, ticket.Id, cancellationToken);
     }
 
     private async Task<IActionResult> SendStoredAsync(

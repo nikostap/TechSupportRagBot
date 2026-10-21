@@ -1,4 +1,5 @@
 using System.Text;
+using System.IO.Compression;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -11,6 +12,9 @@ namespace TechSupportRagBot.Services;
 
 public class DocumentTextExtractor
 {
+    private const long MaxArchiveBytes = 100L * 1024 * 1024;
+    private const int MaxTextCharacters = 4_000_000;
+
     public async Task<string> ExtractAsync(string path, CancellationToken cancellationToken = default)
     {
         return (await ExtractDocumentAsync(path, null, cancellationToken)).FullText;
@@ -23,20 +27,26 @@ public class DocumentTextExtractor
     {
         var fileName = Path.GetFileName(path);
         var extension = Path.GetExtension(path).ToLowerInvariant();
+        if (new FileInfo(path).Length > MaxArchiveBytes)
+            throw new InvalidDataException("Document exceeds the indexing limit.");
         var result = new ExtractedDocument { FileName = fileName };
 
         switch (extension)
         {
             case ".txt":
+                if (new FileInfo(path).Length > MaxTextCharacters * 4L)
+                    throw new InvalidDataException("Document exceeds the indexing limit.");
                 result.FullText = await File.ReadAllTextAsync(path, cancellationToken);
                 break;
             case ".pdf":
                 ExtractPdf(path, result);
                 break;
             case ".docx":
+                ValidateArchive(path);
                 result.FullText = ExtractDocx(path);
                 break;
             case ".xlsx":
+                ValidateArchive(path);
                 ExtractXlsx(path, result);
                 break;
             case ".xls":
@@ -45,6 +55,8 @@ public class DocumentTextExtractor
             default:
                 throw new InvalidOperationException("Поддерживаются PDF, DOCX, TXT и XLSX. XLS требует конвертации в XLSX.");
         }
+
+        EnsureTextLimit(result.FullText.Length);
 
         result.DocumentType = new DocumentTypeDetector().Detect(fileName, category, result.FullText);
         if (extension == ".xlsx")
@@ -61,7 +73,9 @@ public class DocumentTextExtractor
         using var document = PdfDocument.Open(path);
         foreach (var page in document.GetPages())
         {
+            if (page.Number > 500) throw new InvalidDataException("Document exceeds the indexing limit.");
             var text = page.Text?.Trim() ?? string.Empty;
+            EnsureTextLimit(builder.Length + text.Length);
             if (string.IsNullOrWhiteSpace(text))
             {
                 result.Warnings.Add($"PDF page {page.Number} has no extracted text. PDF may require OCR.");
@@ -99,6 +113,7 @@ public class DocumentTextExtractor
         foreach (var element in body.Elements())
         {
             AppendElementText(element, builder);
+            EnsureTextLimit(builder.Length);
         }
 
         return builder.ToString();
@@ -131,6 +146,7 @@ public class DocumentTextExtractor
                     if (cells.Count > 0)
                     {
                         builder.AppendLine(string.Join(" | ", cells));
+                        EnsureTextLimit(builder.Length);
                     }
                 }
 
@@ -178,6 +194,8 @@ public class DocumentTextExtractor
             var extractedSheet = new ExtractedSheet { SheetName = sheet.Name?.Value ?? "Sheet" };
             foreach (var row in sheetData.Elements<Row>())
             {
+                if (extractedSheet.Rows.Count >= 50_000)
+                    throw new InvalidDataException("Document exceeds the indexing limit.");
                 var cells = row.Elements<Cell>()
                     .Select(cell => GetCellText(cell, sharedStrings))
                     .ToList();
@@ -200,6 +218,7 @@ public class DocumentTextExtractor
                 });
 
                 builder.AppendLine($"{extractedSheet.SheetName} #{rowNumber}: {string.Join(" | ", cells)}");
+                EnsureTextLimit(builder.Length);
             }
 
             result.Sheets.Add(extractedSheet);
@@ -219,5 +238,25 @@ public class DocumentTextExtractor
         }
 
         return value;
+    }
+
+    private static void EnsureTextLimit(int length)
+    {
+        if (length > MaxTextCharacters)
+            throw new InvalidDataException("Document exceeds the indexing limit.");
+    }
+
+    private static void ValidateArchive(string path)
+    {
+        using var archive = ZipFile.OpenRead(path);
+        long total = 0;
+        if (archive.Entries.Count > 2_000)
+            throw new InvalidDataException("Document exceeds the indexing limit.");
+        foreach (var entry in archive.Entries)
+        {
+            total += entry.Length;
+            if (entry.Length > MaxArchiveBytes || total > MaxArchiveBytes)
+                throw new InvalidDataException("Document exceeds the indexing limit.");
+        }
     }
 }

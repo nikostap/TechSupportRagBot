@@ -13,6 +13,11 @@
     <a class="btn-secondary as-link" href="javascript:history.back()">@TechSupportRagBot.Services.UiText.T(HttpContext, "Back")</a>
 </section>
 
+@if (TempData["IssuedPasswordOnce"] is string issuedPassword)
+{
+    <div class="panel"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "OneTimePasswordNotice")</strong> @TempData["IssuedUserOnce"]: <code>@issuedPassword</code></div>
+}
+
 <div class="profile-admin-layout">
     <section class="panel profile-card">
         <div class="profile-head">
@@ -36,7 +41,6 @@
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessProfile")</dt><dd>@TechSupportRagBot.Services.AccessProfileService.DisplayProfile(HttpContext, Model.EditedUser?.AccessProfile)</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Language")</dt><dd>@TechSupportRagBot.Services.UiText.LanguageName(HttpContext, Model.EditedUser?.Country)</dd></div>
             <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "Gender")</dt><dd>@(Model.EditedUser?.Gender ?? "—")</dd></div>
-            <div><dt>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword")</dt><dd><code>@(Model.EditedUser?.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed"))</code></dd></div>
         </dl>
     </section>
 

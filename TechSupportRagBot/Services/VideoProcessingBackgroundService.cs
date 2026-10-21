@@ -27,10 +27,36 @@ public class VideoProcessingBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await RecoverPendingAsync(stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
-            var task = await _queue.DequeueAsync(stoppingToken);
-            await ProcessOneAsync(task.AttachmentId, stoppingToken);
+            using var polling = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            polling.CancelAfter(TimeSpan.FromSeconds(30));
+            try
+            {
+                var task = await _queue.DequeueAsync(polling.Token);
+                await ProcessOneAsync(task.AttachmentId, stoppingToken);
+            }
+            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+            {
+                await RecoverPendingAsync(stoppingToken);
+            }
+        }
+    }
+
+    private async Task RecoverPendingAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var ids = await db.Attachments.AsNoTracking()
+            .Where(x => x.Status == AttachmentStatuses.Processing && x.TempFilePath != null)
+            .OrderBy(x => x.Id)
+            .Select(x => x.Id)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+        foreach (var id in ids)
+        {
+            await ProcessOneAsync(id, cancellationToken);
         }
     }
 
@@ -43,7 +69,9 @@ public class VideoProcessingBackgroundService : BackgroundService
         var attachment = await db.Attachments
             .Include(x => x.ChatMessage)
             .FirstOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
-        if (attachment?.ChatMessage == null)
+        if (attachment?.ChatMessage == null
+            || attachment.Status != AttachmentStatuses.Processing
+            || string.IsNullOrWhiteSpace(attachment.TempFilePath))
         {
             return;
         }
@@ -76,6 +104,10 @@ public class VideoProcessingBackgroundService : BackgroundService
 
             await NotifyProgressAsync(ticketId, attachment, 100, "Видео готово");
             await NotifyAsync(ticketId, "VideoReady", attachment);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

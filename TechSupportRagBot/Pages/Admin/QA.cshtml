@@ -62,11 +62,14 @@
                 <select asp-for="EditInput.Status">
                     @foreach (var status in Model.Statuses)
                     {
-                        <option value="@status">@status</option>
+                        <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                     }
                 </select>
             </label>
         </div>
+        <label class="check-row"><input asp-for="EditInput.AvailableToClients" type="checkbox" />
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span></label>
+        <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClientsHelp")</small>
         <input type="hidden" asp-for="EditInput.Source" />
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
@@ -108,6 +111,8 @@
     </form>
 }
 
+<details class="panel qa-tools">
+    <summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "QACreateImportTools")</summary>
 <div class="knowledge-layout">
     <form method="post" enctype="multipart/form-data" class="panel qa-editor">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "CreateQA")</h2>
@@ -154,11 +159,14 @@
                 <select asp-for="Input.Status">
                     @foreach (var status in Model.Statuses)
                     {
-                        <option value="@status">@status</option>
+                        <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                     }
                 </select>
             </label>
         </div>
+        <label class="check-row"><input asp-for="Input.AvailableToClients" type="checkbox" />
+            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span></label>
+        <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClientsHelp")</small>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
                 <input asp-for="MediaFiles" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx,.xlsx,.txt,.mp4,.mov,.avi" />
@@ -197,6 +205,7 @@
         </div>
     </div>
 </div>
+</details>
 
 @if (Model.PreviewEntries.Count > 0)
 {
@@ -253,7 +262,7 @@
                             <select name="ConfirmEntries[@i].Status">
                                 @foreach (var status in Model.Statuses)
                                 {
-                                    <option value="@status" selected="@(status == Model.PreviewEntries[i].Status)">@status</option>
+                                    <option value="@status" selected="@(status == Model.PreviewEntries[i].Status)">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                                 }
                             </select>
                         </label>
@@ -306,7 +315,7 @@
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllStatuses")</option>
                     @foreach (var status in Model.Statuses)
                     {
-                        <option value="@status">@status</option>
+                        <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                     }
                 </select>
             </div>
@@ -355,7 +364,11 @@
                 <summary class="qa-card-summary">
                     <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectQA")" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
-                        <span class="status-pill">@entry.Status</span>
+                        <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{entry.Status}")</span>
+                        @if (entry.AvailableToClients)
+                        {
+                            <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span>
+                        }
                         <strong>@entry.Question</strong>
                     </span>
                     <span class="qa-summary-meta">

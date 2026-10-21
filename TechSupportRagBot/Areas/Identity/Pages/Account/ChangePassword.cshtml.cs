@@ -51,7 +51,6 @@ public class ChangePasswordModel : PageModel
         }
 
         user.MustChangePassword = false;
-        user.IssuedPassword = null;
         await _userManager.UpdateAsync(user);
         await _signInManager.RefreshSignInAsync(user);
 

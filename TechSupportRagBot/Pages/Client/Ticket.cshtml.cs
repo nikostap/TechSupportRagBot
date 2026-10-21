@@ -443,7 +443,8 @@ public class TicketModel : PageModel
             .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
                 user.Id == x.ClientUserId && user.ClientId == clientId));
 
-        if (ticket == null && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
+        if (ticket == null && clientId == null
+            && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
         {
             ticket = await _db.Tickets.FirstOrDefaultAsync(x => x.Id == id);
         }
@@ -463,7 +464,8 @@ public class TicketModel : PageModel
             .FirstOrDefaultAsync(x => x.Id == id && clientId != null && _db.Users.Any(user =>
                 user.Id == x.ClientUserId && user.ClientId == clientId));
 
-        if (Ticket == null && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
+        if (Ticket == null && clientId == null
+            && await _access.IsAllowedAsync(User, "Tickets", HttpContext.RequestAborted))
         {
             Ticket = await _db.Tickets
                 .Include(x => x.Machine)

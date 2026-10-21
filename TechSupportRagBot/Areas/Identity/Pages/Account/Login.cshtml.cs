@@ -54,7 +54,7 @@ public class LoginModel : PageModel
             Input.UserName.Trim(),
             Input.Password,
             Input.RememberMe,
-            lockoutOnFailure: false);
+            lockoutOnFailure: true);
 
         if (result.Succeeded)
         {
@@ -73,7 +73,7 @@ public class LoginModel : PageModel
 
     private async Task<bool> IsCaptchaValidAsync()
     {
-        if (_environment.IsDevelopment() || IsLocalRequest()) return true;
+        if (_environment.IsDevelopment()) return true;
 
         var serverKey = _configuration["SmartCaptcha:ServerKey"];
         var token = Request.Form["smart-token"].ToString();
@@ -96,14 +96,6 @@ public class LoginModel : PageModel
         }
         catch (HttpRequestException) { return false; }
         catch (TaskCanceledException) when (!HttpContext.RequestAborted.IsCancellationRequested) { return false; }
-    }
-
-    private bool IsLocalRequest()
-    {
-        var host = Request.Host.Host;
-        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(host, "127.0.0.1", StringComparison.Ordinal)
-            || string.Equals(host, "::1", StringComparison.Ordinal);
     }
 
     private sealed class CaptchaValidationResponse

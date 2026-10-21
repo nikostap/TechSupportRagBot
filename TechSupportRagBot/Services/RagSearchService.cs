@@ -506,6 +506,14 @@ public class RagSearchService : IRagSearchService
         var filteredOut = new List<object>();
         foreach (var chunk in chunks)
         {
+            if (chunk.QAEntryId.HasValue
+                && (!string.Equals(chunk.QAEntry?.Status, QAEntryStatuses.Verified, StringComparison.OrdinalIgnoreCase)
+                    || chunk.QAEntry?.AvailableToClients != true))
+            {
+                filteredOut.Add(new { chunk.Id, reason = "QA is not approved for client use" });
+                continue;
+            }
+
             var document = chunk.KnowledgeDocument;
             var machine = document?.Machine;
             var chunkMachineId = chunk.MachineId ?? document?.MachineId;

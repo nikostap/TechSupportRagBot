@@ -119,6 +119,11 @@ public sealed class EmailWorkflowTests
 
         await fixture.Notifications.ProcessAsync();
         message.IsReadByOperator = true;
+        fixture.Db.ChatMessageOperatorReads.Add(new ChatMessageOperatorRead
+        {
+            ChatMessageId = message.Id,
+            OperatorUserId = operatorUser.Id
+        });
         message.CreatedAt = DateTime.UtcNow.AddMinutes(-10);
         await fixture.Db.SaveChangesAsync();
         await fixture.Notifications.ProcessAsync();
@@ -126,6 +131,51 @@ public sealed class EmailWorkflowTests
         Assert.Single(fixture.Sender.Sent);
         Assert.DoesNotContain(fixture.Db.EmailNotificationLogs,
             x => x.NotificationType == EmailNotificationTypes.UnreadMessage);
+    }
+
+    [Fact]
+    public async Task ReadingByOneOperatorDoesNotSuppressOtherOperatorsReminder()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var client = await fixture.UserAsync("client", "client@example.test", "Client");
+        var first = await fixture.UserAsync("first", "first@example.test", "Operator");
+        var second = await fixture.UserAsync("second", "second@example.test", "Operator");
+        var machine = await fixture.MachineAsync();
+        var ticket = new Ticket
+        {
+            ClientUserId = client.Id, OperatorUserId = first.Id, MachineId = machine.Id,
+            Title = "Shared ticket", Status = TicketStatuses.InProgress
+        };
+        fixture.Db.Tickets.Add(ticket);
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.TicketOperatorAssignments.AddRange(
+            new TicketOperatorAssignment { TicketId = ticket.Id, OperatorUserId = first.Id,
+                AssignedAt = DateTime.UtcNow.AddHours(-3) },
+            new TicketOperatorAssignment { TicketId = ticket.Id, OperatorUserId = second.Id,
+                AssignedAt = DateTime.UtcNow.AddHours(-3) });
+        var message = new ChatMessage
+        {
+            TicketId = ticket.Id, AuthorUserId = client.Id, Text = "Please check",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10), IsReadByOperator = true
+        };
+        fixture.Db.ChatMessages.Add(message);
+        fixture.Db.SystemSettings.Add(new SystemSetting
+        {
+            Key = SystemSettingKeys.UnreadEmailDelayMinutes, Value = "5"
+        });
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChatMessageOperatorReads.Add(new ChatMessageOperatorRead
+        {
+            ChatMessageId = message.Id, OperatorUserId = first.Id
+        });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Notifications.ProcessAsync();
+
+        Assert.DoesNotContain(fixture.Sender.Sent, x => x.To == first.Email
+            && x.Subject.Contains("Непрочитанное"));
+        Assert.Contains(fixture.Sender.Sent, x => x.To == second.Email
+            && x.Subject.Contains("Непрочитанное"));
     }
 
     [Fact]

@@ -25,6 +25,7 @@ public class IndexModel : PageModel
             .Include(x => x.ClientUser)
             .Include(x => x.OperatorAssignments)
             .Include(x => x.Messages)
+                .ThenInclude(x => x.OperatorReads)
             .Where(x => x.Status != TicketStatuses.Closed)
             .Where(x => x.OperatorUserId == userId
                 || x.OperatorAssignments.Any(a => a.OperatorUserId == userId))
@@ -40,7 +41,7 @@ public class IndexModel : PageModel
                     ? 0
                     : ticket.Messages.Count(x =>
                         x.AuthorUserId != userId &&
-                        !x.IsReadByOperator)))
+                        !x.OperatorReads.Any(read => read.OperatorUserId == userId))))
             .GroupBy(x => new
             {
                 MachineId = x.Ticket.MachineId,

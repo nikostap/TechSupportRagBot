@@ -11,6 +11,11 @@
     </div>
 </section>
 
+@if (TempData["IssuedPasswordOnce"] is string issuedPassword)
+{
+    <div class="panel"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "OneTimePasswordNotice")</strong> @TempData["IssuedUserOnce"]: <code>@issuedPassword</code></div>
+}
+
 <div class="split-layout">
     <form method="post" class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewClient", "Новый клиент")</h2>
@@ -33,7 +38,6 @@
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "User", "Пользователь")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Username", "Логин")</th>
                         <th>Email</th>
-                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "IssuedPassword", "Выданный пароль")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Phone", "Телефон")</th>
                         <th></th>
                     </tr>
@@ -48,7 +52,6 @@
                             <td>@user.FullName</td>
                             <td><code>@user.UserName</code></td>
                             <td>@user.Email</td>
-                            <td><code>@(user.IssuedPassword ?? TechSupportRagBot.Services.UiText.T(HttpContext, "Changed", "изменен"))</code></td>
                             <td>@client.ContactPhone</td>
                             <td class="table-actions">
                                 <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
