@@ -149,6 +149,7 @@ html[data-theme="dark"] .dispatch-theme .qa-meta dd{color:#f1f6f7}
 html[data-theme="dark"] .dispatch-theme .qa-card h3,
 html[data-theme="dark"] .dispatch-theme .indexed-chat-body h3,
 html[data-theme="dark"] .dispatch-theme .bot-test-debug h3{color:#d5ecf4}
+html[data-theme="dark"] .dispatch-theme .qa-summary-main strong{color:#edf4f5}
 html[data-theme="dark"] .dispatch-theme .qa-details{color:#d9e6e9}
 html[data-theme="dark"] .dispatch-theme .qa-compact-card[open] .qa-card-summary{background:#30414a}
 html[data-theme="dark"] .dispatch-theme .tickets-page-counts,
