@@ -56,6 +56,9 @@ public class QAModel : PageModel
     public string? StatusFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? ApprovalFilter { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string? MachineFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
@@ -322,7 +325,7 @@ public class QAModel : PageModel
             }
         }
 
-        return RedirectToPage(new { StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
+        return RedirectToPage(new { StatusFilter, ApprovalFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
     }
 
     public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId, CancellationToken cancellationToken)
@@ -341,6 +344,9 @@ public class QAModel : PageModel
         {
             query = query.Where(x => x.Status == StatusFilter);
         }
+
+        if (ApprovalFilter == "pending") query = query.Where(x => !x.AvailableToClients);
+        else if (ApprovalFilter == "allowed") query = query.Where(x => x.AvailableToClients);
 
         if (!string.IsNullOrWhiteSpace(MachineFilter))
         {

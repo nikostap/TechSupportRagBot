@@ -318,12 +318,18 @@
                         <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                     }
                 </select>
+                <select asp-for="ApprovalFilter" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalFilter")">
+                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalAll")</option>
+                    <option value="pending">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalPending")</option>
+                    <option value="allowed">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalAllowed")</option>
+                </select>
             </div>
         </form>
     </div>
 
     <form method="post" asp-page-handler="Bulk" id="qa-bulk-form" class="qa-bulk-bar">
         <input type="hidden" asp-for="StatusFilter" />
+        <input type="hidden" asp-for="ApprovalFilter" />
         <input type="hidden" asp-for="MachineFilter" />
         <input type="hidden" asp-for="SerialFilter" />
         <input type="hidden" asp-for="SearchQuery" />
