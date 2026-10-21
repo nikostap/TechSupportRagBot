@@ -2112,6 +2112,15 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   margin: 6px 0;
 }
 
+.qa-editor .inline-grid {
+  align-items: start;
+}
+
+.qa-editor .inline-grid label {
+  grid-template-rows: minmax(2.8em, auto) auto;
+  align-content: start;
+}
+
 .knowledge-filter {
   display: grid;
   grid-template-columns: minmax(220px, 360px) auto;
