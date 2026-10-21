@@ -35,16 +35,15 @@ public class RagAuditLogger
         string? traceId = null,
         CancellationToken cancellationToken = default)
     {
-        var entry = new
-        {
-            timestamp = DateTimeOffset.Now,
-            traceId,
-            eventName,
-            payload = Sanitize(payload)
-        };
-
         try
         {
+            var entry = new
+            {
+                timestamp = DateTimeOffset.Now,
+                traceId,
+                eventName,
+                payload = Sanitize(payload)
+            };
             var directory = Path.Combine(_environment.ContentRootPath, "App_Data", "RagLogs");
             Directory.CreateDirectory(directory);
 
@@ -109,12 +108,12 @@ public class RagAuditLogger
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         if (_lastCleanupDate == today) return;
-        _lastCleanupDate = today;
         foreach (var path in Directory.EnumerateFiles(directory, "rag-audit-*.jsonl"))
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (name.Length < 10 || !DateOnly.TryParseExact(name[^10..], "yyyy-MM-dd", out var date)) continue;
             if (date < today.AddDays(-14)) File.Delete(path);
         }
+        _lastCleanupDate = today;
     }
 }
