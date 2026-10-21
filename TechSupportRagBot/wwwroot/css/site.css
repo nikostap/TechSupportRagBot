@@ -2113,12 +2113,13 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 }
 
 .qa-editor .inline-grid {
-  align-items: start;
+  align-items: stretch;
 }
 
 .qa-editor .inline-grid label {
-  grid-template-rows: minmax(2.8em, auto) auto;
-  align-content: start;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  align-content: stretch;
 }
 
 .knowledge-filter {
