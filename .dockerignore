@@ -5,6 +5,7 @@
 
 **/bin
 **/obj
+**/.audit-publish
 **/Migrations.SqliteArchive
 
 qdrant_storage

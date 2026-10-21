@@ -1,4 +1,4 @@
-using FastText.NetWrapper;
+using FastTextNet;
 using Microsoft.Extensions.Options;
 
 namespace TechSupportRagBot.Services;
@@ -7,21 +7,18 @@ public sealed class LanguageDetectionService : IDisposable
 {
     private readonly IWebHostEnvironment _environment;
     private readonly FastTextLanguageOptions _options;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<LanguageDetectionService> _logger;
     private readonly object _sync = new();
-    private FastTextWrapper? _model;
+    private FastTextModel? _model;
     private bool _loadAttempted;
 
     public LanguageDetectionService(
         IWebHostEnvironment environment,
         IOptions<FastTextLanguageOptions> options,
-        ILoggerFactory loggerFactory,
         ILogger<LanguageDetectionService> logger)
     {
         _environment = environment;
         _options = options.Value;
-        _loggerFactory = loggerFactory;
         _logger = logger;
     }
 
@@ -44,7 +41,7 @@ public sealed class LanguageDetectionService : IDisposable
         {
             try
             {
-                var prediction = model.PredictSingle(normalizedText);
+                var prediction = model.Predict(normalizedText, k: 1).FirstOrDefault();
                 var code = NormalizeFastTextLabel(prediction.Label);
                 if (!string.IsNullOrWhiteSpace(code)
                     && prediction.Probability >= _options.MinConfidence
@@ -63,7 +60,7 @@ public sealed class LanguageDetectionService : IDisposable
             ?? fallbackCode;
     }
 
-    private FastTextWrapper? GetModel()
+    private FastTextModel? GetModel()
     {
         if (_loadAttempted)
         {
@@ -87,13 +84,11 @@ public sealed class LanguageDetectionService : IDisposable
 
             try
             {
-                _model = new FastTextWrapper(_loggerFactory);
-                _model.LoadModel(modelPath);
+                _model = FastTextModel.Load(modelPath);
                 _logger.LogInformation("fastText language model loaded: {ModelPath}", modelPath);
             }
             catch (Exception ex)
             {
-                _model?.Dispose();
                 _model = null;
                 _logger.LogWarning(ex, "Could not load fastText language model: {ModelPath}", modelPath);
             }
@@ -144,7 +139,6 @@ public sealed class LanguageDetectionService : IDisposable
     {
         lock (_sync)
         {
-            _model?.Dispose();
             _model = null;
         }
     }

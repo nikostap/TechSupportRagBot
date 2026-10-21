@@ -89,10 +89,14 @@ public sealed class AttachmentsController : Controller
 
         var qaAttachment = await _db.QAAttachments
             .AsNoTracking()
+            .Include(x => x.QAEntry)
             .FirstOrDefaultAsync(x => x.PublicId == publicId, cancellationToken);
         if (qaAttachment != null)
         {
-            if (!await _access.IsAllowedAsync(User, "QA", cancellationToken))
+            var canManageQa = await _access.IsAllowedAsync(User, "QA", cancellationToken);
+            var isClientApproved = qaAttachment.QAEntry?.Status == QAEntryStatuses.Verified
+                && qaAttachment.QAEntry.AvailableToClients;
+            if (!canManageQa && !isClientApproved)
             {
                 return NotFound();
             }

@@ -314,7 +314,10 @@ public class SupportBotService
 
         return await _db.QAAttachments
             .AsNoTracking()
-            .Where(x => qaIds.Contains(x.QAEntryId))
+            .Where(x => qaIds.Contains(x.QAEntryId)
+                && x.QAEntry != null
+                && x.QAEntry.Status == QAEntryStatuses.Verified
+                && x.QAEntry.AvailableToClients)
             .OrderBy(x => x.Id)
             .Select(x => new BotAnswerMedia(
                 x.PublicId,
