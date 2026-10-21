@@ -99,6 +99,11 @@ html[data-theme="dark"] .dispatch-theme .btn-main{background:#f4ae47;border-colo
 html[data-theme="dark"] .dispatch-theme .table-wrap,html[data-theme="dark"] .dispatch-theme td,html[data-theme="dark"] .dispatch-theme .tickets-machine-heading,html[data-theme="dark"] .dispatch-theme .focus-list-pane-heading{border-color:#3a515c}
 html[data-theme="dark"] .dispatch-theme table{background:#1b2a32;color:#e5edf0}
 html[data-theme="dark"] .dispatch-theme tr:hover td{background:#293b43}
+html[data-theme="dark"] .dispatch-theme .overtime-row td{background:#3a3028;color:#f4e8da}
+html[data-theme="dark"] .dispatch-theme .overtime-row:hover td{background:#4a3a2b}
+html[data-theme="dark"] .dispatch-theme .bar-label{color:#e5edf0}
+html[data-theme="dark"] .dispatch-theme .bar-label span{color:#b8cbd3}
+html[data-theme="dark"] .dispatch-theme .bar-track{background:#344752}
 html[data-theme="dark"] .dispatch-theme code{background:#273e48;color:#b6dcf1}
 html[data-theme="dark"] .dispatch-theme .metric-card:hover,
 html[data-theme="dark"] .dispatch-theme .dashboard-row:hover,
