@@ -11,6 +11,13 @@ public sealed class PushModel(BrowserPushService push) : PageModel
 {
     public IActionResult OnGet() => RedirectToPage("/Profile");
 
+    public async Task<IActionResult> OnGetStatusAsync(string endpoint)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        Response.Headers.CacheControl = "no-store";
+        return new JsonResult(new { enabled = await push.IsSubscribedAsync(userId, endpoint, HttpContext.RequestAborted) });
+    }
+
     public async Task<IActionResult> OnPostSubscribeAsync(string endpoint, string p256dh, string auth)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -21,6 +28,13 @@ public sealed class PushModel(BrowserPushService push) : PageModel
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         await push.UnsubscribeAsync(userId, endpoint, HttpContext.RequestAborted);
+        return new JsonResult(new { ok = true });
+    }
+
+    public async Task<IActionResult> OnPostReleaseOtherAccountAsync(string endpoint, string p256dh, string auth)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        await push.ReleaseOtherAccountAsync(userId, endpoint, p256dh, auth, HttpContext.RequestAborted);
         return new JsonResult(new { ok = true });
     }
 }

@@ -128,7 +128,7 @@
         </a>
     </li>
     <li>
-        <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })">
+        <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })" data-push-logout>
             <button type="submit">@TechSupportRagBot.Services.UiText.T(Context, "Logout", "Выйти")</button>
         </form>
     </li>

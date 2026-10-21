@@ -56,6 +56,20 @@ public sealed class BrowserPushService(
             .ExecuteDeleteAsync(ct);
     }
 
+    public async Task<bool> IsSubscribedAsync(string userId, string endpoint, CancellationToken ct) =>
+        IsAllowedEndpoint(endpoint) && await db.BrowserPushSubscriptions.AsNoTracking()
+            .AnyAsync(x => x.UserId == userId && x.Endpoint == endpoint, ct);
+
+    public async Task ReleaseOtherAccountAsync(string userId, string endpoint, string p256dh, string auth, CancellationToken ct)
+    {
+        if (!IsAllowedEndpoint(endpoint) || endpoint.Length > 2048
+            || !ValidKey(p256dh, 40, 200) || !ValidKey(auth, 12, 100)) return;
+
+        await db.BrowserPushSubscriptions
+            .Where(x => x.UserId != userId && x.Endpoint == endpoint && x.P256dh == p256dh && x.Auth == auth)
+            .ExecuteDeleteAsync(ct);
+    }
+
     public async Task SendAsync(string type, int ticketId, int? messageId, ApplicationUser recipient, CancellationToken ct)
     {
         if (!IsConfigured) return;
