@@ -22,9 +22,7 @@ public class QAEntry
 
     public string? ProblemType { get; set; }
 
-    public string Status { get; set; } = QAEntryStatuses.Draft;
-
-    public bool AvailableToClients { get; set; }
+    public string Status { get; set; } = QAEntryStatuses.NeedsReview;
 
     public string Source { get; set; } = QAEntrySources.Manual;
 

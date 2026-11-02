@@ -19,7 +19,13 @@ namespace TechSupportRagBot.Tests;
 public sealed class QaAttachmentAccessTests
 {
     [Fact]
-    public async Task ClientCanOpenOnlyApprovedAndVerifiedQaAttachment()
+    public void NewQaEntryStartsInNeedsReview()
+    {
+        Assert.Equal(QAEntryStatuses.NeedsReview, new QAEntry().Status);
+    }
+
+    [Fact]
+    public async Task ClientCanOpenOnlyVerifiedQaAttachment()
     {
         var root = Path.Combine(Path.GetTempPath(), "TechSupportRagBot.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -53,7 +59,7 @@ public sealed class QaAttachmentAccessTests
             var entry = new QAEntry
             {
                 Question = "Test question", Answer = "Test answer",
-                Status = QAEntryStatuses.Verified, AvailableToClients = false
+                Status = QAEntryStatuses.NeedsReview
             };
             var attachment = new QAAttachment
             {
@@ -86,11 +92,11 @@ public sealed class QaAttachmentAccessTests
             }
 
             Assert.IsType<NotFoundResult>((await FetchAsync()).Result);
-            entry.AvailableToClients = true;
+            entry.Status = QAEntryStatuses.Verified;
             await db.SaveChangesAsync();
-            var approved = await FetchAsync();
-            Assert.IsType<EmptyResult>(approved.Result);
-            Assert.Equal("qa data"u8.ToArray(), approved.Body);
+            var verified = await FetchAsync();
+            Assert.IsType<EmptyResult>(verified.Result);
+            Assert.Equal("qa data"u8.ToArray(), verified.Body);
             entry.Status = QAEntryStatuses.NeedsReview;
             await db.SaveChangesAsync();
             Assert.IsType<NotFoundResult>((await FetchAsync()).Result);

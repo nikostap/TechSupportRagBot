@@ -316,8 +316,7 @@ public class SupportBotService
             .AsNoTracking()
             .Where(x => qaIds.Contains(x.QAEntryId)
                 && x.QAEntry != null
-                && x.QAEntry.Status == QAEntryStatuses.Verified
-                && x.QAEntry.AvailableToClients)
+                && x.QAEntry.Status == QAEntryStatuses.Verified)
             .OrderBy(x => x.Id)
             .Select(x => new BotAnswerMedia(
                 x.PublicId,

@@ -507,8 +507,7 @@ public class RagSearchService : IRagSearchService
         foreach (var chunk in chunks)
         {
             if (chunk.QAEntryId.HasValue
-                && (!string.Equals(chunk.QAEntry?.Status, QAEntryStatuses.Verified, StringComparison.OrdinalIgnoreCase)
-                    || chunk.QAEntry?.AvailableToClients != true))
+                && !string.Equals(chunk.QAEntry?.Status, QAEntryStatuses.Verified, StringComparison.OrdinalIgnoreCase))
             {
                 filteredOut.Add(new { chunk.Id, reason = "QA is not approved for client use" });
                 continue;

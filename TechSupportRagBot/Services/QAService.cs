@@ -44,6 +44,7 @@ public class QAService
     public async Task<QAEntry> CreateAsync(QAEntry entry, CancellationToken cancellationToken = default)
     {
         NormalizeScope(entry);
+        entry.Status = QAEntryStatuses.NeedsReview;
         entry.CreatedAt = DateTime.UtcNow;
         entry.UpdatedAt = DateTime.UtcNow;
         _db.QAEntries.Add(entry);
@@ -70,8 +71,7 @@ public class QAService
         entry.NodeName = input.NodeName;
         entry.Category = input.Category;
         entry.ProblemType = input.ProblemType;
-        entry.Status = input.Status;
-        entry.AvailableToClients = input.AvailableToClients;
+        entry.Status = IsKnownStatus(input.Status) ? input.Status : QAEntryStatuses.NeedsReview;
         entry.Source = input.Source;
         entry.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
@@ -216,6 +216,26 @@ public class QAService
         return true;
     }
 
+    public async Task<bool> SetStatusAsync(int id, string status, CancellationToken cancellationToken = default)
+    {
+        if (!IsKnownStatus(status))
+        {
+            return false;
+        }
+
+        var entry = await _db.QAEntries.FindAsync([id], cancellationToken);
+        if (entry == null)
+        {
+            return false;
+        }
+
+        entry.Status = status;
+        entry.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        await ReindexAsync(id, cancellationToken);
+        return true;
+    }
+
     public async Task<bool> ReindexAsync(int id, CancellationToken cancellationToken = default)
     {
         var entry = await _db.QAEntries
@@ -235,7 +255,7 @@ public class QAService
         _db.KnowledgeChunks.RemoveRange(entry.Chunks);
         await _db.SaveChangesAsync(cancellationToken);
 
-        if (entry.Status != QAEntryStatuses.Verified || !entry.AvailableToClients)
+        if (entry.Status != QAEntryStatuses.Verified)
             return true;
 
         var searchText = BuildSearchText(entry);
@@ -498,6 +518,12 @@ public class QAService
         entry.MachineModel = NormalizeOptionalValue(entry.MachineModel);
         entry.SerialNumber = SerialNumberFormatter.NormalizeQaRule(entry.SerialNumber);
     }
+
+    private static bool IsKnownStatus(string? status) => status is
+        QAEntryStatuses.Draft or
+        QAEntryStatuses.Verified or
+        QAEntryStatuses.NeedsReview or
+        QAEntryStatuses.Deprecated;
 
     private static string? NormalizeOptionalValue(string? value)
     {

@@ -67,9 +67,6 @@
                 </select>
             </label>
         </div>
-        <label class="check-row"><input asp-for="EditInput.AvailableToClients" type="checkbox" />
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span></label>
-        <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClientsHelp")</small>
         <input type="hidden" asp-for="EditInput.Source" />
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
@@ -155,18 +152,8 @@
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")
                 <input asp-for="Input.ProblemType" />
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")
-                <select asp-for="Input.Status">
-                    @foreach (var status in Model.Statuses)
-                    {
-                        <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
-                    }
-                </select>
-            </label>
         </div>
-        <label class="check-row"><input asp-for="Input.AvailableToClients" type="checkbox" />
-            <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span></label>
-        <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClientsHelp")</small>
+        <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QANewEntryNeedsReviewHelp")</p>
         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MediaForAnswer")
             <span class="file-picker">
                 <input asp-for="MediaFiles" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx,.xlsx,.txt,.mp4,.mov,.avi" />
@@ -176,7 +163,7 @@
         </label>
         <div class="form-actions">
             <button class="btn-secondary" type="submit" asp-page-handler="PreviewMetadata">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAMetadataLlm")</button>
-            <button class="btn-main" type="submit" asp-page-handler="Create">@TechSupportRagBot.Services.UiText.T(HttpContext, "SaveAndIndex")</button>
+            <button class="btn-main" type="submit" asp-page-handler="Create">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
             <button class="btn-secondary" type="reset">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAClearForm")</button>
         </div>
         <div asp-validation-summary="All" class="text-danger"></div>
@@ -258,15 +245,8 @@
                         <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "ProblemType")
                             <input name="ConfirmEntries[@i].ProblemType" value="@Model.PreviewEntries[i].ProblemType" />
                         </label>
-                        <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")
-                            <select name="ConfirmEntries[@i].Status">
-                                @foreach (var status in Model.Statuses)
-                                {
-                                    <option value="@status" selected="@(status == Model.PreviewEntries[i].Status)">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
-                                }
-                            </select>
-                        </label>
                     </div>
+                    <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QANewEntryNeedsReviewHelp")</p>
                     <input type="hidden" name="ConfirmEntries[@i].Source" value="@Model.PreviewEntries[i].Source" />
                 </article>
             }
@@ -318,18 +298,12 @@
                         <option value="@status">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
                     }
                 </select>
-                <select asp-for="ApprovalFilter" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalFilter")">
-                    <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalAll")</option>
-                    <option value="pending">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalPending")</option>
-                    <option value="allowed">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAApprovalAllowed")</option>
-                </select>
             </div>
         </form>
     </div>
 
     <form method="post" asp-page-handler="Bulk" id="qa-bulk-form" class="qa-bulk-bar">
         <input type="hidden" asp-for="StatusFilter" />
-        <input type="hidden" asp-for="ApprovalFilter" />
         <input type="hidden" asp-for="MachineFilter" />
         <input type="hidden" asp-for="SerialFilter" />
         <input type="hidden" asp-for="SearchQuery" />
@@ -370,11 +344,12 @@
                 <summary class="qa-card-summary">
                     <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectQA")" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
-                        <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{entry.Status}")</span>
-                        @if (entry.AvailableToClients)
-                        {
-                            <span class="status-pill">@TechSupportRagBot.Services.UiText.T(HttpContext, "QAAvailableToClients")</span>
-                        }
+                        <select form="qa-status-form-@entry.Id" name="status" class="qa-quick-status-select" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")" onchange="this.form.requestSubmit()" onclick="event.stopPropagation()">
+                            @foreach (var status in Model.Statuses)
+                            {
+                                <option value="@status" selected="@(status == entry.Status)">@TechSupportRagBot.Services.UiText.T(HttpContext, $"QAStatus{status}")</option>
+                            }
+                        </select>
                         <strong>@entry.Question</strong>
                     </span>
                     <span class="qa-summary-meta">
@@ -385,6 +360,14 @@
                         <time>@entry.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
                     </span>
                 </summary>
+                <form id="qa-status-form-@entry.Id" method="post" asp-page-handler="SetStatus" asp-route-id="@entry.Id" class="qa-quick-status-form">
+                    <input type="hidden" name="StatusFilter" value="@Model.StatusFilter" />
+                    <input type="hidden" name="MachineFilter" value="@Model.MachineFilter" />
+                    <input type="hidden" name="SerialFilter" value="@Model.SerialFilter" />
+                    <input type="hidden" name="SearchQuery" value="@Model.SearchQuery" />
+                    <input type="hidden" name="SearchMode" value="@Model.SearchMode" />
+                    <input type="hidden" name="SortOrder" value="@Model.SortOrder" />
+                </form>
                 <div class="qa-card-body">
                     <div class="qa-answer">@entry.Answer</div>
                     <dl class="qa-meta">
@@ -428,9 +411,6 @@
                     }
                     <div class="form-actions">
                         <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
-                        <form method="post" asp-page-handler="Verify" asp-route-id="@entry.Id" class="row-action">
-                            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Verify")</button>
-                        </form>
                         <form method="post" asp-page-handler="Reindex" asp-route-id="@entry.Id" class="row-action">
                             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
                         </form>

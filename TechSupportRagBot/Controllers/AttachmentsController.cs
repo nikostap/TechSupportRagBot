@@ -94,8 +94,7 @@ public sealed class AttachmentsController : Controller
         if (qaAttachment != null)
         {
             var canManageQa = await _access.IsAllowedAsync(User, "QA", cancellationToken);
-            var isClientApproved = qaAttachment.QAEntry?.Status == QAEntryStatuses.Verified
-                && qaAttachment.QAEntry.AvailableToClients;
+            var isClientApproved = qaAttachment.QAEntry?.Status == QAEntryStatuses.Verified;
             if (!canManageQa && !isClientApproved)
             {
                 return NotFound();

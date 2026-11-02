@@ -2396,6 +2396,21 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   gap: 10px;
 }
 
+.qa-quick-status-form {
+  display: none;
+}
+
+.qa-quick-status-select {
+  width: auto;
+  min-width: 132px;
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 30px 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .qa-summary-main strong {
   overflow: hidden;
   color: #123a56;
@@ -3550,6 +3565,10 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
     align-items: flex-start;
     flex-direction: column;
     gap: 7px;
+    width: 100%;
+  }
+
+  .qa-quick-status-select {
     width: 100%;
   }
 

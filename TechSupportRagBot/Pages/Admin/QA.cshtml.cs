@@ -56,9 +56,6 @@ public class QAModel : PageModel
     public string? StatusFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string? ApprovalFilter { get; set; }
-
-    [BindProperty(SupportsGet = true)]
     public string? MachineFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
@@ -151,6 +148,17 @@ public class QAModel : PageModel
         }
 
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostSetStatusAsync(int id, string status, CancellationToken cancellationToken)
+    {
+        if (!Statuses.Contains(status, StringComparer.Ordinal)
+            || !await _qa.SetStatusAsync(id, status, cancellationToken))
+        {
+            return BadRequest();
+        }
+
+        return RedirectToPage(new { StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
     }
 
     public async Task<IActionResult> OnPostPreviewMetadataAsync(CancellationToken cancellationToken)
@@ -325,7 +333,7 @@ public class QAModel : PageModel
             }
         }
 
-        return RedirectToPage(new { StatusFilter, ApprovalFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
+        return RedirectToPage(new { StatusFilter, MachineFilter, SerialFilter, SearchQuery, SearchMode, SortOrder });
     }
 
     public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId, CancellationToken cancellationToken)
@@ -344,9 +352,6 @@ public class QAModel : PageModel
         {
             query = query.Where(x => x.Status == StatusFilter);
         }
-
-        if (ApprovalFilter == "pending") query = query.Where(x => !x.AvailableToClients);
-        else if (ApprovalFilter == "allowed") query = query.Where(x => x.AvailableToClients);
 
         if (!string.IsNullOrWhiteSpace(MachineFilter))
         {
@@ -459,8 +464,7 @@ public class QAModel : PageModel
             SerialNumber = input.SerialNumber,
             NodeName = input.NodeName,
             ProblemType = input.ProblemType,
-            Status = string.IsNullOrWhiteSpace(input.Status) ? QAEntryStatuses.Draft : input.Status,
-            AvailableToClients = input.AvailableToClients,
+            Status = QAEntryStatuses.NeedsReview,
             Source = source,
             CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
         };
@@ -480,8 +484,7 @@ public class QAModel : PageModel
             SerialNumber = entry.SerialNumber,
             NodeName = entry.NodeName,
             ProblemType = entry.ProblemType,
-            Status = string.IsNullOrWhiteSpace(entry.Status) ? QAEntryStatuses.Verified : entry.Status,
-            AvailableToClients = entry.AvailableToClients,
+            Status = string.IsNullOrWhiteSpace(entry.Status) ? QAEntryStatuses.NeedsReview : entry.Status,
             Source = string.IsNullOrWhiteSpace(entry.Source) ? QAEntrySources.Import : entry.Source
         };
     }
@@ -508,9 +511,7 @@ public class QAModel : PageModel
 
         public string? ProblemType { get; set; }
 
-        public string Status { get; set; } = QAEntryStatuses.Draft;
-
-        public bool AvailableToClients { get; set; }
+        public string Status { get; set; } = QAEntryStatuses.NeedsReview;
 
         public string Source { get; set; } = QAEntrySources.Import;
     }
