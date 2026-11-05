@@ -65,6 +65,19 @@ public class SystemSettingsService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<int> GetMonthlyPasswordSendDayAsync(CancellationToken cancellationToken = default)
+    {
+        var raw = await GetValueAsync(SystemSettingKeys.MonthlyPasswordSendDay, "28", cancellationToken);
+        return int.TryParse(raw, out var day) && day is >= 1 and <= 31 ? day : 28;
+    }
+
+    public async Task SaveMonthlyPasswordSendDayAsync(int day, CancellationToken cancellationToken = default)
+    {
+        if (day is < 1 or > 31) throw new ArgumentOutOfRangeException(nameof(day));
+        await SetValueAsync(SystemSettingKeys.MonthlyPasswordSendDay, day.ToString(), cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<string> GetStorageProviderAsync(CancellationToken cancellationToken = default)
     {
         var fallback = NormalizeStorageProvider(_storageOptions.Provider);

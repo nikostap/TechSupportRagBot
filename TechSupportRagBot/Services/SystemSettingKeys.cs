@@ -7,6 +7,7 @@ public static class SystemSettingKeys
     public const string OllamaChatModel = "Ollama.ChatModel";
     public const string OllamaEmbeddingModel = "Ollama.EmbeddingModel";
     public const string UnreadEmailDelayMinutes = "Notifications.UnreadEmailDelayMinutes";
+    public const string MonthlyPasswordSendDay = "Notifications.MonthlyPasswordSendDay";
     public const string AccessProfiles = "Access.Profiles";
     public const string StorageProvider = "Storage.Provider";
     public const string MachineModels = "Machines.Models";

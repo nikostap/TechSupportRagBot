@@ -58,6 +58,19 @@ public class SettingsModel : PageModel
     [TempData]
     public string? MachineModelStatus { get; set; }
     public IReadOnlyList<string> MachineModels { get; private set; } = Array.Empty<string>();
+    public int MonthlyPasswordSendDay { get; private set; } = 28;
+
+    public async Task<IActionResult> OnPostMonthlyPasswordSendDayAsync(int monthlyPasswordSendDay)
+    {
+        if (monthlyPasswordSendDay is < 1 or > 31)
+        {
+            TempData["MonthlyPasswordDayStatus"] = UiText.T(HttpContext, "MonthlyPasswordSendDayInvalid");
+            return RedirectToPage();
+        }
+        await _settings.SaveMonthlyPasswordSendDayAsync(monthlyPasswordSendDay, HttpContext.RequestAborted);
+        TempData["MonthlyPasswordDayStatus"] = UiText.T(HttpContext, "MonthlyPasswordDaySaved");
+        return RedirectToPage();
+    }
 
     public async Task OnGetAsync()
     {
@@ -121,6 +134,7 @@ public class SettingsModel : PageModel
     {
         Models = await _ollama.ListModelsAsync(HttpContext.RequestAborted);
         MachineModels = await _settings.GetMachineModelsAsync(HttpContext.RequestAborted);
+        MonthlyPasswordSendDay = await _settings.GetMonthlyPasswordSendDayAsync(HttpContext.RequestAborted);
 
         if (fillInput)
         {

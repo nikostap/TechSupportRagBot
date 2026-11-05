@@ -13,15 +13,13 @@ public class Client
 
     public string? ContactPhone { get; set; }
 
-    public bool MonthlyPasswordEmailEnabled { get; set; }
-    public int MonthlyPasswordSendDay { get; set; } = 28;
-    public bool AutoRenewSupportLicense { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<License> Licenses { get; set; } = new List<License>();
 
     public ICollection<ClientMachine> ClientMachines { get; set; } = new List<ClientMachine>();
+    public ICollection<ClientMachineAutomation> MachineAutomations { get; set; } = new List<ClientMachineAutomation>();
 
     public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
 }

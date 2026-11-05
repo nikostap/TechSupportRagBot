@@ -78,10 +78,12 @@ public sealed class MonthlyPasswordTests
         await db.Database.EnsureCreatedAsync();
         var client = new Client { Name = "Test", ContactEmail = "client@example.test" };
         var machine = new Machine { Name = "Machine", Model = "ALF", SerialNumber = "033", LicenseKey = "test" };
+        var other = new Machine { Name = "Other", Model = "ALF", SerialNumber = "034", LicenseKey = "test2" };
         db.Clients.Add(client);
-        db.Machines.Add(machine);
+        db.Machines.AddRange(machine, other);
         await db.SaveChangesAsync();
         db.ClientMachines.Add(new ClientMachine { ClientId = client.Id, MachineId = machine.Id });
+        db.ClientMachines.Add(new ClientMachine { ClientId = client.Id, MachineId = other.Id });
         await db.SaveChangesAsync();
         var sender = new CaptureSender();
         var settings = NewSettings(db);
@@ -89,13 +91,34 @@ public sealed class MonthlyPasswordTests
         await service.ProcessAsync();
         Assert.Empty(sender.Messages);
 
-        client.MonthlyPasswordEmailEnabled = true;
-        client.MonthlyPasswordSendDay = 1;
-        await db.SaveChangesAsync();
+        db.ClientMachineAutomations.Add(new ClientMachineAutomation
+        {
+            ClientId = client.Id, MachineId = machine.Id, MonthlyPasswordEmailEnabled = true
+        });
+        await settings.SaveMonthlyPasswordSendDayAsync(1);
         await service.ProcessAsync();
         await service.ProcessAsync();
         Assert.Single(sender.Messages);
         Assert.Single(db.MonthlyPasswordEmailLogs);
+
+        Assert.Equal(machine.Id, db.MonthlyPasswordEmailLogs.Single().MachineId);
+        Assert.DoesNotContain("034", sender.Messages.Single());
+
+        other.SerialNumber = "invalid";
+        db.ClientMachineAutomations.Add(new ClientMachineAutomation
+        {
+            ClientId = client.Id, MachineId = other.Id, MonthlyPasswordEmailEnabled = true
+        });
+        await db.SaveChangesAsync();
+        await service.ProcessAsync();
+        Assert.Single(sender.Messages);
+        Assert.Single(db.MonthlyPasswordEmailLogs);
+
+        other.SerialNumber = "034";
+        await db.SaveChangesAsync();
+        await service.ProcessAsync();
+        Assert.Equal(2, sender.Messages.Count);
+        Assert.Equal(2, db.MonthlyPasswordEmailLogs.Count());
     }
 
     [Fact]
@@ -121,7 +144,10 @@ public sealed class MonthlyPasswordTests
         await service.ProcessAsync();
         Assert.Equal(originalExpiry, license.ExpiresAt);
 
-        client.AutoRenewSupportLicense = true;
+        db.ClientMachineAutomations.Add(new ClientMachineAutomation
+        {
+            ClientId = client.Id, MachineId = machine.Id, AutoRenewSupportLicense = true
+        });
         await db.SaveChangesAsync();
         await service.ProcessAsync();
         Assert.True(license.ExpiresAt > DateTime.UtcNow.AddMonths(11));

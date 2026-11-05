@@ -99,6 +99,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<LicenseEmailLog> LicenseEmailLogs => Set<LicenseEmailLog>();
     public DbSet<MonthlyPasswordEmailLog> MonthlyPasswordEmailLogs => Set<MonthlyPasswordEmailLog>();
+    public DbSet<ClientMachineAutomation> ClientMachineAutomations => Set<ClientMachineAutomation>();
 
     public DbSet<ApiUsageRecord> ApiUsageRecords => Set<ApiUsageRecord>();
 
@@ -189,7 +190,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(200);
 
         builder.Entity<MonthlyPasswordEmailLog>()
-            .HasIndex(x => new { x.ClientId, x.Year, x.Month })
+            .HasIndex(x => new { x.ClientId, x.MachineId, x.Year, x.Month })
             .IsUnique();
         builder.Entity<MonthlyPasswordEmailLog>()
             .Property(x => x.RecipientEmail).HasMaxLength(256);
@@ -214,6 +215,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ClientMachine>()
             .HasIndex(x => new { x.ClientId, x.MachineId })
             .IsUnique();
+
+        builder.Entity<ClientMachineAutomation>()
+            .HasIndex(x => new { x.ClientId, x.MachineId })
+            .IsUnique();
+        builder.Entity<ClientMachineAutomation>()
+            .HasOne(x => x.Client).WithMany(x => x.MachineAutomations)
+            .HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<ClientMachineAutomation>()
+            .HasOne(x => x.Machine).WithMany()
+            .HasForeignKey(x => x.MachineId).OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<Ticket>()
             .HasIndex(x => x.Status);

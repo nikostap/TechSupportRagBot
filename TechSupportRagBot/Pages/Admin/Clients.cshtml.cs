@@ -194,19 +194,21 @@ public class ClientsModel : PageModel
         return RedirectToPage();
     }
 
-    public async Task<IActionResult> OnPostAutomationAsync(int clientId, bool monthlyPasswordEmailEnabled,
-        int monthlyPasswordSendDay, bool autoRenewSupportLicense)
+    public async Task<IActionResult> OnPostMachineAutomationAsync(int clientId, int machineId,
+        bool monthlyPasswordEmailEnabled, bool autoRenewSupportLicense)
     {
-        if (monthlyPasswordSendDay is < 1 or > 31)
+        var ownsMachine = await _db.ClientMachines.AnyAsync(x => x.ClientId == clientId && x.MachineId == machineId)
+            || await _db.Licenses.AnyAsync(x => x.ClientId == clientId && x.MachineId == machineId);
+        if (!ownsMachine) return NotFound();
+        var automation = await _db.ClientMachineAutomations.FirstOrDefaultAsync(x =>
+            x.ClientId == clientId && x.MachineId == machineId);
+        if (automation == null)
         {
-            TempData["ClientAutomationStatus"] = UiText.T(HttpContext, "MonthlyPasswordSendDayInvalid");
-            return RedirectToPage();
+            automation = new ClientMachineAutomation { ClientId = clientId, MachineId = machineId };
+            _db.ClientMachineAutomations.Add(automation);
         }
-        var client = await _db.Clients.FindAsync(clientId);
-        if (client == null) return NotFound();
-        client.MonthlyPasswordEmailEnabled = monthlyPasswordEmailEnabled;
-        client.MonthlyPasswordSendDay = monthlyPasswordSendDay;
-        client.AutoRenewSupportLicense = autoRenewSupportLicense;
+        automation.MonthlyPasswordEmailEnabled = monthlyPasswordEmailEnabled;
+        automation.AutoRenewSupportLicense = autoRenewSupportLicense;
         await _db.SaveChangesAsync();
         TempData["ClientAutomationStatus"] = UiText.T(HttpContext, "ClientAutomationSaved");
         return RedirectToPage();
@@ -265,6 +267,7 @@ public class ClientsModel : PageModel
             .Include(x => x.Users)
             .Include(x => x.Licenses).ThenInclude(x => x.Machine)
             .Include(x => x.ClientMachines).ThenInclude(x => x.Machine)
+            .Include(x => x.MachineAutomations)
             .OrderBy(x => x.Name)
             .ToListAsync();
     }

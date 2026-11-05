@@ -223,6 +223,12 @@
 .dispatch-theme .monthly-password-value{display:block;width:max-content;max-width:100%;font-size:clamp(38px,7vw,64px);font-weight:800;line-height:1;letter-spacing:.11em;font-variant-numeric:tabular-nums}
 .dispatch-theme .monthly-password-value code{padding:0;background:transparent;color:#203d49;font:inherit;letter-spacing:inherit}
 .dispatch-theme .monthly-password-meta{margin:16px 0 0;color:#5c737e;font-size:14px;font-weight:600}
+.dispatch-theme .client-machine-settings-table th{white-space:normal;min-width:110px}
+.dispatch-theme .client-machine-settings-table th:first-child{min-width:170px}
+.dispatch-theme .machine-automation-check{display:inline-flex;align-items:center;gap:9px;min-height:32px;margin:0;color:inherit;font-size:12px;font-weight:600}
+.dispatch-theme .machine-automation-check input[type="checkbox"]{width:18px;height:18px;flex:none;margin:0}
+.dispatch-theme .machine-automation-check span{line-height:1.25}
+.dispatch-theme .client-machine-settings-table td form{margin:0}
 @media(max-width:600px){.dispatch-theme .monthly-password-fields{grid-template-columns:1fr;gap:12px}.dispatch-theme .monthly-password-result{padding:24px 20px}.dispatch-theme .monthly-password-value{letter-spacing:.06em}}
 .dispatch-theme .focus-dashboard-record small{color:#71858e;font-size:11px;overflow-wrap:anywhere}
 .dispatch-theme .focus-dashboard-chevron{font-size:19px;line-height:1;color:#9e6d27}

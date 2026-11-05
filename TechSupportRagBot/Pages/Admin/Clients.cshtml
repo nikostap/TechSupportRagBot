@@ -88,10 +88,12 @@
             }
             else
             {
-                <div class="table-wrap"><table><thead><tr>
+                <div class="table-wrap"><table class="client-machine-settings-table"><thead><tr>
                     <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</th>
                     <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExpiresAt")</th>
-                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordStatus")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordAutoEmail")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoRenewSupportLicense")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Actions")</th>
                 </tr></thead><tbody>
                 @foreach (var id in machineIds)
                 {
@@ -100,24 +102,35 @@
                     var license = client.Licenses.Where(x => x.MachineId == id && x.IsActive)
                         .OrderByDescending(x => x.ExpiresAt).FirstOrDefault();
                     var isLinked = client.ClientMachines.Any(x => x.MachineId == id);
+                    var automation = client.MachineAutomations.FirstOrDefault(x => x.MachineId == id);
+                    var formId = $"machine-automation-{client.Id}-{id}";
                     var hasPassword = isLinked && machine != null && TechSupportRagBot.Services.MonthlyPasswordGenerator.TryForMachine(
                         machine, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1)), Model.MonthlyPasswordModelIds, out _);
                     <tr>
                         <td>@machine?.Model @machine?.SerialNumber (@machine?.Name)</td>
                         <td>@(license?.ExpiresAt?.ToString("dd.MM.yyyy") ?? TechSupportRagBot.Services.UiText.T(HttpContext, "NoExpiry"))</td>
-                        <td>@TechSupportRagBot.Services.UiText.T(HttpContext, !isLinked ? "NotActivated" : hasPassword ? "MonthlyPasswordReady" : "MonthlyPasswordUnavailable")</td>
+                        <td>
+                            <label class="machine-automation-check">
+                                <input type="checkbox" name="monthlyPasswordEmailEnabled" value="true" form="@formId"
+                                       checked="@(automation?.MonthlyPasswordEmailEnabled == true)"
+                                       aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordAutoEmail")" />
+                                <span>@TechSupportRagBot.Services.UiText.T(HttpContext, !isLinked ? "NotActivated" : hasPassword ? "MonthlyPasswordReady" : "MonthlyPasswordUnavailable")</span>
+                            </label>
+                        </td>
+                        <td><label class="machine-automation-check">
+                            <input type="checkbox" name="autoRenewSupportLicense" value="true" form="@formId"
+                                   checked="@(automation?.AutoRenewSupportLicense == true)"
+                                   aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoRenewSupportLicense")" />
+                        </label></td>
+                        <td><form id="@formId" method="post" asp-page-handler="MachineAutomation">
+                            <input type="hidden" name="clientId" value="@client.Id" />
+                            <input type="hidden" name="machineId" value="@id" />
+                            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
+                        </form></td>
                     </tr>
                 }
                 </tbody></table></div>
             }
-            <form method="post" asp-page-handler="Automation">
-                <input type="hidden" name="clientId" value="@client.Id" />
-                <label><input type="checkbox" name="monthlyPasswordEmailEnabled" value="true" checked="@client.MonthlyPasswordEmailEnabled" />@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordAutoEmail")</label>
-                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordSendDay")<input type="number" name="monthlyPasswordSendDay" min="1" max="31" value="@client.MonthlyPasswordSendDay" required /></label>
-                <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordSendHint")</p>
-                <label><input type="checkbox" name="autoRenewSupportLicense" value="true" checked="@client.AutoRenewSupportLicense" />@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoRenewSupportLicense")</label>
-                <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
-            </form>
         </div>
     }
 </section>
