@@ -214,6 +214,16 @@
 .dispatch-theme .focus-dashboard-record:focus-visible{outline:2px solid #d49233;outline-offset:2px}
 .dispatch-theme .focus-dashboard-record>span:first-child{display:grid;gap:4px;min-width:0;flex:1}
 .dispatch-theme .focus-dashboard-record strong{color:#203d49;font-size:13px;overflow-wrap:anywhere}
+.dispatch-theme .monthly-password-form{max-width:760px}
+.dispatch-theme .monthly-password-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin-bottom:22px}
+.dispatch-theme .monthly-password-fields label{min-width:0}
+.dispatch-theme .monthly-password-error{margin:16px 0 0}
+.dispatch-theme .monthly-password-result{max-width:760px;margin-top:20px;padding:28px 30px;border:1px solid #e8c684;border-left:5px solid #d58c24;background:linear-gradient(125deg,#fffaf0,#fff 70%)}
+.dispatch-theme .monthly-password-result .eyebrow{margin:0 0 12px;color:#956018}
+.dispatch-theme .monthly-password-value{display:block;width:max-content;max-width:100%;font-size:clamp(38px,7vw,64px);font-weight:800;line-height:1;letter-spacing:.11em;font-variant-numeric:tabular-nums}
+.dispatch-theme .monthly-password-value code{padding:0;background:transparent;color:#203d49;font:inherit;letter-spacing:inherit}
+.dispatch-theme .monthly-password-meta{margin:16px 0 0;color:#5c737e;font-size:14px;font-weight:600}
+@media(max-width:600px){.dispatch-theme .monthly-password-fields{grid-template-columns:1fr;gap:12px}.dispatch-theme .monthly-password-result{padding:24px 20px}.dispatch-theme .monthly-password-value{letter-spacing:.06em}}
 .dispatch-theme .focus-dashboard-record small{color:#71858e;font-size:11px;overflow-wrap:anywhere}
 .dispatch-theme .focus-dashboard-chevron{font-size:19px;line-height:1;color:#9e6d27}
 .dispatch-theme .dashboard-panel .focus-list-workspace{height:auto;min-height:190px;max-height:520px}

@@ -1,9 +1,12 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
+using TechSupportRagBot.Pages.Admin;
 using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Tests;
@@ -28,6 +31,41 @@ public sealed class MonthlyPasswordTests
         Assert.True(MonthlyPasswordGenerator.TryForMachine(
             new Machine { Model = "MS", SerialNumber = "074" },
             new DateOnly(2026, 11, 1), ids, out _));
+    }
+
+    [Fact]
+    public async Task Alf506UsesAlfOnlyForPasswordsAndPageOpensOnCurrentMonth()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(connection).Options;
+        await using var db = new ApplicationDbContext(options);
+        await db.Database.EnsureCreatedAsync();
+        var settings = NewSettings(db);
+        var ids = await settings.GetMonthlyPasswordModelIdsAsync();
+        var machine = new Machine { Model = "ALF-506", SerialNumber = "033" };
+        Assert.True(MonthlyPasswordGenerator.TryForMachine(machine, new DateOnly(2026, 11, 1), ids, out var password));
+        Assert.Equal("867245", password);
+        Assert.Equal("ALF-506", machine.Model);
+
+        var page = new MonthlyPasswordsModel(settings)
+        {
+            PageContext = new PageContext { HttpContext = new DefaultHttpContext() },
+            ModelName = "ALF-506", SerialNumber = "033", Year = 2026, Month = 11
+        };
+        await page.OnGetAsync();
+        Assert.Contains("ALF-506", page.Models);
+        Assert.Equal(password, page.Result);
+
+        var initial = new MonthlyPasswordsModel(settings)
+        {
+            PageContext = new PageContext { HttpContext = new DefaultHttpContext() }
+        };
+        await initial.OnGetAsync();
+        var moscowToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+        Assert.Equal(moscowToday.Year, initial.Year);
+        Assert.Equal(moscowToday.Month, initial.Month);
     }
 
     [Fact]

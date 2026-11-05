@@ -36,7 +36,7 @@ public static class MonthlyPasswordGenerator
         IReadOnlyDictionary<string, int> modelIds, out string password)
     {
         password = string.Empty;
-        var code = machine.Model.Trim().ToUpperInvariant();
+        var code = PasswordModelCode(machine.Model);
         if (!modelIds.TryGetValue(code, out var id)) return false;
         try
         {
@@ -46,4 +46,8 @@ public static class MonthlyPasswordGenerator
         catch (ArgumentException) { return false; }
         catch (InvalidOperationException) { return false; }
     }
+
+    public static string PasswordModelCode(string model) =>
+        model.Trim().Equals("ALF-506", StringComparison.OrdinalIgnoreCase)
+            ? "ALF" : model.Trim().ToUpperInvariant();
 }
