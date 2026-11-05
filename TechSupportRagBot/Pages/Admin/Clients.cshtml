@@ -15,6 +15,10 @@
 {
     <div class="panel"><strong>@TechSupportRagBot.Services.UiText.T(HttpContext, "OneTimePasswordNotice")</strong> @TempData["IssuedUserOnce"]: <code>@issuedPassword</code></div>
 }
+@if (TempData["ClientAutomationStatus"] is string automationStatus)
+{
+    <div class="panel" role="status">@automationStatus</div>
+}
 
 <div class="split-layout">
     <form method="post" class="panel">
@@ -67,3 +71,53 @@
         </div>
     </div>
 </div>
+
+<section class="panel">
+    <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientList")</h2>
+    @foreach (var client in Model.Clients)
+    {
+        <div class="panel">
+            <h3>@client.Name</h3>
+            <p>@TechSupportRagBot.Services.UiText.T(HttpContext, "Email"): @(client.ContactEmail ?? "—")</p>
+            <h4>@TechSupportRagBot.Services.UiText.T(HttpContext, "MyEquipment")</h4>
+            @{ var machineIds = client.ClientMachines.Select(x => x.MachineId)
+                .Concat(client.Licenses.Select(x => x.MachineId)).Distinct().ToList(); }
+            @if (machineIds.Count == 0)
+            {
+                <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "ClientNoMachines")</p>
+            }
+            else
+            {
+                <div class="table-wrap"><table><thead><tr>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExpiresAt")</th>
+                    <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordStatus")</th>
+                </tr></thead><tbody>
+                @foreach (var id in machineIds)
+                {
+                    var machine = client.ClientMachines.FirstOrDefault(x => x.MachineId == id)?.Machine
+                        ?? client.Licenses.FirstOrDefault(x => x.MachineId == id)?.Machine;
+                    var license = client.Licenses.Where(x => x.MachineId == id && x.IsActive)
+                        .OrderByDescending(x => x.ExpiresAt).FirstOrDefault();
+                    var isLinked = client.ClientMachines.Any(x => x.MachineId == id);
+                    var hasPassword = isLinked && machine != null && TechSupportRagBot.Services.MonthlyPasswordGenerator.TryForMachine(
+                        machine, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1)), Model.MonthlyPasswordModelIds, out _);
+                    <tr>
+                        <td>@machine?.Model @machine?.SerialNumber (@machine?.Name)</td>
+                        <td>@(license?.ExpiresAt?.ToString("dd.MM.yyyy") ?? TechSupportRagBot.Services.UiText.T(HttpContext, "NoExpiry"))</td>
+                        <td>@TechSupportRagBot.Services.UiText.T(HttpContext, !isLinked ? "NotActivated" : hasPassword ? "MonthlyPasswordReady" : "MonthlyPasswordUnavailable")</td>
+                    </tr>
+                }
+                </tbody></table></div>
+            }
+            <form method="post" asp-page-handler="Automation">
+                <input type="hidden" name="clientId" value="@client.Id" />
+                <label><input type="checkbox" name="monthlyPasswordEmailEnabled" value="true" checked="@client.MonthlyPasswordEmailEnabled" />@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordAutoEmail")</label>
+                <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordSendDay")<input type="number" name="monthlyPasswordSendDay" min="1" max="31" value="@client.MonthlyPasswordSendDay" required /></label>
+                <p class="muted">@TechSupportRagBot.Services.UiText.T(HttpContext, "MonthlyPasswordSendHint")</p>
+                <label><input type="checkbox" name="autoRenewSupportLicense" value="true" checked="@client.AutoRenewSupportLicense" />@TechSupportRagBot.Services.UiText.T(HttpContext, "AutoRenewSupportLicense")</label>
+                <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
+            </form>
+        </div>
+    }
+</section>

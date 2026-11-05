@@ -37,6 +37,7 @@ public class AccessProfileService
         new("ManageClients", "PermissionManageClients"),
         new("ManageMachines", "PermissionManageMachines"),
         new("ManageLicenses", "PermissionManageLicenses"),
+        new("MonthlyPasswords", "PermissionMonthlyPasswords"),
         new("QA", "PermissionQA"),
         new("Tickets", "PermissionTickets"),
         new("TimeTracking", "PermissionTimeTracking"),
@@ -233,6 +234,7 @@ public class AccessProfileService
         if (value.StartsWith("/Admin/Clients", StringComparison.OrdinalIgnoreCase)) return "ManageClients";
         if (value.StartsWith("/Admin/Machines", StringComparison.OrdinalIgnoreCase)) return "ManageMachines";
         if (value.StartsWith("/Admin/Licenses", StringComparison.OrdinalIgnoreCase)) return "ManageLicenses";
+        if (value.StartsWith("/Admin/MonthlyPasswords", StringComparison.OrdinalIgnoreCase)) return "MonthlyPasswords";
         if (value.StartsWith("/Admin/Operators", StringComparison.OrdinalIgnoreCase)) return "ManageAdmins";
         if (value.StartsWith("/Admin/BotTest", StringComparison.OrdinalIgnoreCase)) return "QA";
         if (value.StartsWith("/Admin/IndexedChats", StringComparison.OrdinalIgnoreCase)) return "QA";

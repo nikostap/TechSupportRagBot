@@ -28,6 +28,7 @@ public class EmailNotificationBackgroundService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var sender = scope.ServiceProvider.GetRequiredService<EmailNotificationService>();
                 await sender.ProcessAsync(stoppingToken);
+                await scope.ServiceProvider.GetRequiredService<ClientAutomationService>().ProcessAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

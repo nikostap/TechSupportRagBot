@@ -139,6 +139,7 @@ builder.Services.AddScoped<SmtpEmailSender>();
 builder.Services.AddScoped<IEmailSender>(services => services.GetRequiredService<SmtpEmailSender>());
 builder.Services.AddScoped<AccountWelcomeEmailService>();
 builder.Services.AddScoped<LicenseMailService>();
+builder.Services.AddScoped<ClientAutomationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<PasswordRecoveryThrottle>();
 builder.Services.AddScoped<PasswordRecoveryService>();

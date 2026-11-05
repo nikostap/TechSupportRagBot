@@ -98,6 +98,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BrowserPushLog> BrowserPushLogs => Set<BrowserPushLog>();
 
     public DbSet<LicenseEmailLog> LicenseEmailLogs => Set<LicenseEmailLog>();
+    public DbSet<MonthlyPasswordEmailLog> MonthlyPasswordEmailLogs => Set<MonthlyPasswordEmailLog>();
 
     public DbSet<ApiUsageRecord> ApiUsageRecords => Set<ApiUsageRecord>();
 
@@ -186,6 +187,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Client>()
             .Property(x => x.Name)
             .HasMaxLength(200);
+
+        builder.Entity<MonthlyPasswordEmailLog>()
+            .HasIndex(x => new { x.ClientId, x.Year, x.Month })
+            .IsUnique();
+        builder.Entity<MonthlyPasswordEmailLog>()
+            .Property(x => x.RecipientEmail).HasMaxLength(256);
+        builder.Entity<MonthlyPasswordEmailLog>()
+            .HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<License>()
             .HasIndex(x => x.Key)

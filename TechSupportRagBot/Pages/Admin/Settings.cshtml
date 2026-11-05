@@ -88,9 +88,9 @@
 <div class="settings-layout">
     <section class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineModels")</h2>
-        @if (!string.IsNullOrWhiteSpace(Model.MachineModelStatus))
+        @if (TempData["MachineModelStatus"] is string machineModelStatus)
         {
-            <div class="notice-soft" role="status">@Model.MachineModelStatus</div>
+            <div class="notice-soft" role="status">@machineModelStatus</div>
         }
         <form method="post" asp-page-handler="AddMachineModel">
             <label for="machine-model-new">@TechSupportRagBot.Services.UiText.T(HttpContext, "NewMachineModel")</label>

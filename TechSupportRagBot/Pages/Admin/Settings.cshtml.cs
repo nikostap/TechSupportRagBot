@@ -98,11 +98,11 @@ public class SettingsModel : PageModel
         var value = machineModel?.Trim();
         if (string.IsNullOrWhiteSpace(value) || value.Length > 50 || value.Any(char.IsControl))
         {
-            MachineModelStatus = UiText.T(HttpContext, "MachineModelInvalid");
+            TempData["MachineModelStatus"] = UiText.T(HttpContext, "MachineModelInvalid");
             return RedirectToPage();
         }
-
-        MachineModelStatus = await _settings.AddMachineModelAsync(value, HttpContext.RequestAborted)
+        var added = await _settings.AddMachineModelAsync(value, HttpContext.RequestAborted);
+        TempData["MachineModelStatus"] = added
             ? UiText.T(HttpContext, "MachineModelAdded")
             : UiText.T(HttpContext, "MachineModelExists");
         return RedirectToPage();
@@ -110,7 +110,7 @@ public class SettingsModel : PageModel
 
     public async Task<IActionResult> OnPostDeleteMachineModelAsync(string machineModel)
     {
-        MachineModelStatus = !string.IsNullOrWhiteSpace(machineModel)
+        TempData["MachineModelStatus"] = !string.IsNullOrWhiteSpace(machineModel)
             && await _settings.RemoveMachineModelAsync(machineModel, HttpContext.RequestAborted)
             ? UiText.T(HttpContext, "MachineModelRemoved")
             : UiText.T(HttpContext, "MachineModelNotFound");

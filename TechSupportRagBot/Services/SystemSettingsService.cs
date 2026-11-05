@@ -106,10 +106,34 @@ public class SystemSettingsService
         var models = (await GetMachineModelsAsync(cancellationToken)).ToList();
         var value = model.Trim();
         if (models.Contains(value, StringComparer.OrdinalIgnoreCase)) return false;
+        var ids = (await GetMonthlyPasswordModelIdsAsync(cancellationToken))
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+        if (ids.Values.Max() >= 99) return false;
+        ids[value] = ids.Values.Max() + 1;
         models.Add(value);
         await SetValueAsync(SystemSettingKeys.MachineModels, JsonSerializer.Serialize(models), cancellationToken);
+        await SetValueAsync(SystemSettingKeys.MonthlyPasswordModelIds, JsonSerializer.Serialize(ids), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetMonthlyPasswordModelIdsAsync(CancellationToken cancellationToken = default)
+    {
+        var raw = await _db.SystemSettings.AsNoTracking()
+            .Where(x => x.Key == SystemSettingKeys.MonthlyPasswordModelIds)
+            .Select(x => x.Value).FirstOrDefaultAsync(cancellationToken);
+        var ids = MonthlyPasswordGenerator.DefaultModels.ToDictionary(x => x.Code, x => x.Id,
+            StringComparer.OrdinalIgnoreCase);
+        ids["MS"] = 12;
+        try
+        {
+            foreach (var (code, id) in JsonSerializer.Deserialize<Dictionary<string, int>>(raw ?? "{}") ?? [])
+                ids[code] = id;
+        }
+        catch (JsonException) { }
+        foreach (var model in await GetMachineModelsAsync(cancellationToken))
+            if (!ids.ContainsKey(model)) ids[model] = ids.Values.Max() + 1;
+        return ids;
     }
 
     public async Task<bool> RemoveMachineModelAsync(string model, CancellationToken cancellationToken = default)

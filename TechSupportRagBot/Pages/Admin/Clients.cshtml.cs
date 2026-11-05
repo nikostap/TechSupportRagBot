@@ -18,18 +18,21 @@ public class ClientsModel : PageModel
     private readonly TicketDeletionService _ticketDeletion;
     private readonly ILogger<ClientsModel> _logger;
     private readonly AccountWelcomeEmailService _welcomeMail;
+    private readonly SystemSettingsService _settings;
 
     public ClientsModel(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
         TicketDeletionService ticketDeletion,
         AccountWelcomeEmailService welcomeMail,
+        SystemSettingsService settings,
         ILogger<ClientsModel> logger)
     {
         _db = db;
         _userManager = userManager;
         _ticketDeletion = ticketDeletion;
         _welcomeMail = welcomeMail;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -37,6 +40,7 @@ public class ClientsModel : PageModel
     public ClientInput Input { get; set; } = new();
 
     public List<TechSupportRagBot.Models.Client> Clients { get; private set; } = new();
+    public IReadOnlyDictionary<string, int> MonthlyPasswordModelIds { get; private set; } = new Dictionary<string, int>();
 
     public async Task OnGetAsync() => await LoadAsync();
 
@@ -190,6 +194,24 @@ public class ClientsModel : PageModel
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostAutomationAsync(int clientId, bool monthlyPasswordEmailEnabled,
+        int monthlyPasswordSendDay, bool autoRenewSupportLicense)
+    {
+        if (monthlyPasswordSendDay is < 1 or > 31)
+        {
+            TempData["ClientAutomationStatus"] = UiText.T(HttpContext, "MonthlyPasswordSendDayInvalid");
+            return RedirectToPage();
+        }
+        var client = await _db.Clients.FindAsync(clientId);
+        if (client == null) return NotFound();
+        client.MonthlyPasswordEmailEnabled = monthlyPasswordEmailEnabled;
+        client.MonthlyPasswordSendDay = monthlyPasswordSendDay;
+        client.AutoRenewSupportLicense = autoRenewSupportLicense;
+        await _db.SaveChangesAsync();
+        TempData["ClientAutomationStatus"] = UiText.T(HttpContext, "ClientAutomationSaved");
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
         var client = await _db.Clients
@@ -238,8 +260,11 @@ public class ClientsModel : PageModel
 
     private async Task LoadAsync()
     {
+        MonthlyPasswordModelIds = await _settings.GetMonthlyPasswordModelIdsAsync(HttpContext.RequestAborted);
         Clients = await _db.Clients
             .Include(x => x.Users)
+            .Include(x => x.Licenses).ThenInclude(x => x.Machine)
+            .Include(x => x.ClientMachines).ThenInclude(x => x.Machine)
             .OrderBy(x => x.Name)
             .ToListAsync();
     }

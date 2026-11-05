@@ -22,6 +22,7 @@
     if (Can("ManageClients")) items.Add((T("SidebarClientsEquipment"), "/Admin/Clients", T("Clients"), "ce-clients"));
     if (Can("ManageMachines")) items.Add((T("SidebarClientsEquipment"), "/Admin/Machines", T("Equipment"), "ce-machine"));
     if (Can("ManageLicenses")) items.Add((T("SidebarClientsEquipment"), "/Admin/Licenses", T("Licenses"), "ce-license"));
+    if (Can("MonthlyPasswords")) items.Add((T("SidebarClientsEquipment"), "/Admin/MonthlyPasswords", T("MonthlyPasswords"), "ce-license"));
     if (hasClient && Can("ClientCabinet")) items.Add((T("SidebarClientsEquipment"), "/Client/Machines", T("MyEquipment"), "ce-machine"));
     if (hasClient && Can("ClientCabinet")) items.Add((T("SidebarClientsEquipment"), "/Client/Activate", T("Activation"), "ce-license"));
     if (hasClient && Can("CompanyUsers")) items.Add((T("SidebarClientsEquipment"), "/Client/Users", T("CompanyUsers"), "ce-users"));
