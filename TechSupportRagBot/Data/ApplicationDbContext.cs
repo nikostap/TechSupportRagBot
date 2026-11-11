@@ -144,6 +144,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ComponentInstallation>().HasIndex(x => new { x.MachinePositionId, x.MachineId });
         builder.Entity<KnowledgeDocument>().HasOne(x => x.ComponentModel).WithMany()
             .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<QAEntry>().HasOne(x => x.ComponentModel).WithMany()
+            .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<QAEntry>().Property(x => x.Scope).HasMaxLength(30);
 
         builder.Entity<ChatMessageOperatorRead>()
             .HasKey(x => new { x.ChatMessageId, x.OperatorUserId });

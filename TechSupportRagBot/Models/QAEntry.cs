@@ -18,6 +18,12 @@ public class QAEntry
 
     public string? NodeName { get; set; }
 
+    public string Scope { get; set; } = "Machine";
+
+    public int? ComponentModelId { get; set; }
+
+    public ComponentModel? ComponentModel { get; set; }
+
     public string? Category { get; set; }
 
     public string? ProblemType { get; set; }

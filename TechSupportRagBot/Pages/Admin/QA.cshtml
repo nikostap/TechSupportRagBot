@@ -14,6 +14,10 @@
         <a class="btn-secondary" asp-page-handler="TemplateDocx">@TechSupportRagBot.Services.UiText.T(HttpContext, "DownloadDocx")</a>
     </div>
 </section>
+<nav class="component-tabs" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "QA")">
+    <a class="@(Model.ScopeFilter != "Component" ? "active" : "")" asp-page="/Admin/QA" asp-route-ScopeFilter="Machine">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineQA")</a>
+    <a class="@(Model.ScopeFilter == "Component" ? "active" : "")" asp-page="/Admin/QA" asp-route-ScopeFilter="Component">@TechSupportRagBot.Services.UiText.T(HttpContext, "ComponentQA")</a>
+</nav>
 
 @if (Model.EditId.HasValue)
 {
@@ -32,10 +36,18 @@
             <input asp-for="EditInput.Keywords" />
         </label>
         <div class="inline-grid">
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAScope")
+                <select asp-for="EditInput.Scope"><option value="Machine">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineQA")</option><option value="Component">@TechSupportRagBot.Services.UiText.T(HttpContext, "ComponentQA")</option></select>
+            </label>
+            <label data-qa-component>@TechSupportRagBot.Services.UiText.T(HttpContext, "ComponentModel")
+                <select asp-for="EditInput.ComponentModelId"><option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                    @foreach (var item in Model.ComponentModels) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
+                </select>
+            </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")
                 <input asp-for="EditInput.Category" list="qa-categories" />
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
+            <label data-qa-machine>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
                 <select asp-for="EditInput.MachineModel">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
                     @if (!string.IsNullOrWhiteSpace(Model.EditInput.MachineModel) && !Model.MachineModelOptions.Contains(Model.EditInput.MachineModel, StringComparer.OrdinalIgnoreCase))
@@ -48,7 +60,7 @@
                     }
                 </select>
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
+            <label data-qa-machine>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
                 <input asp-for="EditInput.SerialNumber" list="qa-serials-edit" placeholder="5-30" inputmode="numeric" pattern="[0-9]+(-[0-9]+)?" data-serial-rule />
                 <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QASerialHelp")</small>
             </label>
@@ -126,10 +138,18 @@
             <input asp-for="Input.Keywords" />
         </label>
         <div class="inline-grid">
+            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAScope")
+                <select asp-for="Input.Scope"><option value="Machine">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineQA")</option><option value="Component">@TechSupportRagBot.Services.UiText.T(HttpContext, "ComponentQA")</option></select>
+            </label>
+            <label data-qa-component>@TechSupportRagBot.Services.UiText.T(HttpContext, "ComponentModel")
+                <select asp-for="Input.ComponentModelId"><option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
+                    @foreach (var item in Model.ComponentModels) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
+                </select>
+            </label>
             <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Category")
                 <input asp-for="Input.Category" list="qa-categories" />
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
+            <label data-qa-machine>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")
                 <select asp-for="Input.MachineModel">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "NotSpecified")</option>
                     @if (!string.IsNullOrWhiteSpace(Model.Input.MachineModel) && !Model.MachineModelOptions.Contains(Model.Input.MachineModel, StringComparer.OrdinalIgnoreCase))
@@ -142,7 +162,7 @@
                     }
                 </select>
             </label>
-            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
+            <label data-qa-machine>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumberRange")
                 <input asp-for="Input.SerialNumber" list="qa-serials-create" placeholder="5-30" inputmode="numeric" pattern="[0-9]+(-[0-9]+)?" data-serial-rule />
                 <small class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "QASerialHelp")</small>
             </label>
@@ -259,6 +279,7 @@
     <div class="section-bar">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAEntries")</h2>
         <form method="get" class="qa-search-filter">
+            <input type="hidden" asp-for="ScopeFilter" />
             <div class="qa-filter-search-row">
                 <input asp-for="SearchQuery" type="search" placeholder="@TechSupportRagBot.Services.UiText.T(HttpContext, "QASearchPlaceholder")" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "QASearchLabel")" />
                 <select asp-for="SearchMode" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SearchMode")">
@@ -266,7 +287,7 @@
                     <option value="Rag">@TechSupportRagBot.Services.UiText.T(HttpContext, "SearchByMeaning")</option>
                 </select>
                 <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Show")</button>
-                <a class="btn-secondary" asp-page="/Admin/QA">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reset")</a>
+                <a class="btn-secondary" asp-page="/Admin/QA" asp-route-ScopeFilter="@Model.ScopeFilter">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reset")</a>
             </div>
             <div class="qa-filter-options-row">
                 <select asp-for="SortOrder" id="qa-sort-order" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Sort")">
@@ -277,6 +298,8 @@
                     <option value="status-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "ByStatus")</option>
                     <option value="model-asc">@TechSupportRagBot.Services.UiText.T(HttpContext, "ByModel")</option>
                 </select>
+                @if (Model.ScopeFilter != "Component")
+                {
                 <select asp-for="MachineFilter">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllMachinesAndModels")</option>
                     @foreach (var modelName in Model.MachineFilterOptions)
@@ -291,6 +314,7 @@
                         <option value="@serial">@serial</option>
                     }
                 </select>
+                }
                 <select asp-for="StatusFilter">
                     <option value="">@TechSupportRagBot.Services.UiText.T(HttpContext, "AllStatuses")</option>
                     @foreach (var status in Model.Statuses)
@@ -303,6 +327,7 @@
     </div>
 
     <form method="post" asp-page-handler="Bulk" id="qa-bulk-form" class="qa-bulk-bar">
+        <input type="hidden" asp-for="ScopeFilter" />
         <input type="hidden" asp-for="StatusFilter" />
         <input type="hidden" asp-for="MachineFilter" />
         <input type="hidden" asp-for="SerialFilter" />
@@ -410,7 +435,7 @@
                         </div>
                     }
                     <div class="form-actions">
-                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
+                        <a class="btn-secondary" asp-page="/Admin/QA" asp-route-EditId="@entry.Id" asp-route-ScopeFilter="@Model.ScopeFilter" asp-route-StatusFilter="@Model.StatusFilter" asp-route-MachineFilter="@Model.MachineFilter" asp-route-SerialFilter="@Model.SerialFilter" asp-route-SearchQuery="@Model.SearchQuery" asp-route-SearchMode="@Model.SearchMode" asp-route-SortOrder="@Model.SortOrder">@TechSupportRagBot.Services.UiText.T(HttpContext, "EditQA")</a>
                         <form method="post" asp-page-handler="Reindex" asp-route-id="@entry.Id" class="row-action">
                             <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Reindex")</button>
                         </form>
@@ -553,6 +578,26 @@ window.initializeQAEntries();
 
 <script>
 (() => {
+    document.querySelectorAll('.qa-editor').forEach(form => {
+        const scope = form.querySelector('select[name$=".Scope"]');
+        if (!scope) return;
+        const syncScope = () => {
+            const component = scope.value === 'Component';
+            form.querySelectorAll('[data-qa-component]').forEach(field => {
+                field.hidden = !component;
+                field.style.display = component ? '' : 'none';
+                field.querySelectorAll('input, select').forEach(input => input.disabled = !component);
+            });
+            form.querySelectorAll('[data-qa-machine]').forEach(field => {
+                field.hidden = component;
+                field.style.display = component ? 'none' : '';
+                field.querySelectorAll('input, select').forEach(input => input.disabled = component);
+            });
+        };
+        scope.addEventListener('change', syncScope);
+        syncScope();
+    });
+
     const machines = @Html.Raw(Model.MachineHintsJson);
     const validationMessages = {
         serialNumber: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TechSupportRagBot.Services.UiText.T(HttpContext, "QAValidationSerialNumber")))

@@ -69,6 +69,8 @@ public class QAService
         entry.MachineModel = input.MachineModel;
         entry.SerialNumber = input.SerialNumber;
         entry.NodeName = input.NodeName;
+        entry.Scope = input.Scope;
+        entry.ComponentModelId = input.ComponentModelId;
         entry.Category = input.Category;
         entry.ProblemType = input.ProblemType;
         entry.Status = IsKnownStatus(input.Status) ? input.Status : QAEntryStatuses.NeedsReview;
@@ -83,6 +85,7 @@ public class QAService
     {
         var entry = await _db.QAEntries
             .Include(x => x.Chunks)
+            .Include(x => x.ComponentModel)
             .Include(x => x.Attachments)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entry == null)
@@ -508,6 +511,8 @@ public class QAService
         Append(builder, "Модель", entry.MachineModel);
         Append(builder, "Серийный номер или диапазон", entry.SerialNumber);
         Append(builder, "Узел", entry.NodeName);
+        if (entry.Scope == "Component" && entry.ComponentModel != null)
+            Append(builder, "Устройство", $"{entry.ComponentModel.Manufacturer} {entry.ComponentModel.Series} {entry.ComponentModel.PartNumber}");
         Append(builder, "Категория", entry.Category);
         Append(builder, "Тип проблемы", entry.ProblemType);
         return builder.ToString();
@@ -515,6 +520,18 @@ public class QAService
 
     private static void NormalizeScope(QAEntry entry)
     {
+        if (entry.Scope != "Component")
+        {
+            entry.Scope = "Machine";
+            entry.ComponentModelId = null;
+        }
+        else
+        {
+            if (entry.ComponentModelId == null)
+                throw new InvalidOperationException("Component QA requires a device model.");
+            entry.MachineModel = null;
+            entry.SerialNumber = null;
+        }
         entry.MachineModel = NormalizeOptionalValue(entry.MachineModel);
         entry.SerialNumber = SerialNumberFormatter.NormalizeQaRule(entry.SerialNumber);
     }

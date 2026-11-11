@@ -528,6 +528,13 @@ public class RagSearchService : IRagSearchService
                 filteredOut.Add(new { chunk.Id, reason = "QA is not approved for client use" });
                 continue;
             }
+            if (chunk.QAEntry?.Scope == "Component"
+                && (!request.MachineId.HasValue || chunk.QAEntry.ComponentModelId is not int qaComponentId
+                    || !allowedComponents.Contains(qaComponentId)))
+            {
+                filteredOut.Add(new { chunk.Id, reason = "Component QA applicability" });
+                continue;
+            }
 
             var document = chunk.KnowledgeDocument;
             if (document != null && document.DocumentKind != "Other"

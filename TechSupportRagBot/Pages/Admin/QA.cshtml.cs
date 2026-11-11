@@ -56,6 +56,9 @@ public class QAModel : PageModel
     public string? StatusFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? ScopeFilter { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string? MachineFilter { get; set; }
 
     [BindProperty(SupportsGet = true)]
@@ -78,6 +81,7 @@ public class QAModel : PageModel
     public List<KnowledgeCategory> Categories { get; private set; } = new();
 
     public List<Machine> Machines { get; private set; } = new();
+    public List<ComponentModel> ComponentModels { get; private set; } = new();
     public IReadOnlyList<string> MachineModelOptions { get; private set; } = Array.Empty<string>();
 
     public List<string> MachineFilterOptions { get; private set; } = new();
@@ -100,6 +104,7 @@ public class QAModel : PageModel
 
     public async Task OnGetAsync()
     {
+        if (ScopeFilter == "Component" && !EditId.HasValue) Input.Scope = "Component";
         await LoadAsync();
         if (EditId.HasValue)
         {
@@ -131,6 +136,13 @@ public class QAModel : PageModel
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
+        if (Input.Scope == "Component" && (Input.ComponentModelId == null
+            || !await _db.ComponentModels.AnyAsync(x => x.Id == Input.ComponentModelId && x.IsConfirmed, cancellationToken)))
+        {
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "QAComponentRequired"));
+            await LoadAsync();
+            return Page();
+        }
         if (string.IsNullOrWhiteSpace(Input.Question) || string.IsNullOrWhiteSpace(Input.Answer))
         {
             ModelState.AddModelError(string.Empty, ValidationText("QAValidationQuestionAndAnswer"));
@@ -206,6 +218,14 @@ public class QAModel : PageModel
 
     public async Task<IActionResult> OnPostUpdateAsync(int id, CancellationToken cancellationToken)
     {
+        if (EditInput.Scope == "Component" && (EditInput.ComponentModelId == null
+            || !await _db.ComponentModels.AnyAsync(x => x.Id == EditInput.ComponentModelId && x.IsConfirmed, cancellationToken)))
+        {
+            EditId = id;
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "QAComponentRequired"));
+            await LoadAsync();
+            return Page();
+        }
         if (string.IsNullOrWhiteSpace(EditInput.Question) || string.IsNullOrWhiteSpace(EditInput.Answer))
         {
             EditId = id;
@@ -348,6 +368,8 @@ public class QAModel : PageModel
             .AsNoTracking()
             .Include(x => x.Attachments)
             .AsQueryable();
+        if (ScopeFilter == "Component") query = query.Where(x => x.Scope == "Component");
+        else if (ScopeFilter == "Machine") query = query.Where(x => x.Scope != "Component");
         if (!string.IsNullOrWhiteSpace(StatusFilter))
         {
             query = query.Where(x => x.Status == StatusFilter);
@@ -418,6 +440,8 @@ public class QAModel : PageModel
 
         Categories = await _db.KnowledgeCategories.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         Machines = await _db.Machines.AsNoTracking().OrderBy(x => x.Model).ThenBy(x => x.Name).ToListAsync();
+        ComponentModels = await _db.ComponentModels.AsNoTracking().Where(x => x.IsConfirmed)
+            .OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
         MachineFilterOptions = await _db.QAEntries.AsNoTracking()
             .Where(x => x.MachineModel != null && x.MachineModel != "")
             .Select(x => x.MachineModel!)
@@ -463,6 +487,8 @@ public class QAModel : PageModel
             MachineModel = input.MachineModel,
             SerialNumber = input.SerialNumber,
             NodeName = input.NodeName,
+            Scope = input.Scope,
+            ComponentModelId = input.ComponentModelId,
             ProblemType = input.ProblemType,
             Status = QAEntryStatuses.NeedsReview,
             Source = source,
@@ -483,6 +509,8 @@ public class QAModel : PageModel
             MachineModel = entry.MachineModel,
             SerialNumber = entry.SerialNumber,
             NodeName = entry.NodeName,
+            Scope = entry.Scope,
+            ComponentModelId = entry.ComponentModelId,
             ProblemType = entry.ProblemType,
             Status = string.IsNullOrWhiteSpace(entry.Status) ? QAEntryStatuses.NeedsReview : entry.Status,
             Source = string.IsNullOrWhiteSpace(entry.Source) ? QAEntrySources.Import : entry.Source
@@ -506,6 +534,10 @@ public class QAModel : PageModel
         public string? SerialNumber { get; set; }
 
         public string? NodeName { get; set; }
+
+        public string Scope { get; set; } = "Machine";
+
+        public int? ComponentModelId { get; set; }
 
         public string? Category { get; set; }
 
