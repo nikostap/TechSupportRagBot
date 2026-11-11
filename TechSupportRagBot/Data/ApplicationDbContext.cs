@@ -119,12 +119,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Без этого таблицы пользователей и ролей будут созданы неправильно.
         base.OnModelCreating(builder);
 
-        builder.Entity<ComponentModel>().HasIndex(x => new { x.Manufacturer, x.PartNumber, x.Revision }).IsUnique();
+        builder.Entity<ComponentModel>().HasIndex(x => new { x.Type, x.Manufacturer, x.Series, x.PartNumber, x.Rating })
+            .IsUnique().HasDatabaseName("IX_ComponentModels_Identity");
         builder.Entity<ComponentModel>().Property(x => x.Type).HasMaxLength(80);
         builder.Entity<ComponentModel>().Property(x => x.Manufacturer).HasMaxLength(120);
         builder.Entity<ComponentModel>().Property(x => x.Series).HasMaxLength(120);
         builder.Entity<ComponentModel>().Property(x => x.PartNumber).HasMaxLength(160);
-        builder.Entity<ComponentModel>().Property(x => x.Revision).HasMaxLength(80);
         builder.Entity<MachinePosition>().HasIndex(x => new { x.MachineModel, x.Key }).IsUnique();
         builder.Entity<PositionTemplate>().HasIndex(x => new { x.Name, x.ComponentType }).IsUnique();
         builder.Entity<PositionTemplate>().Property(x => x.Name).HasMaxLength(200);

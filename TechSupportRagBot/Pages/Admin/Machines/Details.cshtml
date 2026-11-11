@@ -13,7 +13,7 @@
         @foreach (var item in Model.Components)
         { <article class="component-item"><strong>@item.Position.Name</strong>
             <span>@item.Position.HmiLabel · @item.Component.Manufacturer @item.Component.Series @item.Component.PartNumber</span>
-            <small>@item.Component.Rating · @item.Component.Revision</small></article> }
+            <small>@item.Component.Rating</small></article> }
         </div>
         <a class="btn-secondary" asp-page="/Admin/Components" asp-route-tab="configurations">@T("AssignComponent")</a>
     </section>
@@ -22,7 +22,7 @@
         <div class="component-list">
         @foreach (var item in Model.Documents)
         { <article class="component-item"><strong>@(item.Title ?? item.OriginalFileName)</strong>
-            <span>@T(item.DocumentKind) · @item.Revision</span></article> }
+            <span>@T(item.DocumentKind)</span></article> }
         </div>
         <a class="btn-secondary" asp-page="/Admin/ComponentDocuments">@T("UploadDocument")</a>
     </section>

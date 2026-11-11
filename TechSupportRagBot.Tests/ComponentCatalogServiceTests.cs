@@ -9,6 +9,31 @@ namespace TechSupportRagBot.Tests;
 public sealed class ComponentCatalogServiceTests
 {
     [Fact]
+    public async Task ModelsWithoutPartNumberCanHaveDifferentSeriesAndArchivedDeviceStopsApplying()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var machine = new Machine { Name = "ALF 033", Model = "ALF-506", SerialNumber = "033", LicenseKey = "one" };
+        var position = new MachinePosition { MachineModel = "ALF-506", Key = "servo", Name = "Servo", ComponentType = "Servo" };
+        var a2 = new ComponentModel { Type = "Servo", Manufacturer = "Delta", Series = "A2", PartNumber = "", IsConfirmed = true };
+        var b3 = new ComponentModel { Type = "Servo", Manufacturer = "Delta", Series = "B3", PartNumber = "", IsConfirmed = true };
+        db.AddRange(machine, position, a2, b3);
+        await db.SaveChangesAsync();
+        db.ComponentInstallations.Add(new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = a2.Id, IsConfirmed = true });
+        await db.SaveChangesAsync();
+
+        var catalog = new ComponentCatalogService(db);
+        Assert.Equal(a2.Id, Assert.Single(await catalog.ResolveAsync(machine)).Component.Id);
+        a2.IsArchived = true;
+        await db.SaveChangesAsync();
+        Assert.Empty(await catalog.ResolveAsync(machine));
+    }
+
+    [Fact]
     public async Task PreconfiguredSerialAppliesAfterMachineIsCreatedAndOverridesModelRules()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
@@ -141,13 +166,20 @@ public sealed class ComponentCatalogServiceTests
             Doc("device.pdf", null, drive.Id, true),
             Doc("machine.pdf", machine.Id, null, true),
             Doc("other.pdf", other.Id, null, true),
-            Doc("draft.pdf", machine.Id, null, false));
+            Doc("draft.pdf", machine.Id, null, false),
+            new KnowledgeDocument
+            {
+                OriginalFileName = "global.pdf", StoredFileName = "global.pdf", FilePath = "global.pdf",
+                UploadedByUserId = author.Id, DocumentKind = "SetupGuide", AppliesToAllMachines = true,
+                ClientDownloadAllowed = true, ShowInClientLibrary = true, Status = "Published"
+            });
         await db.SaveChangesAsync();
 
         var names = (await new ComponentCatalogService(db).ClientDocumentsAsync(machine))
             .Select(x => x.OriginalFileName).ToList();
-        Assert.Equal(2, names.Count);
+        Assert.Equal(3, names.Count);
         Assert.Contains("device.pdf", names);
         Assert.Contains("machine.pdf", names);
+        Assert.Contains("global.pdf", names);
     }
 }

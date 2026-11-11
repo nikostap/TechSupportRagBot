@@ -137,7 +137,7 @@ public class QAModel : PageModel
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
         if (Input.Scope == "Component" && (Input.ComponentModelId == null
-            || !await _db.ComponentModels.AnyAsync(x => x.Id == Input.ComponentModelId && x.IsConfirmed, cancellationToken)))
+            || !await _db.ComponentModels.AnyAsync(x => x.Id == Input.ComponentModelId && x.IsConfirmed && !x.IsArchived, cancellationToken)))
         {
             ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "QAComponentRequired"));
             await LoadAsync();
@@ -219,7 +219,7 @@ public class QAModel : PageModel
     public async Task<IActionResult> OnPostUpdateAsync(int id, CancellationToken cancellationToken)
     {
         if (EditInput.Scope == "Component" && (EditInput.ComponentModelId == null
-            || !await _db.ComponentModels.AnyAsync(x => x.Id == EditInput.ComponentModelId && x.IsConfirmed, cancellationToken)))
+            || !await _db.ComponentModels.AnyAsync(x => x.Id == EditInput.ComponentModelId && x.IsConfirmed && !x.IsArchived, cancellationToken)))
         {
             EditId = id;
             ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "QAComponentRequired"));
@@ -440,7 +440,7 @@ public class QAModel : PageModel
 
         Categories = await _db.KnowledgeCategories.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         Machines = await _db.Machines.AsNoTracking().OrderBy(x => x.Model).ThenBy(x => x.Name).ToListAsync();
-        ComponentModels = await _db.ComponentModels.AsNoTracking().Where(x => x.IsConfirmed)
+        ComponentModels = await _db.ComponentModels.AsNoTracking().Where(x => x.IsConfirmed && !x.IsArchived)
             .OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
         MachineFilterOptions = await _db.QAEntries.AsNoTracking()
             .Where(x => x.MachineModel != null && x.MachineModel != "")

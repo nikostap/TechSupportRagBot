@@ -52,7 +52,6 @@ public class KnowledgeDocument
     public string Category { get; set; } = string.Empty;
 
     public string DocumentKind { get; set; } = "Other";
-    public string? Revision { get; set; }
     public int? ComponentModelId { get; set; }
     public ComponentModel? ComponentModel { get; set; }
     public bool ClientDownloadAllowed { get; set; }

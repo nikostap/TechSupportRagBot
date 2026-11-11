@@ -19,7 +19,7 @@ else
     {
         <article class="machine-card client-machine-card">
             <h2>@(item.Title ?? item.OriginalFileName)</h2>
-            <p>@T(item.DocumentKind) · @item.Revision</p>
+            <p>@T(item.DocumentKind)</p>
             <a class="btn-main" asp-page="/Client/MachineDocuments" asp-page-handler="Download"
                asp-route-machineId="@Model.Machine!.Id" asp-route-documentId="@item.Id">@T("DownloadDocument")</a>
         </article>

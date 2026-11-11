@@ -17,6 +17,7 @@ public class ComponentDocumentsModel(
     private static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" };
     [BindProperty] public DocumentInput Input { get; set; } = new();
+    [BindProperty] public DocumentEditInput EditInput { get; set; } = new();
     public List<KnowledgeDocument> Documents { get; private set; } = [];
     public List<ComponentModel> Components { get; private set; } = [];
     public List<Machine> Machines { get; private set; } = [];
@@ -33,9 +34,8 @@ public class ComponentDocumentsModel(
         var models = (await settings.GetMachineModelsAsync(cancellationToken))
             .Concat(await db.Machines.Select(x => x.Model).ToListAsync(cancellationToken));
         if (Input.File == null || Input.MachineId != null && machine == null
-            || Input.ComponentModelId != null && component == null
-            || machine == null && component == null && (string.IsNullOrWhiteSpace(modelName)
-                || !models.Contains(modelName, StringComparer.OrdinalIgnoreCase))
+            || Input.ComponentModelId != null && (component == null || component.IsArchived)
+            || !string.IsNullOrWhiteSpace(modelName) && !models.Contains(modelName, StringComparer.OrdinalIgnoreCase)
             || !AllowedKinds.Contains(Input.DocumentKind)
             || machine != null && !string.IsNullOrWhiteSpace(modelName) && machine.Model != modelName)
         {
@@ -56,9 +56,10 @@ public class ComponentDocumentsModel(
             {
                 OriginalFileName = upload.OriginalFileName, StoredFileName = storedName,
                 FilePath = key, StorageProvider = provider, Category = Input.DocumentKind,
-                DocumentKind = Input.DocumentKind, Revision = Input.Revision?.Trim(),
+                DocumentKind = Input.DocumentKind,
                 Title = Input.Title?.Trim(), MachineId = machine?.Id,
                 MachineModel = machine?.Model ?? modelName, ComponentModelId = component?.Id,
+                AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName),
                 UploadedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!, Status = "NeedsReview",
                 ClientDownloadAllowed = false, ShowInClientLibrary = false
             });
@@ -77,8 +78,9 @@ public class ComponentDocumentsModel(
     {
         if (!await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
-        if (document == null || document.DocumentKind == "Other"
-            || document.MachineId == null && string.IsNullOrWhiteSpace(document.MachineModel) && document.ComponentModelId == null)
+        if (document == null || document.DocumentKind == "Other" || document.Status == "Retired"
+            || document.MachineId == null && string.IsNullOrWhiteSpace(document.MachineModel)
+                && document.ComponentModelId == null && !document.AppliesToAllMachines)
             return NotFound();
         await using var stored = await storage.OpenReadAsync(document.StorageProvider, document.FilePath, cancellationToken);
         if (stored == null) return NotFound();
@@ -89,11 +91,66 @@ public class ComponentDocumentsModel(
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostUpdateAsync(int id, CancellationToken cancellationToken)
+    {
+        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
+        if (document.ClientDownloadAllowed) return BadRequest();
+        var modelName = EditInput.MachineModel?.Trim();
+        var machine = EditInput.MachineId is int machineId ? await db.Machines.FindAsync([machineId], cancellationToken) : null;
+        var component = EditInput.ComponentModelId is int componentId ? await db.ComponentModels.FindAsync([componentId], cancellationToken) : null;
+        var models = (await settings.GetMachineModelsAsync(cancellationToken))
+            .Concat(await db.Machines.Select(x => x.Model).ToListAsync(cancellationToken));
+        if (!AllowedKinds.Contains(EditInput.DocumentKind)
+            || EditInput.MachineId != null && machine == null
+            || EditInput.ComponentModelId != null && (component == null || component.IsArchived && component.Id != document.ComponentModelId)
+            || !string.IsNullOrWhiteSpace(modelName) && !models.Contains(modelName, StringComparer.OrdinalIgnoreCase)
+            || machine != null && !string.IsNullOrWhiteSpace(modelName) && machine.Model != modelName)
+        {
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "DocumentSelectionInvalid"));
+            await LoadAsync();
+            return Page();
+        }
+        document.Title = EditInput.Title?.Trim();
+        document.DocumentKind = EditInput.DocumentKind;
+        document.Category = EditInput.DocumentKind;
+        document.MachineId = machine?.Id;
+        document.MachineModel = machine?.Model ?? modelName;
+        document.ComponentModelId = component?.Id;
+        document.AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName);
+        document.Status = "NeedsReview";
+        await db.SaveChangesAsync(cancellationToken);
+        if (await db.KnowledgeChunks.AnyAsync(x => x.KnowledgeDocumentId == id, cancellationToken))
+            await ingestion.IndexDocumentAsync(document, cancellationToken);
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostArchiveAsync(int id, CancellationToken cancellationToken)
+    {
+        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        if (document == null || document.DocumentKind == "Other") return NotFound();
+        if (document.ClientDownloadAllowed && !await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
+        document.ClientDownloadAllowed = false;
+        document.ShowInClientLibrary = false;
+        document.Status = "Retired";
+        await db.SaveChangesAsync(cancellationToken);
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostRestoreAsync(int id, CancellationToken cancellationToken)
+    {
+        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        if (document == null || document.DocumentKind == "Other" || document.Status != "Retired") return NotFound();
+        document.Status = "NeedsReview";
+        await db.SaveChangesAsync(cancellationToken);
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostIndexAsync(int id, CancellationToken cancellationToken)
     {
         if (!await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
-        if (document == null || document.DocumentKind == "Other") return NotFound();
+        if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
         if (document.ClientDownloadAllowed) return BadRequest();
         if (Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is not (".pdf" or ".docx" or ".txt" or ".xlsx"))
             return BadRequest();
@@ -108,7 +165,7 @@ public class ComponentDocumentsModel(
         if (document == null) return NotFound();
         document.ClientDownloadAllowed = false;
         document.ShowInClientLibrary = false;
-        document.Status = "Retired";
+        document.Status = "NeedsReview";
         await db.SaveChangesAsync(cancellationToken);
         return RedirectToPage();
     }
@@ -117,7 +174,8 @@ public class ComponentDocumentsModel(
     {
         Documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel)
             .Where(x => x.DocumentKind != "Other").OrderByDescending(x => x.UploadedAt).ToListAsync();
-        Components = await db.ComponentModels.AsNoTracking().OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
+        Components = await db.ComponentModels.AsNoTracking()
+            .OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
         Machines = await db.Machines.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         MachineModels = (await settings.GetMachineModelsAsync(HttpContext.RequestAborted))
             .Concat(Machines.Select(x => x.Model)).Distinct(StringComparer.OrdinalIgnoreCase)
@@ -130,7 +188,15 @@ public class ComponentDocumentsModel(
         public IFormFile? File { get; set; }
         public string DocumentKind { get; set; } = "";
         public string? Title { get; set; }
-        public string? Revision { get; set; }
+        public int? MachineId { get; set; }
+        public string? MachineModel { get; set; }
+        public int? ComponentModelId { get; set; }
+    }
+
+    public class DocumentEditInput
+    {
+        public string DocumentKind { get; set; } = "";
+        public string? Title { get; set; }
         public int? MachineId { get; set; }
         public string? MachineModel { get; set; }
         public int? ComponentModelId { get; set; }

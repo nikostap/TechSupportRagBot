@@ -8,7 +8,7 @@ public class ComponentModel
     public string Series { get; set; } = string.Empty;
     public string PartNumber { get; set; } = string.Empty;
     public string? Rating { get; set; }
-    public string? Revision { get; set; }
     public bool IsConfirmed { get; set; }
+    public bool IsArchived { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

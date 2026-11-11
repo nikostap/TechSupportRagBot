@@ -18,15 +18,27 @@
     <div class="component-layout">
         <section class="panel"><h2>@T("AddComponentModel")</h2>
             <form method="post" asp-page-handler="AddComponent" class="component-form">
-                <label>@T("ComponentType")<input asp-for="Component.Type" required maxlength="80" /></label>
-                <label>@T("Manufacturer")<input asp-for="Component.Manufacturer" required maxlength="120" /></label>
-                <label>@T("Series")<input asp-for="Component.Series" maxlength="120" /></label>
-                <label>@T("PartNumber")<input asp-for="Component.PartNumber" required maxlength="160" /></label>
-                <label>@T("ComponentRating")<input asp-for="Component.Rating" /></label>
-                <label>@T("Revision")<input asp-for="Component.Revision" maxlength="80" /></label>
+                @if (Model.Components.Any(x => !x.IsArchived))
+                {
+                    <label>@T("CopyComponentModel")<select id="component-copy-template"><option value="">@T("ChooseComponentModelTemplate")</option>
+                        @foreach (var item in Model.Components.Where(x => !x.IsArchived))
+                        { <option value="@item.Id" data-type="@item.Type" data-manufacturer="@item.Manufacturer" data-series="@item.Series" data-rating="@item.Rating">@item.Manufacturer @item.Series @item.PartNumber @item.Rating</option> }
+                    </select></label>
+                    <small class="muted-text">@T("CopyComponentModelHelp")</small>
+                }
+                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input asp-for="Component.Type" required maxlength="80" list="component-types" /></label>
+                <label data-help="@T("ManufacturerHelp")">@T("Manufacturer")<input asp-for="Component.Manufacturer" required maxlength="120" list="component-manufacturers" /></label>
+                <label data-help="@T("SeriesHelp")">@T("Series")<input asp-for="Component.Series" maxlength="120" list="component-series" /></label>
+                <label data-help="@T("PartNumberHelp")">@T("PartNumber")<input asp-for="Component.PartNumber" maxlength="160" list="component-parts" /></label>
+                <label data-help="@T("ComponentRatingHelp")">@T("ComponentRating")<input asp-for="Component.Rating" list="component-ratings" /></label>
                 <label class="component-check"><input asp-for="Component.IsConfirmed" /> @T("ConfirmedData")</label>
                 <button class="btn-main" type="submit">@T("Add")</button>
             </form>
+            <datalist id="component-types">@foreach (var value in Model.Components.Where(x => !x.IsArchived).Select(x => x.Type).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) { <option value="@value"></option> }</datalist>
+            <datalist id="component-manufacturers">@foreach (var value in Model.Components.Where(x => !x.IsArchived).Select(x => x.Manufacturer).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) { <option value="@value"></option> }</datalist>
+            <datalist id="component-series">@foreach (var value in Model.Components.Where(x => !x.IsArchived).Select(x => x.Series).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) { <option value="@value"></option> }</datalist>
+            <datalist id="component-parts">@foreach (var value in Model.Components.Where(x => !x.IsArchived).Select(x => x.PartNumber).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) { <option value="@value"></option> }</datalist>
+            <datalist id="component-ratings">@foreach (var value in Model.Components.Where(x => !x.IsArchived).Select(x => x.Rating).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) { <option value="@value"></option> }</datalist>
         </section>
         <section class="panel"><h2>@T("ComponentModels")</h2>
             @if (Model.Components.Count == 0) { <p>@T("NoComponentModels")</p> }
@@ -34,8 +46,23 @@
                 @foreach (var item in Model.Components)
                 {
                     <article class="component-item"><strong>@item.Manufacturer @item.Series @item.PartNumber</strong>
-                        <span>@item.Type · @item.Rating · @item.Revision</span>
-                        <small>@(item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation"))</small></article>
+                        <span>@item.Type · @item.Rating</span>
+                        <small>@(item.IsArchived ? T("ArchivedCatalogEntry") : item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation"))</small>
+                        <details><summary>@T("EditCatalogEntry")</summary>
+                            <form method="post" asp-page-handler="UpdateComponent" asp-route-id="@item.Id" class="component-form">
+                                <label>@T("ComponentType")<input name="EditComponent.Type" value="@item.Type" required maxlength="80" /></label>
+                                <label>@T("Manufacturer")<input name="EditComponent.Manufacturer" value="@item.Manufacturer" required maxlength="120" /></label>
+                                <label>@T("Series")<input name="EditComponent.Series" value="@item.Series" maxlength="120" /></label>
+                                <label>@T("PartNumber")<input name="EditComponent.PartNumber" value="@item.PartNumber" maxlength="160" /></label>
+                                <label>@T("ComponentRating")<input name="EditComponent.Rating" value="@item.Rating" /></label>
+                                <label class="component-check"><input name="EditComponent.IsConfirmed" type="checkbox" value="true" checked="@item.IsConfirmed" /> @T("ConfirmedData")</label>
+                                <button class="btn-main" type="submit">@T("Save")</button>
+                            </form>
+                        </details>
+                        <form method="post" asp-page-handler="@(item.IsArchived ? "RestoreComponent" : "ArchiveComponent")" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                        </form>
+                    </article>
                 }
             </div>
         </section>
@@ -49,23 +76,38 @@ else if (Model.Tab == "positions")
             <label>@T("ComponentType")<input asp-for="Template.ComponentType" required maxlength="80" /></label>
             <button class="btn-secondary" type="submit">@T("AddTemplate")</button>
         </form>
-        @if (Model.Templates.Count > 0)
-        { <p>@string.Join(" · ", Model.Templates.Select(x => x.Name))</p> }
+        @foreach (var item in Model.Templates)
+        {
+            <article class="component-item"><strong>@item.Name · @item.ComponentType</strong>
+                @if (item.IsArchived) { <small>@T("ArchivedCatalogEntry")</small> }
+                <details><summary>@T("EditCatalogEntry")</summary>
+                    <form method="post" asp-page-handler="UpdateTemplate" asp-route-id="@item.Id" class="component-form">
+                        <label>@T("PositionName")<input name="EditTemplate.Name" value="@item.Name" required maxlength="200" /></label>
+                        <label>@T("ComponentType")<input name="EditTemplate.ComponentType" value="@item.ComponentType" required maxlength="80" /></label>
+                        <button class="btn-main" type="submit">@T("Save")</button>
+                    </form>
+                </details>
+                <form method="post" asp-page-handler="@(item.IsArchived ? "RestoreTemplate" : "ArchiveTemplate")" asp-route-id="@item.Id">
+                    <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                </form>
+            </article>
+        }
     </section>
     <div class="component-layout">
         <section class="panel"><h2>@T("AddMachinePosition")</h2>
             <form method="post" asp-page-handler="AddPosition" class="component-form">
-                <label>@T("MachineModel")<select asp-for="Position.MachineModel" required><option value="">@T("SelectMachineModel")</option>
+                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select asp-for="Position.MachineModel" required><option value="">@T("SelectMachineModel")</option>
                     @foreach (var name in Model.MachineModels) { <option value="@name">@name</option> }
                 </select></label>
-                <label>@T("PositionTemplate")<select asp-for="Position.PositionTemplateId"><option value="">@T("NoTemplate")</option>
-                    @foreach (var item in Model.Templates) { <option value="@item.Id">@item.Name · @item.ComponentType</option> }
+                <label data-help="@T("PositionTemplateHelp")">@T("PositionTemplate")<select asp-for="Position.PositionTemplateId"><option value="">@T("NoTemplate")</option>
+                    @foreach (var item in Model.Templates.Where(x => !x.IsArchived)) { <option value="@item.Id">@item.Name · @item.ComponentType</option> }
                 </select></label>
-                <label>@T("PositionKey")<input asp-for="Position.Key" required maxlength="120" /></label>
-                <label>@T("PositionName")<input asp-for="Position.Name" maxlength="200" /></label>
-                <label>@T("ComponentType")<input asp-for="Position.ComponentType" maxlength="80" /></label>
-                <label>@T("HmiLabel")<input asp-for="Position.HmiLabel" /></label>
-                <label>@T("SchemeLabel")<input asp-for="Position.SchemeLabel" /></label>
+                <label data-help="@T("PositionKeyHelp")">@T("PositionKey")<input asp-for="Position.Key" required maxlength="120" /></label>
+                <small class="muted-text">@T("PositionKeyHelp")</small>
+                <label data-help="@T("PositionNameHelp")">@T("PositionName")<input asp-for="Position.Name" maxlength="200" /></label>
+                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input asp-for="Position.ComponentType" maxlength="80" /></label>
+                <label data-help="@T("HmiLabelHelp")">@T("HmiLabel")<input asp-for="Position.HmiLabel" /></label>
+                <label data-help="@T("SchemeLabelHelp")">@T("SchemeLabel")<input asp-for="Position.SchemeLabel" /></label>
                 <button class="btn-main" type="submit">@T("Add")</button>
             </form>
         </section>
@@ -73,7 +115,27 @@ else if (Model.Tab == "positions")
             @if (Model.Positions.Count == 0) { <p>@T("NoMachinePositions")</p> }
             <div class="component-list">
                 @foreach (var item in Model.Positions)
-                { <article class="component-item"><strong>@item.MachineModel · @item.Name</strong><span>@item.Key · @item.HmiLabel · @item.SchemeLabel</span></article> }
+                {
+                    <article class="component-item"><strong>@item.MachineModel · @item.Name</strong><span>@item.Key · @item.HmiLabel · @item.SchemeLabel</span>
+                        @if (item.IsArchived) { <small>@T("ArchivedCatalogEntry")</small> }
+                        <details><summary>@T("EditCatalogEntry")</summary>
+                            <form method="post" asp-page-handler="UpdatePosition" asp-route-id="@item.Id" class="component-form">
+                                <label>@T("MachineModel")<select name="EditPosition.MachineModel" required>
+                                    @foreach (var name in Model.MachineModels) { <option value="@name" selected="@(name == item.MachineModel)">@name</option> }
+                                </select></label>
+                                <label data-help="@T("PositionKeyHelp")">@T("PositionKey")<input name="EditPosition.Key" value="@item.Key" required maxlength="120" /></label>
+                                <label>@T("PositionName")<input name="EditPosition.Name" value="@item.Name" required maxlength="200" /></label>
+                                <label>@T("ComponentType")<input name="EditPosition.ComponentType" value="@item.ComponentType" maxlength="80" /></label>
+                                <label>@T("HmiLabel")<input name="EditPosition.HmiLabel" value="@item.HmiLabel" /></label>
+                                <label>@T("SchemeLabel")<input name="EditPosition.SchemeLabel" value="@item.SchemeLabel" /></label>
+                                <button class="btn-main" type="submit">@T("Save")</button>
+                            </form>
+                        </details>
+                        <form method="post" asp-page-handler="@(item.IsArchived ? "RestorePosition" : "ArchivePosition")" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                        </form>
+                    </article>
+                }
             </div>
         </section>
     </div>
@@ -83,19 +145,19 @@ else
     <div class="component-layout">
         <section class="panel"><h2>@T("AssignComponent")</h2>
             <form method="post" asp-page-handler="Assign" class="component-form">
-                <label>@T("MachineModel")<select asp-for="Assignment.MachineModel" required><option value="">@T("SelectMachineModel")</option>
+                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select asp-for="Assignment.MachineModel" required><option value="">@T("SelectMachineModel")</option>
                     @foreach (var name in Model.MachineModels) { <option value="@name">@name</option> }
                 </select></label>
                 <label>@T("MachinePosition")<select asp-for="Assignment.MachinePositionId" required><option value="">@T("SelectPosition")</option>
-                    @foreach (var item in Model.Positions) { <option value="@item.Id" data-machine-model="@item.MachineModel">@item.MachineModel · @item.Name (@item.HmiLabel)</option> }
+                    @foreach (var item in Model.Positions.Where(x => !x.IsArchived)) { <option value="@item.Id" data-machine-model="@item.MachineModel">@item.MachineModel · @item.Name (@item.HmiLabel)</option> }
                 </select></label>
                 <label>@T("ComponentModel")<select asp-for="Assignment.ComponentModelId" required><option value="">@T("SelectComponent")</option>
-                    @foreach (var item in Model.Components) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
+                    @foreach (var item in Model.Components.Where(x => !x.IsArchived)) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
                 </select></label>
                 <label>@T("SpecificMachineSerial")<input asp-for="Assignment.SpecificSerialNumber" maxlength="100" /></label>
                 <small class="muted-text">@T("SpecificMachineSerialHelp")</small>
-                <label>@T("SerialFrom")<input asp-for="Assignment.SerialFrom" type="number" min="0" max="999" /></label>
-                <label>@T("SerialTo")<input asp-for="Assignment.SerialTo" type="number" min="0" max="999" /></label>
+                <label data-help="@T("SerialRangeHelp")">@T("SerialFrom")<input asp-for="Assignment.SerialFrom" type="number" min="0" max="999" /></label>
+                <label data-help="@T("SerialRangeHelp")">@T("SerialTo")<input asp-for="Assignment.SerialTo" type="number" min="0" max="999" /></label>
                 <label class="component-check"><input asp-for="Assignment.IsConfirmed" /> @T("ConfirmedData")</label>
                 <label class="component-check"><input asp-for="Assignment.ReplaceExisting" /> @T("ReplaceInstallation")</label>
                 <button class="btn-main" type="submit">@T("Save")</button>
@@ -107,13 +169,52 @@ else
                 @foreach (var item in Model.Installations)
                 { <article class="component-item"><strong>@item.MachinePosition.MachineModel · @item.MachinePosition.Name</strong>
                     <span>@item.ComponentModel.Manufacturer @item.ComponentModel.Series @item.ComponentModel.PartNumber</span>
-                    <small>@(item.SpecificSerialNumber ?? item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsActive ? (item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation")) : T("RetiredInstallation"))</small></article> }
+                    <small>@(item.SpecificSerialNumber ?? item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsActive ? (item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation")) : T("RetiredInstallation"))</small>
+                    @if (item.IsActive)
+                    {
+                        <details><summary>@T("EditCatalogEntry")</summary>
+                            <form method="post" asp-page-handler="UpdateInstallation" asp-route-id="@item.Id" class="component-form">
+                                <small class="muted-text">@T("EditInstallationHelp")</small>
+                                <label>@T("ComponentModel")<select name="EditAssignment.ComponentModelId" required>
+                                    @foreach (var component in Model.Components.Where(x => !x.IsArchived || x.Id == item.ComponentModelId))
+                                    { <option value="@component.Id" selected="@(component.Id == item.ComponentModelId)">@component.Manufacturer @component.Series @component.PartNumber</option> }
+                                </select></label>
+                                @if (item.MachineId == null)
+                                {
+                                    <label>@T("SpecificMachineSerial")<input name="EditAssignment.SpecificSerialNumber" value="@item.SpecificSerialNumber" maxlength="100" /></label>
+                                    <label data-help="@T("SerialRangeHelp")">@T("SerialFrom")<input name="EditAssignment.SerialFrom" value="@item.SerialFrom" type="number" min="0" max="999" /></label>
+                                    <label data-help="@T("SerialRangeHelp")">@T("SerialTo")<input name="EditAssignment.SerialTo" value="@item.SerialTo" type="number" min="0" max="999" /></label>
+                                }
+                                <label class="component-check"><input name="EditAssignment.IsConfirmed" type="checkbox" value="true" checked="@item.IsConfirmed" /> @T("ConfirmedData")</label>
+                                <button class="btn-main" type="submit">@T("Save")</button>
+                            </form>
+                        </details>
+                        <form method="post" asp-page-handler="ArchiveInstallation" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit" title="@T("ArchiveCatalogHelp")">@T("Delete")</button>
+                        </form>
+                    }
+                </article> }
             </div>
         </section>
     </div>
 }
 <script>
 (() => {
+    const template = document.getElementById('component-copy-template');
+    template?.addEventListener('change', () => {
+        const selected = template.selectedOptions[0];
+        if (!selected?.value) return;
+        for (const [field, value] of Object.entries({
+            Type: selected.dataset.type,
+            Manufacturer: selected.dataset.manufacturer,
+            Series: selected.dataset.series,
+            Rating: selected.dataset.rating,
+            PartNumber: ''
+        })) {
+            const input = document.getElementById(`Component_${field}`);
+            if (input) input.value = value || '';
+        }
+    });
     const model = document.getElementById('Assignment_MachineModel');
     const position = document.getElementById('Assignment_MachinePositionId');
     if (!model || !position) return;

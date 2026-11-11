@@ -10,7 +10,8 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
     {
         var installations = await db.ComponentInstallations.AsNoTracking()
             .Include(x => x.MachinePosition).Include(x => x.ComponentModel)
-            .Where(x => x.IsActive && x.IsConfirmed && x.ComponentModel.IsConfirmed && x.MachinePosition.MachineModel == machine.Model
+            .Where(x => x.IsActive && x.IsConfirmed && x.ComponentModel.IsConfirmed && !x.ComponentModel.IsArchived
+                && !x.MachinePosition.IsArchived && x.MachinePosition.MachineModel == machine.Model
                 && (x.MachineId == null || x.MachineId == machine.Id))
             .ToListAsync(cancellationToken);
 
@@ -49,8 +50,8 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
                     && (x.MachineId == null || x.MachineId == machine.Id)
                     && (string.IsNullOrWhiteSpace(x.MachineModel) || x.MachineModel == machine.Model)
                     && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber)
-                : x.MachineId == machine.Id || x.MachineId == null
-                    && !x.AppliesToAllMachines && x.MachineModel == machine.Model
+                : x.AppliesToAllMachines || x.MachineId == machine.Id || x.MachineId == null
+                    && x.MachineModel == machine.Model
                     && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber))
             .OrderBy(x => x.DocumentKind).ThenBy(x => x.Title ?? x.OriginalFileName).ToList();
     }

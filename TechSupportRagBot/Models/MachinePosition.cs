@@ -11,4 +11,5 @@ public class MachinePosition
     public string? HmiLabel { get; set; }
     public string? SchemeLabel { get; set; }
     public string ComponentType { get; set; } = string.Empty;
+    public bool IsArchived { get; set; }
 }
