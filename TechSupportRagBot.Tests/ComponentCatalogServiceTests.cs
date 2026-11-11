@@ -57,4 +57,43 @@ public sealed class ComponentCatalogServiceTests
 
         Assert.Empty(await new ComponentCatalogService(db).ResolveAsync(machine));
     }
+
+    [Fact]
+    public async Task ClientLibraryShowsOnlyPublishedApplicableDocuments()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var machine = new Machine { Name = "ALF 033", Model = "ALF-506", SerialNumber = "033", LicenseKey = "one" };
+        var other = new Machine { Name = "ALF 034", Model = "ALF-506", SerialNumber = "034", LicenseKey = "two" };
+        var position = new MachinePosition { MachineModel = "ALF-506", Key = "tray.servo", Name = "Tray servo", ComponentType = "Servo" };
+        var drive = new ComponentModel { Type = "Servo", Manufacturer = "Maker", Series = "A", PartNumber = "A-1", IsConfirmed = true };
+        var author = new ApplicationUser { Id = "author", UserName = "author" };
+        db.AddRange(machine, other, position, drive, author);
+        await db.SaveChangesAsync();
+        db.ComponentInstallations.Add(new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = drive.Id, IsConfirmed = true });
+        KnowledgeDocument Doc(string name, int? machineId, int? componentId, bool published) => new()
+        {
+            OriginalFileName = name, StoredFileName = name, FilePath = name,
+            UploadedByUserId = author.Id, DocumentKind = "ComponentManual",
+            MachineId = machineId, ComponentModelId = componentId,
+            ClientDownloadAllowed = published, ShowInClientLibrary = published,
+            Status = published ? "Published" : "NeedsReview"
+        };
+        db.KnowledgeDocuments.AddRange(
+            Doc("device.pdf", null, drive.Id, true),
+            Doc("machine.pdf", machine.Id, null, true),
+            Doc("other.pdf", other.Id, null, true),
+            Doc("draft.pdf", machine.Id, null, false));
+        await db.SaveChangesAsync();
+
+        var names = (await new ComponentCatalogService(db).ClientDocumentsAsync(machine))
+            .Select(x => x.OriginalFileName).ToList();
+        Assert.Equal(2, names.Count);
+        Assert.Contains("device.pdf", names);
+        Assert.Contains("machine.pdf", names);
+    }
 }
