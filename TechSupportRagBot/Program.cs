@@ -130,6 +130,7 @@ builder.Services.AddScoped<DocumentTextExtractor>();
 builder.Services.AddScoped<DocumentEnrichmentService>();
 builder.Services.AddSingleton<DocumentTypeDetector>();
 builder.Services.AddScoped<KnowledgeIngestionService>();
+builder.Services.AddScoped<ComponentCatalogService>();
 builder.Services.AddScoped<SupportBotService>();
 builder.Services.AddScoped<TicketDeletionService>();
 builder.Services.AddScoped<AccountDeactivationService>();

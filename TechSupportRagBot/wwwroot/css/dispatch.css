@@ -16,6 +16,10 @@
 .component-form .component-check{display:flex;align-items:center;gap:8px}.component-check input{width:auto;min-height:auto}
 .component-list{display:grid;gap:10px;max-height:70vh;overflow:auto}.component-item{display:grid;gap:4px;padding:12px;border:1px solid #65778155;border-radius:9px}
 .component-item span,.component-item small{overflow-wrap:anywhere}
+.client-machine-card-footer{display:flex;justify-content:flex-start;padding:14px 22px 20px;border-top:1px solid #65778133}
+.client-machine-card-footer .btn-main{display:inline-flex;width:auto;max-width:100%;align-items:center}
+.component-template-panel{margin-bottom:18px}.component-template-form{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.component-template-form label{display:grid;gap:5px;flex:1 1 190px}.component-template-form input{min-height:42px}
 @media(max-width:900px){.component-layout{grid-template-columns:1fr}.component-list{max-height:none}}
 .dispatch-theme a{color:#245568}.dispatch-theme a:hover{color:#ae670d}
 .dispatch-icon-sprite{position:absolute;width:0;height:0;overflow:hidden}

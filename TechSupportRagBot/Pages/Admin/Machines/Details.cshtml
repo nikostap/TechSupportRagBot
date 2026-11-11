@@ -1,0 +1,29 @@
+@page
+@model TechSupportRagBot.Pages.Admin.Machines.DetailsModel
+@{
+    Func<string, string> T = key => TechSupportRagBot.Services.UiText.T(HttpContext, key);
+    ViewData["Title"] = T("MachineConfigurations");
+}
+<section class="page-head"><div><p class="eyebrow"><a asp-page="/Admin/Machines">@T("Machines")</a></p>
+    <h1>@Model.Machine?.Name</h1><p>@Model.Machine?.Model · @Model.Machine?.SerialNumber</p></div></section>
+<div class="component-layout">
+    <section class="panel"><h2>@T("MachineConfigurations")</h2>
+        @if (Model.Components.Count == 0) { <p>@T("NoConfigurations")</p> }
+        <div class="component-list">
+        @foreach (var item in Model.Components)
+        { <article class="component-item"><strong>@item.Position.Name</strong>
+            <span>@item.Position.HmiLabel · @item.Component.Manufacturer @item.Component.Series @item.Component.PartNumber</span>
+            <small>@item.Component.Rating · @item.Component.Revision</small></article> }
+        </div>
+        <a class="btn-secondary" asp-page="/Admin/Components" asp-route-tab="configurations">@T("AssignComponent")</a>
+    </section>
+    <section class="panel"><h2>@T("MachineDocumentation")</h2>
+        @if (Model.Documents.Count == 0) { <p>@T("NoMachineDocuments")</p> }
+        <div class="component-list">
+        @foreach (var item in Model.Documents)
+        { <article class="component-item"><strong>@(item.Title ?? item.OriginalFileName)</strong>
+            <span>@T(item.DocumentKind) · @item.Revision</span></article> }
+        </div>
+        <a class="btn-secondary" asp-page="/Admin/ComponentDocuments">@T("UploadDocument")</a>
+    </section>
+</div>

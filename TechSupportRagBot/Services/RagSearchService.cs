@@ -18,19 +18,22 @@ public class RagSearchService : IRagSearchService
     private readonly QdrantKnowledgeClient _qdrant;
     private readonly ILogger<RagSearchService> _logger;
     private readonly RagAuditLogger _audit;
+    private readonly ComponentCatalogService _components;
 
     public RagSearchService(
         ApplicationDbContext db,
         OllamaClient ollama,
         QdrantKnowledgeClient qdrant,
         ILogger<RagSearchService> logger,
-        RagAuditLogger audit)
+        RagAuditLogger audit,
+        ComponentCatalogService components)
     {
         _db = db;
         _ollama = ollama;
         _qdrant = qdrant;
         _logger = logger;
         _audit = audit;
+        _components = components;
     }
 
     public async Task<RagSearchResult> SearchAsync(RagSearchRequest request, CancellationToken cancellationToken = default)
@@ -324,6 +327,7 @@ public class RagSearchService : IRagSearchService
                         @machineId IS NULL
                         OR c."MachineId" = @machineId
                         OR d."AppliesToAllMachines" = TRUE
+                        OR d."ComponentModelId" IS NOT NULL
                         OR (c."DocumentType" = 'QA' AND COALESCE(c."MachineModel", '') = '' AND COALESCE(c."SerialNumber", '') = '')
                         OR (@serialNumber IS NOT NULL AND COALESCE(c."SerialNumber", d."SerialNumber") <> '')
                         OR (
@@ -367,6 +371,7 @@ public class RagSearchService : IRagSearchService
                             @machineId IS NULL
                             OR c."MachineId" = @machineId
                             OR d."AppliesToAllMachines" = TRUE
+                            OR d."ComponentModelId" IS NOT NULL
                             OR (c."DocumentType" = 'QA' AND COALESCE(c."MachineModel", '') = '' AND COALESCE(c."SerialNumber", '') = '')
                             OR (@serialNumber IS NOT NULL AND COALESCE(c."SerialNumber", d."SerialNumber") <> '')
                             OR (
@@ -413,6 +418,7 @@ public class RagSearchService : IRagSearchService
                         $machineId IS NULL
                         OR c.MachineId = $machineId
                         OR d.AppliesToAllMachines = 1
+                        OR d.ComponentModelId IS NOT NULL
                         OR (c.DocumentType = 'QA' AND COALESCE(c.MachineModel, '') = '' AND COALESCE(c.SerialNumber, '') = '')
                         OR ($serialNumber IS NOT NULL AND COALESCE(c.SerialNumber, d.SerialNumber) <> '')
                         OR (
@@ -502,6 +508,16 @@ public class RagSearchService : IRagSearchService
             .Where(x => chunkIds.Contains(x.Id))
             .ToListAsync(cancellationToken);
 
+        HashSet<int> allowedComponents = [];
+        if (request.MachineId is int requestMachineId)
+        {
+            var requestMachine = await _db.Machines.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == requestMachineId, cancellationToken);
+            if (requestMachine != null)
+                allowedComponents = (await _components.ResolveAsync(requestMachine, cancellationToken))
+                    .Select(x => x.Component.Id).ToHashSet();
+        }
+
         var candidates = new List<RagChunkCandidate>();
         var filteredOut = new List<object>();
         foreach (var chunk in chunks)
@@ -514,6 +530,24 @@ public class RagSearchService : IRagSearchService
             }
 
             var document = chunk.KnowledgeDocument;
+            if (document != null && document.DocumentKind != "Other"
+                && (document.Status != "Published" || !document.ClientDownloadAllowed))
+            {
+                filteredOut.Add(new { chunk.Id, reason = "Document is not published for clients" });
+                continue;
+            }
+            if (document?.ComponentModelId is int componentId
+                && (!request.MachineId.HasValue || !allowedComponents.Contains(componentId)
+                    || document.Status != "Published" || !document.ClientDownloadAllowed
+                    || document.MachineId != null && document.MachineId != request.MachineId
+                    || !string.IsNullOrWhiteSpace(document.MachineModel)
+                        && document.MachineModel != request.MachineModel
+                    || !string.IsNullOrWhiteSpace(document.SerialNumber)
+                        && document.SerialNumber != request.SerialNumber))
+            {
+                filteredOut.Add(new { chunk.Id, reason = "Component applicability" });
+                continue;
+            }
             var machine = document?.Machine;
             var chunkMachineId = chunk.MachineId ?? document?.MachineId;
             var machineModel = chunk.MachineModel ?? document?.MachineModel ?? machine?.Model;

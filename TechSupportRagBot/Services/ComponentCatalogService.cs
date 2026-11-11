@@ -38,10 +38,13 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
         var componentIds = (await ResolveAsync(machine, cancellationToken))
             .Select(x => x.Component.Id).ToHashSet();
         var documents = await db.KnowledgeDocuments.AsNoTracking()
-            .Where(x => x.ClientDownloadAllowed && x.ShowInClientLibrary)
+            .Where(x => x.ClientDownloadAllowed && x.ShowInClientLibrary && x.Status == "Published")
             .ToListAsync(cancellationToken);
         return documents.Where(x => x.ComponentModelId is int componentId
                 ? componentIds.Contains(componentId)
+                    && (x.MachineId == null || x.MachineId == machine.Id)
+                    && (string.IsNullOrWhiteSpace(x.MachineModel) || x.MachineModel == machine.Model)
+                    && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber)
                 : x.MachineId == machine.Id || x.MachineId == null
                     && !x.AppliesToAllMachines && x.MachineModel == machine.Model
                     && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber))

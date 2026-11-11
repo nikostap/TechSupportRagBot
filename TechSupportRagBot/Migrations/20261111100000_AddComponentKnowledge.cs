@@ -68,7 +68,11 @@ public partial class AddComponentKnowledge : Migration
         migrationBuilder.CreateIndex("IX_ComponentInstallations_ComponentModelId", "ComponentInstallations", "ComponentModelId");
         migrationBuilder.CreateIndex("IX_ComponentInstallations_MachineId", "ComponentInstallations", "MachineId");
         migrationBuilder.CreateIndex("IX_KnowledgeDocuments_ComponentModelId", "KnowledgeDocuments", "ComponentModelId");
-        migrationBuilder.AddForeignKey("FK_KnowledgeDocuments_ComponentModels_ComponentModelId", "KnowledgeDocuments", "ComponentModelId", "ComponentModels", "Id", onDelete: ReferentialAction.Restrict);
+        migrationBuilder.AddForeignKey(
+            name: "FK_KnowledgeDocuments_ComponentModels_ComponentModelId",
+            table: "KnowledgeDocuments", column: "ComponentModelId",
+            principalTable: "ComponentModels", principalColumn: "Id",
+            onDelete: ReferentialAction.Restrict);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)

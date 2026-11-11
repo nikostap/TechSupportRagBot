@@ -76,6 +76,7 @@
                             </div>
                             <button class="btn-secondary machine-row-button" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Save")</button>
                         </form>
+                        <a class="btn-secondary machine-row-button" asp-page="/Admin/Machines/Details" asp-route-id="@machine.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineConfigurations")</a>
                         <form method="post" asp-page-handler="Delete" asp-route-id="@machine.Id" class="machine-delete-form">
                             <button class="btn-danger machine-row-button" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
                         </form>

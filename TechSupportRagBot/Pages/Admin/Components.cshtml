@@ -9,6 +9,7 @@
     <a class="@(Model.Tab == "models" ? "active" : "")" asp-page="/Admin/Components" asp-route-tab="models">@T("ComponentModels")</a>
     <a class="@(Model.Tab == "positions" ? "active" : "")" asp-page="/Admin/Components" asp-route-tab="positions">@T("MachinePositions")</a>
     <a class="@(Model.Tab == "configurations" ? "active" : "")" asp-page="/Admin/Components" asp-route-tab="configurations">@T("MachineConfigurations")</a>
+    <a asp-page="/Admin/ComponentDocuments">@T("ComponentDocuments")</a>
 </nav>
 <div asp-validation-summary="All" class="text-danger"></div>
 @if (Model.Tab == "models")
@@ -41,14 +42,26 @@
 }
 else if (Model.Tab == "positions")
 {
+    <section class="panel component-template-panel"><h2>@T("PositionTemplates")</h2>
+        <form method="post" asp-page-handler="AddTemplate" class="component-template-form">
+            <label>@T("PositionName")<input asp-for="Template.Name" required maxlength="200" /></label>
+            <label>@T("ComponentType")<input asp-for="Template.ComponentType" required maxlength="80" /></label>
+            <button class="btn-secondary" type="submit">@T("AddTemplate")</button>
+        </form>
+        @if (Model.Templates.Count > 0)
+        { <p>@string.Join(" · ", Model.Templates.Select(x => x.Name))</p> }
+    </section>
     <div class="component-layout">
         <section class="panel"><h2>@T("AddMachinePosition")</h2>
             <form method="post" asp-page-handler="AddPosition" class="component-form">
                 <label>@T("MachineModel")<select asp-for="Position.MachineModel" required><option value="">@T("SelectMachineModel")</option>
                     @foreach (var name in Model.MachineModels) { <option value="@name">@name</option> }
                 </select></label>
+                <label>@T("PositionTemplate")<select asp-for="Position.PositionTemplateId"><option value="">@T("NoTemplate")</option>
+                    @foreach (var item in Model.Templates) { <option value="@item.Id">@item.Name · @item.ComponentType</option> }
+                </select></label>
                 <label>@T("PositionKey")<input asp-for="Position.Key" required maxlength="120" /></label>
-                <label>@T("PositionName")<input asp-for="Position.Name" required maxlength="200" /></label>
+                <label>@T("PositionName")<input asp-for="Position.Name" maxlength="200" /></label>
                 <label>@T("ComponentType")<input asp-for="Position.ComponentType" maxlength="80" /></label>
                 <label>@T("HmiLabel")<input asp-for="Position.HmiLabel" /></label>
                 <label>@T("SchemeLabel")<input asp-for="Position.SchemeLabel" /></label>

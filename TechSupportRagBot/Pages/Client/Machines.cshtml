@@ -47,6 +47,7 @@ else
                     <dd class="client-machine-serial">@(string.IsNullOrWhiteSpace(machine?.SerialNumber) ? "—" : machine.SerialNumber)</dd>
                 </div>
             </dl>
+            <div class="client-machine-card-footer"><a class="btn-main" asp-page="/Client/MachineDocuments" asp-route-machineId="@machine?.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineDocumentation")</a></div>
         </article>
     }
     </div>

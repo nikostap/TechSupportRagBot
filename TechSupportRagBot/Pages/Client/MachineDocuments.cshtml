@@ -1,0 +1,28 @@
+@page
+@model TechSupportRagBot.Pages.Client.MachineDocumentsModel
+@{
+    Func<string, string> T = key => TechSupportRagBot.Services.UiText.T(HttpContext, key);
+    ViewData["Title"] = T("MachineDocumentation");
+}
+<section class="page-head"><div><p class="eyebrow"><a asp-page="/Client/Machines">@T("MyMachines")</a></p>
+    <h1>@T("MachineDocumentation")</h1><p>@Model.Machine?.Name · @Model.Machine?.Model · @Model.Machine?.SerialNumber</p></div></section>
+<nav class="component-tabs" aria-label="@T("MyMachines")">
+    @foreach (var machine in Model.AvailableMachines)
+    { <a class="@(machine.Id == Model.Machine?.Id ? "active" : "")" asp-page="/Client/MachineDocuments" asp-route-machineId="@machine.Id">@machine.Name</a> }
+</nav>
+@if (Model.Documents.Count == 0)
+{ <section class="panel"><p>@T("NoMachineDocuments")</p></section> }
+else
+{
+    <div class="card-grid client-machine-grid">
+    @foreach (var item in Model.Documents)
+    {
+        <article class="machine-card client-machine-card">
+            <h2>@(item.Title ?? item.OriginalFileName)</h2>
+            <p>@T(item.DocumentKind) · @item.Revision</p>
+            <a class="btn-main" asp-page="/Client/MachineDocuments" asp-page-handler="Download"
+               asp-route-machineId="@Model.Machine!.Id" asp-route-documentId="@item.Id">@T("DownloadDocument")</a>
+        </article>
+    }
+    </div>
+}

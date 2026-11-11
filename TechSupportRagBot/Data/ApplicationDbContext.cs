@@ -66,6 +66,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Machine> Machines => Set<Machine>();
     public DbSet<ComponentModel> ComponentModels => Set<ComponentModel>();
     public DbSet<MachinePosition> MachinePositions => Set<MachinePosition>();
+    public DbSet<PositionTemplate> PositionTemplates => Set<PositionTemplate>();
     public DbSet<ComponentInstallation> ComponentInstallations => Set<ComponentInstallation>();
 
     /// <summary>
@@ -125,6 +126,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ComponentModel>().Property(x => x.PartNumber).HasMaxLength(160);
         builder.Entity<ComponentModel>().Property(x => x.Revision).HasMaxLength(80);
         builder.Entity<MachinePosition>().HasIndex(x => new { x.MachineModel, x.Key }).IsUnique();
+        builder.Entity<PositionTemplate>().HasIndex(x => new { x.Name, x.ComponentType }).IsUnique();
+        builder.Entity<PositionTemplate>().Property(x => x.Name).HasMaxLength(200);
+        builder.Entity<PositionTemplate>().Property(x => x.ComponentType).HasMaxLength(80);
+        builder.Entity<MachinePosition>().HasOne(x => x.PositionTemplate).WithMany()
+            .HasForeignKey(x => x.PositionTemplateId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<MachinePosition>().Property(x => x.MachineModel).HasMaxLength(100);
         builder.Entity<MachinePosition>().Property(x => x.Key).HasMaxLength(120);
         builder.Entity<MachinePosition>().Property(x => x.Name).HasMaxLength(200);

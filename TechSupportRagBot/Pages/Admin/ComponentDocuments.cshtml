@@ -1,0 +1,61 @@
+@page
+@model TechSupportRagBot.Pages.Admin.ComponentDocumentsModel
+@{
+    Func<string, string> T = key => TechSupportRagBot.Services.UiText.T(HttpContext, key);
+    ViewData["Title"] = T("ComponentDocuments");
+}
+<section class="page-head"><div><p class="eyebrow">@T("ComponentCatalog")</p><h1>@T("ComponentDocuments")</h1></div></section>
+<nav class="component-tabs" aria-label="@T("ComponentCatalog")">
+    <a asp-page="/Admin/Components" asp-route-tab="models">@T("ComponentModels")</a>
+    <a asp-page="/Admin/Components" asp-route-tab="positions">@T("MachinePositions")</a>
+    <a asp-page="/Admin/Components" asp-route-tab="configurations">@T("MachineConfigurations")</a>
+    <a class="active" asp-page="/Admin/ComponentDocuments">@T("ComponentDocuments")</a>
+</nav>
+<div asp-validation-summary="All" class="text-danger"></div>
+<div class="component-layout">
+    <section class="panel"><h2>@T("UploadDocument")</h2>
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Upload" class="component-form">
+            <label>@T("ChooseFile")<input asp-for="Input.File" type="file" required /></label>
+            <label>@T("DocumentKind")<select asp-for="Input.DocumentKind" required>
+                <option value="">@T("ChooseDocumentKind")</option>
+                <option value="MachineManual">@T("MachineManual")</option>
+                <option value="ElectricalScheme">@T("ElectricalScheme")</option>
+                <option value="PneumaticScheme">@T("PneumaticScheme")</option>
+                <option value="ComponentManual">@T("ComponentManual")</option>
+                <option value="ErrorCatalog">@T("ErrorCatalog")</option>
+                <option value="SetupGuide">@T("SetupGuide")</option>
+            </select></label>
+            <label>@T("Name")<input asp-for="Input.Title" /></label>
+            <label>@T("Revision")<input asp-for="Input.Revision" /></label>
+            <label>@T("MachineModel")<select asp-for="Input.MachineModel"><option value="">@T("Any")</option>
+                @foreach (var item in Model.MachineModels) { <option value="@item">@item</option> }
+            </select></label>
+            <label>@T("SpecificMachine")<select asp-for="Input.MachineId"><option value="">@T("Any")</option>
+                @foreach (var item in Model.Machines) { <option value="@item.Id">@item.Name · @item.SerialNumber</option> }
+            </select></label>
+            <label>@T("ComponentModel")<select asp-for="Input.ComponentModelId"><option value="">@T("Any")</option>
+                @foreach (var item in Model.Components) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
+            </select></label>
+            <p>@T("DocumentDraftHint")</p>
+            <button class="btn-main" type="submit">@T("UploadDocument")</button>
+        </form>
+    </section>
+    <section class="panel"><h2>@T("ComponentDocuments")</h2>
+        @if (Model.Documents.Count == 0) { <p>@T("NoDocuments")</p> }
+        <div class="component-list">
+        @foreach (var item in Model.Documents)
+        {
+            <article class="component-item"><strong>@(item.Title ?? item.OriginalFileName)</strong>
+                <span>@T(item.DocumentKind) · @item.Revision · @(item.ComponentModel == null ? item.MachineModel : $"{item.ComponentModel.Manufacturer} {item.ComponentModel.PartNumber}")</span>
+                <small>@(item.ClientDownloadAllowed ? T("PublishedForClients") : T("NeedsConfirmation"))</small>
+                @if (Model.CanPublish)
+                {
+                    <form method="post" asp-page-handler="@(item.ClientDownloadAllowed ? "Revoke" : "Publish")" asp-route-id="@item.Id">
+                        <button class="btn-secondary" type="submit">@(item.ClientDownloadAllowed ? T("RevokeDocument") : T("PublishDocument"))</button>
+                    </form>
+                }
+            </article>
+        }
+        </div>
+    </section>
+</div>

@@ -13,11 +13,13 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
 {
     [BindProperty] public ComponentInput Component { get; set; } = new();
     [BindProperty] public PositionInput Position { get; set; } = new();
+    [BindProperty] public TemplateInput Template { get; set; } = new();
     [BindProperty] public AssignmentInput Assignment { get; set; } = new();
     [TempData] public string? Notice { get; set; }
     public string Tab { get; private set; } = "models";
     public List<ComponentModel> Components { get; private set; } = [];
     public List<MachinePosition> Positions { get; private set; } = [];
+    public List<PositionTemplate> Templates { get; private set; } = [];
     public List<ComponentInstallation> Installations { get; private set; } = [];
     public List<Machine> Machines { get; private set; } = [];
     public IReadOnlyList<string> MachineModels { get; private set; } = [];
@@ -47,19 +49,39 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
 
     public async Task<IActionResult> OnPostAddPositionAsync()
     {
-        var models = await settings.GetMachineModelsAsync(HttpContext.RequestAborted);
+        var template = Position.PositionTemplateId is int templateId
+            ? await db.PositionTemplates.FindAsync(templateId) : null;
+        var name = string.IsNullOrWhiteSpace(Position.Name) ? template?.Name : Position.Name.Trim();
+        var componentType = string.IsNullOrWhiteSpace(Position.ComponentType)
+            ? template?.ComponentType : Position.ComponentType.Trim();
+        var models = (await settings.GetMachineModelsAsync(HttpContext.RequestAborted))
+            .Concat(await db.Machines.Select(x => x.Model).ToListAsync());
         if (!models.Contains(Position.MachineModel, StringComparer.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(Position.Key) || string.IsNullOrWhiteSpace(Position.Name))
+            || string.IsNullOrWhiteSpace(Position.Key) || string.IsNullOrWhiteSpace(name)
+            || Position.PositionTemplateId != null && template == null)
             return await ErrorAsync("PositionRequired", "positions");
         var key = Position.Key.Trim();
         if (await db.MachinePositions.AnyAsync(x => x.MachineModel == Position.MachineModel && x.Key == key))
             return await ErrorAsync("PositionDuplicate", "positions");
         db.MachinePositions.Add(new MachinePosition
         {
-            MachineModel = Position.MachineModel, Key = key, Name = Position.Name.Trim(),
+            MachineModel = Position.MachineModel, Key = key, Name = name,
             HmiLabel = Position.HmiLabel?.Trim(), SchemeLabel = Position.SchemeLabel?.Trim(),
-            ComponentType = Position.ComponentType.Trim()
+            ComponentType = componentType ?? "", PositionTemplateId = template?.Id
         });
+        await db.SaveChangesAsync();
+        return RedirectToPage(new { tab = "positions" });
+    }
+
+    public async Task<IActionResult> OnPostAddTemplateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Template.Name) || string.IsNullOrWhiteSpace(Template.ComponentType))
+            return await ErrorAsync("TemplateRequired", "positions");
+        var name = Template.Name.Trim();
+        var type = Template.ComponentType.Trim();
+        if (await db.PositionTemplates.AnyAsync(x => x.Name == name && x.ComponentType == type))
+            return await ErrorAsync("TemplateDuplicate", "positions");
+        db.PositionTemplates.Add(new PositionTemplate { Name = name, ComponentType = type });
         await db.SaveChangesAsync();
         return RedirectToPage(new { tab = "positions" });
     }
@@ -72,6 +94,7 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         if (position == null || component == null || Assignment.MachineId != null && machine == null
             || machine != null && machine.Model != position!.MachineModel
             || Assignment.SerialFrom > Assignment.SerialTo
+            || Assignment.SerialFrom is < 0 or > 999 || Assignment.SerialTo is < 0 or > 999
             || machine != null && (Assignment.SerialFrom != null || Assignment.SerialTo != null)
             || (Assignment.SerialFrom == null) != (Assignment.SerialTo == null))
             return await ErrorAsync("AssignmentInvalid", "configurations");
@@ -104,11 +127,14 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         Tab = tab is "positions" or "configurations" ? tab : "models";
         Components = await db.ComponentModels.AsNoTracking().OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
         Positions = await db.MachinePositions.AsNoTracking().OrderBy(x => x.MachineModel).ThenBy(x => x.Name).ToListAsync();
+        Templates = await db.PositionTemplates.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         Installations = await db.ComponentInstallations.AsNoTracking().Include(x => x.MachinePosition)
             .Include(x => x.ComponentModel).Include(x => x.Machine).OrderBy(x => x.MachinePosition.MachineModel)
             .ThenBy(x => x.MachinePosition.Name).ToListAsync();
         Machines = await db.Machines.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
-        MachineModels = await settings.GetMachineModelsAsync(HttpContext.RequestAborted);
+        MachineModels = (await settings.GetMachineModelsAsync(HttpContext.RequestAborted))
+            .Concat(Machines.Select(x => x.Model)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     public class ComponentInput
@@ -123,11 +149,17 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
     }
     public class PositionInput
     {
+        public int? PositionTemplateId { get; set; }
         public string MachineModel { get; set; } = "";
         public string Key { get; set; } = "";
         public string Name { get; set; } = "";
         public string? HmiLabel { get; set; }
         public string? SchemeLabel { get; set; }
+        public string ComponentType { get; set; } = "";
+    }
+    public class TemplateInput
+    {
+        public string Name { get; set; } = "";
         public string ComponentType { get; set; } = "";
     }
     public class AssignmentInput
