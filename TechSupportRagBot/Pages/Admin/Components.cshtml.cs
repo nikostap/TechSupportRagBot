@@ -90,22 +90,36 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
     {
         var position = await db.MachinePositions.FindAsync(Assignment.MachinePositionId);
         var component = await db.ComponentModels.FindAsync(Assignment.ComponentModelId);
-        var machine = Assignment.MachineId is int id ? await db.Machines.FindAsync(id) : null;
-        if (position == null || component == null || Assignment.MachineId != null && machine == null
-            || machine != null && machine.Model != position!.MachineModel
+        var models = (await settings.GetMachineModelsAsync(HttpContext.RequestAborted))
+            .Concat(await db.Machines.Select(x => x.Model).ToListAsync());
+        var specificSerial = string.IsNullOrWhiteSpace(Assignment.SpecificSerialNumber)
+            ? null : Assignment.SpecificSerialNumber.Trim();
+        if (position == null || component == null
+            || !models.Contains(Assignment.MachineModel, StringComparer.OrdinalIgnoreCase)
+            || !string.Equals(Assignment.MachineModel, position.MachineModel, StringComparison.OrdinalIgnoreCase)
+            || specificSerial?.Length > 100
             || Assignment.SerialFrom > Assignment.SerialTo
             || Assignment.SerialFrom is < 0 or > 999 || Assignment.SerialTo is < 0 or > 999
-            || machine != null && (Assignment.SerialFrom != null || Assignment.SerialTo != null)
+            || specificSerial != null && (Assignment.SerialFrom != null || Assignment.SerialTo != null)
             || (Assignment.SerialFrom == null) != (Assignment.SerialTo == null))
             return await ErrorAsync("AssignmentInvalid", "configurations");
 
-        var existing = await db.ComponentInstallations.Where(x => x.MachinePositionId == position!.Id
-            && x.MachineId == Assignment.MachineId && x.IsActive).ToListAsync();
-        var overlaps = existing.Where(x => machine != null || x.SerialFrom == null && Assignment.SerialFrom == null
-            || x.SerialFrom != null && Assignment.SerialFrom != null
-                && x.SerialFrom <= Assignment.SerialTo && Assignment.SerialFrom <= x.SerialTo).ToList();
+        var legacyMachineIds = specificSerial == null ? new List<int>() : await db.Machines.AsNoTracking()
+            .Where(x => x.Model == position.MachineModel && x.SerialNumber == specificSerial)
+            .Select(x => x.Id).ToListAsync();
+        var existing = await db.ComponentInstallations.Where(x => x.MachinePositionId == position.Id
+            && x.IsActive).ToListAsync();
+        var overlaps = existing.Where(x => specificSerial != null
+                ? string.Equals(x.SpecificSerialNumber, specificSerial, StringComparison.OrdinalIgnoreCase)
+                    || x.MachineId != null && legacyMachineIds.Contains(x.MachineId.Value)
+                : x.MachineId == null && x.SpecificSerialNumber == null
+                    && (Assignment.SerialFrom == null && x.SerialFrom == null
+                        || Assignment.SerialFrom != null && x.SerialFrom != null
+                            && x.SerialFrom <= Assignment.SerialTo && Assignment.SerialFrom <= x.SerialTo))
+            .ToList();
         if (overlaps.Count > 0 && (!Assignment.ReplaceExisting
-            || overlaps.Any(x => x.SerialFrom != Assignment.SerialFrom || x.SerialTo != Assignment.SerialTo)))
+            || overlaps.Any(x => specificSerial == null
+                && (x.SerialFrom != Assignment.SerialFrom || x.SerialTo != Assignment.SerialTo))))
             return await ErrorAsync("AssignmentConflict", "configurations");
         foreach (var old in overlaps)
         {
@@ -114,7 +128,8 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         }
         db.ComponentInstallations.Add(new ComponentInstallation
         {
-            MachinePositionId = position.Id, ComponentModelId = component.Id, MachineId = machine?.Id,
+            MachinePositionId = position.Id, ComponentModelId = component.Id,
+            SpecificSerialNumber = specificSerial,
             SerialFrom = Assignment.SerialFrom, SerialTo = Assignment.SerialTo,
             IsConfirmed = Assignment.IsConfirmed
         });
@@ -173,7 +188,8 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
     {
         public int MachinePositionId { get; set; }
         public int ComponentModelId { get; set; }
-        public int? MachineId { get; set; }
+        public string MachineModel { get; set; } = "";
+        public string? SpecificSerialNumber { get; set; }
         public int? SerialFrom { get; set; }
         public int? SerialTo { get; set; }
         public bool IsConfirmed { get; set; }

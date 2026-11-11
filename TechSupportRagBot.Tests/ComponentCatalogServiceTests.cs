@@ -9,6 +9,60 @@ namespace TechSupportRagBot.Tests;
 public sealed class ComponentCatalogServiceTests
 {
     [Fact]
+    public async Task PreconfiguredSerialAppliesAfterMachineIsCreatedAndOverridesModelRules()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var position = new MachinePosition { MachineModel = "ALF-506", Key = "tray.servo", Name = "Tray servo", ComponentType = "Servo" };
+        var standard = new ComponentModel { Type = "Servo", Manufacturer = "Maker", Series = "A", PartNumber = "A-1", IsConfirmed = true };
+        var special = new ComponentModel { Type = "Servo", Manufacturer = "Maker", Series = "B", PartNumber = "B-1", IsConfirmed = true };
+        db.AddRange(position, standard, special);
+        await db.SaveChangesAsync();
+        db.ComponentInstallations.AddRange(
+            new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = standard.Id, IsConfirmed = true },
+            new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = special.Id,
+                SpecificSerialNumber = "ALF033-2026-001", IsConfirmed = true });
+        await db.SaveChangesAsync();
+
+        var machine = new Machine { Name = "ALF 033", Model = "ALF-506", SerialNumber = "alf033-2026-001", LicenseKey = "one" };
+        db.Machines.Add(machine);
+        await db.SaveChangesAsync();
+
+        Assert.Equal(special.Id, Assert.Single(await new ComponentCatalogService(db).ResolveAsync(machine)).Component.Id);
+        machine.SerialNumber = "ALF033-2026-002";
+        Assert.Equal(standard.Id, Assert.Single(await new ComponentCatalogService(db).ResolveAsync(machine)).Component.Id);
+    }
+
+    [Fact]
+    public async Task ExactSerialOverridesApplicableRange()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var machine = new Machine { Name = "ALF 033", Model = "ALF-506", SerialNumber = "033", LicenseKey = "one" };
+        var position = new MachinePosition { MachineModel = "ALF-506", Key = "drive", Name = "Drive", ComponentType = "Servo" };
+        var rangeDevice = new ComponentModel { Type = "Servo", Manufacturer = "Maker", Series = "A", PartNumber = "A", IsConfirmed = true };
+        var exactDevice = new ComponentModel { Type = "Servo", Manufacturer = "Maker", Series = "B", PartNumber = "B", IsConfirmed = true };
+        db.AddRange(machine, position, rangeDevice, exactDevice);
+        await db.SaveChangesAsync();
+        db.ComponentInstallations.AddRange(
+            new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = rangeDevice.Id,
+                SerialFrom = 1, SerialTo = 50, IsConfirmed = true },
+            new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = exactDevice.Id,
+                SpecificSerialNumber = "033", IsConfirmed = true });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(exactDevice.Id, Assert.Single(await new ComponentCatalogService(db).ResolveAsync(machine)).Component.Id);
+    }
+
+    [Fact]
     public async Task SharedDeviceIsReusedButLocalReplacementWins()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

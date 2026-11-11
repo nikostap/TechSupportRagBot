@@ -7,9 +7,10 @@ public class ComponentInstallation
     public MachinePosition MachinePosition { get; set; } = null!;
     public int ComponentModelId { get; set; }
     public ComponentModel ComponentModel { get; set; } = null!;
-    // Null means a default for the machine model; a machine-specific row overrides it.
+    // Legacy machine-specific assignments remain readable; new assignments use model + serial.
     public int? MachineId { get; set; }
     public Machine? Machine { get; set; }
+    public string? SpecificSerialNumber { get; set; }
     // Numeric ranges apply only to three-digit numeric machine serials.
     public int? SerialFrom { get; set; }
     public int? SerialTo { get; set; }

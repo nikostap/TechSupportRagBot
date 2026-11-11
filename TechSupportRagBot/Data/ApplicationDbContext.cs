@@ -142,6 +142,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ComponentInstallation>().HasOne(x => x.Machine).WithMany()
             .HasForeignKey(x => x.MachineId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<ComponentInstallation>().HasIndex(x => new { x.MachinePositionId, x.MachineId });
+        builder.Entity<ComponentInstallation>().Property(x => x.SpecificSerialNumber).HasMaxLength(100);
+        builder.Entity<ComponentInstallation>().HasIndex(x => new { x.MachinePositionId, x.SpecificSerialNumber });
         builder.Entity<KnowledgeDocument>().HasOne(x => x.ComponentModel).WithMany()
             .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<QAEntry>().HasOne(x => x.ComponentModel).WithMany()

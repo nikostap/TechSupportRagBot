@@ -17,14 +17,18 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
         var numericSerial = machine.SerialNumber.Length == 3
             && int.TryParse(machine.SerialNumber, out var serial) ? serial : (int?)null;
         var applicable = installations.Where(x => x.MachineId == machine.Id ||
-            (x.MachineId == null && (x.SerialFrom == null && x.SerialTo == null ||
-                numericSerial != null && x.SerialFrom <= numericSerial && x.SerialTo >= numericSerial)));
+            (x.MachineId == null && (string.Equals(x.SpecificSerialNumber, machine.SerialNumber,
+                    StringComparison.OrdinalIgnoreCase)
+                || x.SpecificSerialNumber == null && (x.SerialFrom == null && x.SerialTo == null ||
+                    numericSerial != null && x.SerialFrom <= numericSerial && x.SerialTo >= numericSerial))));
 
         var result = new List<ResolvedComponent>();
         foreach (var group in applicable.GroupBy(x => x.MachinePositionId))
         {
-            var exact = group.Where(x => x.MachineId == machine.Id).ToList();
-            var candidates = exact.Count > 0 ? exact : group.ToList();
+            var highestPriority = group.Max(x => x.MachineId == machine.Id ? 3
+                : x.SpecificSerialNumber != null ? 2 : x.SerialFrom != null ? 1 : 0);
+            var candidates = group.Where(x => (x.MachineId == machine.Id ? 3
+                : x.SpecificSerialNumber != null ? 2 : x.SerialFrom != null ? 1 : 0) == highestPriority).ToList();
             // An ambiguous rule never silently selects a device.
             if (candidates.Select(x => x.ComponentModelId).Distinct().Count() != 1) continue;
             var chosen = candidates[0];

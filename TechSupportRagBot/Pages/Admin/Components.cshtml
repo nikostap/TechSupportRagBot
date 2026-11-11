@@ -83,15 +83,17 @@ else
     <div class="component-layout">
         <section class="panel"><h2>@T("AssignComponent")</h2>
             <form method="post" asp-page-handler="Assign" class="component-form">
+                <label>@T("MachineModel")<select asp-for="Assignment.MachineModel" required><option value="">@T("SelectMachineModel")</option>
+                    @foreach (var name in Model.MachineModels) { <option value="@name">@name</option> }
+                </select></label>
                 <label>@T("MachinePosition")<select asp-for="Assignment.MachinePositionId" required><option value="">@T("SelectPosition")</option>
-                    @foreach (var item in Model.Positions) { <option value="@item.Id">@item.MachineModel · @item.Name (@item.HmiLabel)</option> }
+                    @foreach (var item in Model.Positions) { <option value="@item.Id" data-machine-model="@item.MachineModel">@item.MachineModel · @item.Name (@item.HmiLabel)</option> }
                 </select></label>
                 <label>@T("ComponentModel")<select asp-for="Assignment.ComponentModelId" required><option value="">@T("SelectComponent")</option>
                     @foreach (var item in Model.Components) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
                 </select></label>
-                <label>@T("SpecificMachine")<select asp-for="Assignment.MachineId"><option value="">@T("ModelDefault")</option>
-                    @foreach (var item in Model.Machines) { <option value="@item.Id">@item.Name · @item.SerialNumber</option> }
-                </select></label>
+                <label>@T("SpecificMachineSerial")<input asp-for="Assignment.SpecificSerialNumber" maxlength="100" /></label>
+                <small class="muted-text">@T("SpecificMachineSerialHelp")</small>
                 <label>@T("SerialFrom")<input asp-for="Assignment.SerialFrom" type="number" min="0" max="999" /></label>
                 <label>@T("SerialTo")<input asp-for="Assignment.SerialTo" type="number" min="0" max="999" /></label>
                 <label class="component-check"><input asp-for="Assignment.IsConfirmed" /> @T("ConfirmedData")</label>
@@ -105,8 +107,25 @@ else
                 @foreach (var item in Model.Installations)
                 { <article class="component-item"><strong>@item.MachinePosition.MachineModel · @item.MachinePosition.Name</strong>
                     <span>@item.ComponentModel.Manufacturer @item.ComponentModel.Series @item.ComponentModel.PartNumber</span>
-                    <small>@(item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsActive ? (item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation")) : T("RetiredInstallation"))</small></article> }
+                    <small>@(item.SpecificSerialNumber ?? item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsActive ? (item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation")) : T("RetiredInstallation"))</small></article> }
             </div>
         </section>
     </div>
 }
+<script>
+(() => {
+    const model = document.getElementById('Assignment_MachineModel');
+    const position = document.getElementById('Assignment_MachinePositionId');
+    if (!model || !position) return;
+    const sync = () => {
+        for (const option of position.options) {
+            if (!option.dataset.machineModel) continue;
+            option.hidden = option.dataset.machineModel !== model.value;
+            option.disabled = option.hidden;
+        }
+        if (position.selectedOptions[0]?.disabled) position.value = '';
+    };
+    model.addEventListener('change', sync);
+    sync();
+})();
+</script>
