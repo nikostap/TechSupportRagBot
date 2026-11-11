@@ -27,16 +27,15 @@
                 <option value="SetupGuide">@T("SetupGuide")</option>
             </select></label>
             <label>@T("Name")<input asp-for="Input.Title" /></label>
-            <label>@T("MachineModel")<select asp-for="Input.MachineModel"><option value="">@T("Any")</option>
+            <label data-help="@T("DocumentScopeHelp")">@T("MachineModel")<select asp-for="Input.MachineModel"><option value="">@T("Any")</option>
                 @foreach (var item in Model.MachineModels) { <option value="@item">@item</option> }
             </select></label>
-            <label>@T("SpecificMachine")<select asp-for="Input.MachineId"><option value="">@T("Any")</option>
+            <label data-help="@T("DocumentScopeHelp")">@T("SpecificMachine")<select asp-for="Input.MachineId"><option value="">@T("Any")</option>
                 @foreach (var item in Model.Machines) { <option value="@item.Id">@item.Name · @item.SerialNumber</option> }
             </select></label>
-            <label>@T("ComponentModel")<select asp-for="Input.ComponentModelId"><option value="">@T("Any")</option>
+            <label data-help="@T("DocumentScopeHelp")">@T("ComponentModel")<select asp-for="Input.ComponentModelId"><option value="">@T("Any")</option>
                 @foreach (var item in Model.Components.Where(x => !x.IsArchived)) { <option value="@item.Id">@item.Manufacturer @item.Series @item.PartNumber</option> }
             </select></label>
-            <small class="muted-text">@T("DocumentScopeHelp")</small>
             <p>@T("DocumentDraftHint")</p>
             <button class="btn-main" type="submit">@T("UploadDocument")</button>
         </form>
@@ -51,21 +50,20 @@
                 <small>@(item.Status == "Retired" ? T("RetiredDocument") : item.ClientDownloadAllowed ? T("PublishedForClients") : T("NeedsConfirmation"))</small>
                 @if (!item.ClientDownloadAllowed && item.Status != "Retired")
                 {
-                    <details><summary>@T("EditCatalogEntry")</summary>
+                    <details><summary data-help="@T("DocumentEditHelp")">@T("EditCatalogEntry")</summary>
                         <form method="post" asp-page-handler="Update" asp-route-id="@item.Id" class="component-form">
-                            <small class="muted-text">@T("DocumentEditHelp")</small>
                             <label>@T("Name")<input name="EditInput.Title" value="@item.Title" /></label>
                             <label>@T("DocumentKind")<select name="EditInput.DocumentKind" required>
                                 @foreach (var kind in new[] { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" })
                                 { <option value="@kind" selected="@(item.DocumentKind == kind)">@T(kind)</option> }
                             </select></label>
-                            <label>@T("MachineModel")<select name="EditInput.MachineModel"><option value="">@T("Any")</option>
+                            <label data-help="@T("DocumentScopeHelp")">@T("MachineModel")<select name="EditInput.MachineModel"><option value="">@T("Any")</option>
                                 @foreach (var modelName in Model.MachineModels) { <option value="@modelName" selected="@(item.MachineModel == modelName)">@modelName</option> }
                             </select></label>
-                            <label>@T("SpecificMachine")<select name="EditInput.MachineId"><option value="">@T("Any")</option>
+                            <label data-help="@T("DocumentScopeHelp")">@T("SpecificMachine")<select name="EditInput.MachineId"><option value="">@T("Any")</option>
                                 @foreach (var machine in Model.Machines) { <option value="@machine.Id" selected="@(item.MachineId == machine.Id)">@machine.Name · @machine.SerialNumber</option> }
                             </select></label>
-                            <label>@T("ComponentModel")<select name="EditInput.ComponentModelId"><option value="">@T("Any")</option>
+                            <label data-help="@T("DocumentScopeHelp")">@T("ComponentModel")<select name="EditInput.ComponentModelId"><option value="">@T("Any")</option>
                                 @foreach (var component in Model.Components) { <option value="@component.Id" selected="@(item.ComponentModelId == component.Id)">@component.Manufacturer @component.Series @component.PartNumber</option> }
                             </select></label>
                             <button class="btn-main" type="submit">@T("Save")</button>

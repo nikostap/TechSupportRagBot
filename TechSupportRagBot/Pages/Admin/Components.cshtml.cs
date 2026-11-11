@@ -21,6 +21,7 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
     [BindProperty] public AssignmentInput EditAssignment { get; set; } = new();
     [TempData] public string? Notice { get; set; }
     public string Tab { get; private set; } = "models";
+    public string MachineSeries(string model) => model.Split('-', 2, StringSplitOptions.TrimEntries)[0];
     public List<ComponentModel> Components { get; private set; } = [];
     public List<MachinePosition> Positions { get; private set; } = [];
     public List<PositionTemplate> Templates { get; private set; } = [];
