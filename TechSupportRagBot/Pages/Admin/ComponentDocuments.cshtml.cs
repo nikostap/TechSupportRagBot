@@ -12,7 +12,7 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize]
 public class ComponentDocumentsModel(
     ApplicationDbContext db, FileStorageService storage, FileUploadValidationService validation,
-    SystemSettingsService settings, AccessProfileService access) : PageModel
+    SystemSettingsService settings, AccessProfileService access, KnowledgeIngestionService ingestion) : PageModel
 {
     private static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" };
@@ -143,25 +143,13 @@ public class ComponentDocumentsModel(
         return RedirectToPage();
     }
 
-    public async Task<IActionResult> OnPostArchiveAsync(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostDeleteAsync(int id, CancellationToken cancellationToken)
     {
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
         if (document == null || document.DocumentKind == "Other") return NotFound();
         if (document.ClientDownloadAllowed && !await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
         if (document.IndexStatus is DocumentIndexStates.Queued or DocumentIndexStates.Processing) return BadRequest();
-        document.ClientDownloadAllowed = false;
-        document.ShowInClientLibrary = false;
-        document.Status = "Retired";
-        await db.SaveChangesAsync(cancellationToken);
-        return RedirectToPage();
-    }
-
-    public async Task<IActionResult> OnPostRestoreAsync(int id, CancellationToken cancellationToken)
-    {
-        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
-        if (document == null || document.DocumentKind == "Other" || document.Status != "Retired") return NotFound();
-        document.Status = "NeedsReview";
-        await db.SaveChangesAsync(cancellationToken);
+        await ingestion.DeleteDocumentAsync(id, cancellationToken);
         return RedirectToPage();
     }
 

@@ -66,8 +66,8 @@
                                 <button class="btn-main" type="submit">@T("Save")</button>
                             </form>
                         </details>
-                        <form method="post" asp-page-handler="@(item.IsArchived ? "RestoreComponent" : "ArchiveComponent")" asp-route-id="@item.Id">
-                            <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                        <form method="post" asp-page-handler="DeleteComponent" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit" title="@T("DeleteCatalogHelp")">@T("Delete")</button>
                         </form>
                     </article>
                         }
@@ -102,8 +102,8 @@ else if (Model.Tab == "positions")
                         <button class="btn-main" type="submit">@T("Save")</button>
                     </form>
                 </details>
-                <form method="post" asp-page-handler="@(item.IsArchived ? "RestoreTemplate" : "ArchiveTemplate")" asp-route-id="@item.Id">
-                    <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                <form method="post" asp-page-handler="DeleteTemplate" asp-route-id="@item.Id">
+                    <button class="btn-secondary" type="submit" title="@T("DeleteTemplateHelp")">@T("Delete")</button>
                 </form>
             </article>
             }
@@ -155,8 +155,8 @@ else if (Model.Tab == "positions")
                                 <button class="btn-main" type="submit">@T("Save")</button>
                             </form>
                         </details>
-                        <form method="post" asp-page-handler="@(item.IsArchived ? "RestorePosition" : "ArchivePosition")" asp-route-id="@item.Id">
-                            <button class="btn-secondary" type="submit" title="@T(item.IsArchived ? "RestoreCatalogHelp" : "ArchiveCatalogHelp")">@(item.IsArchived ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                        <form method="post" asp-page-handler="DeletePosition" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit" title="@T("DeleteCatalogHelp")">@T("Delete")</button>
                         </form>
                     </article>
                         }
@@ -223,10 +223,10 @@ else
                                 <button class="btn-main" type="submit">@T("Save")</button>
                             </form>
                         </details>
-                        <form method="post" asp-page-handler="ArchiveInstallation" asp-route-id="@item.Id">
-                            <button class="btn-secondary" type="submit" title="@T("ArchiveCatalogHelp")">@T("Delete")</button>
-                        </form>
                     }
+                    <form method="post" asp-page-handler="DeleteInstallation" asp-route-id="@item.Id">
+                        <button class="btn-secondary" type="submit" title="@T("DeleteCatalogHelp")">@T("Delete")</button>
+                    </form>
                 </article> }
                         </div></details>
                     }

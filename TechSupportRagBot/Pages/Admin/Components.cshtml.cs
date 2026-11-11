@@ -85,20 +85,16 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         return RedirectToPage(new { tab = "models" });
     }
 
-    public async Task<IActionResult> OnPostArchiveComponentAsync(int id)
+    public async Task<IActionResult> OnPostDeleteComponentAsync(int id)
     {
         var item = await db.ComponentModels.FindAsync(id);
         if (item == null) return NotFound();
-        item.IsArchived = true;
-        await db.SaveChangesAsync();
-        return RedirectToPage(new { tab = "models" });
-    }
-
-    public async Task<IActionResult> OnPostRestoreComponentAsync(int id)
-    {
-        var item = await db.ComponentModels.FindAsync(id);
-        if (item == null) return NotFound();
-        item.IsArchived = false;
+        if (await db.QAEntries.AnyAsync(x => x.ComponentModelId == id)
+            || await db.KnowledgeDocuments.AnyAsync(x => x.ComponentModelId == id))
+            return await ErrorAsync("ComponentDeleteBlocked", "models");
+        var installations = await db.ComponentInstallations.Where(x => x.ComponentModelId == id).ToListAsync();
+        db.ComponentInstallations.RemoveRange(installations);
+        db.ComponentModels.Remove(item);
         await db.SaveChangesAsync();
         return RedirectToPage(new { tab = "models" });
     }
@@ -152,20 +148,13 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         return RedirectToPage(new { tab = "positions" });
     }
 
-    public async Task<IActionResult> OnPostArchivePositionAsync(int id)
+    public async Task<IActionResult> OnPostDeletePositionAsync(int id)
     {
         var item = await db.MachinePositions.FindAsync(id);
         if (item == null) return NotFound();
-        item.IsArchived = true;
-        await db.SaveChangesAsync();
-        return RedirectToPage(new { tab = "positions" });
-    }
-
-    public async Task<IActionResult> OnPostRestorePositionAsync(int id)
-    {
-        var item = await db.MachinePositions.FindAsync(id);
-        if (item == null) return NotFound();
-        item.IsArchived = false;
+        var installations = await db.ComponentInstallations.Where(x => x.MachinePositionId == id).ToListAsync();
+        db.ComponentInstallations.RemoveRange(installations);
+        db.MachinePositions.Remove(item);
         await db.SaveChangesAsync();
         return RedirectToPage(new { tab = "positions" });
     }
@@ -198,20 +187,13 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         return RedirectToPage(new { tab = "positions" });
     }
 
-    public async Task<IActionResult> OnPostArchiveTemplateAsync(int id)
+    public async Task<IActionResult> OnPostDeleteTemplateAsync(int id)
     {
         var item = await db.PositionTemplates.FindAsync(id);
         if (item == null) return NotFound();
-        item.IsArchived = true;
-        await db.SaveChangesAsync();
-        return RedirectToPage(new { tab = "positions" });
-    }
-
-    public async Task<IActionResult> OnPostRestoreTemplateAsync(int id)
-    {
-        var item = await db.PositionTemplates.FindAsync(id);
-        if (item == null) return NotFound();
-        item.IsArchived = false;
+        var positions = await db.MachinePositions.Where(x => x.PositionTemplateId == id).ToListAsync();
+        foreach (var position in positions) position.PositionTemplateId = null;
+        db.PositionTemplates.Remove(item);
         await db.SaveChangesAsync();
         return RedirectToPage(new { tab = "positions" });
     }
@@ -308,12 +290,11 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         return RedirectToPage(new { tab = "configurations" });
     }
 
-    public async Task<IActionResult> OnPostArchiveInstallationAsync(int id)
+    public async Task<IActionResult> OnPostDeleteInstallationAsync(int id)
     {
         var item = await db.ComponentInstallations.FindAsync(id);
         if (item == null) return NotFound();
-        item.IsActive = false;
-        item.RetiredAt = DateTime.UtcNow;
+        db.ComponentInstallations.Remove(item);
         await db.SaveChangesAsync();
         return RedirectToPage(new { tab = "configurations" });
     }

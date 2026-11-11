@@ -79,8 +79,8 @@
                         </form>
                     </details>
                 }
-                <form method="post" asp-page-handler="@(item.Status == "Retired" ? "Restore" : "Archive")" asp-route-id="@item.Id">
-                    <button class="btn-secondary" type="submit">@(item.Status == "Retired" ? T("RestoreCatalogEntry") : T("Delete"))</button>
+                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id">
+                    <button class="btn-secondary" type="submit" title="@T("DeleteDocumentHelp")">@T("Delete")</button>
                 </form>
                 @if (Model.CanPublish)
                 {
