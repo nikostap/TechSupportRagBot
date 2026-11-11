@@ -64,6 +64,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     /// Таблица станков.
     /// </summary>
     public DbSet<Machine> Machines => Set<Machine>();
+    public DbSet<ComponentModel> ComponentModels => Set<ComponentModel>();
+    public DbSet<MachinePosition> MachinePositions => Set<MachinePosition>();
+    public DbSet<ComponentInstallation> ComponentInstallations => Set<ComponentInstallation>();
 
     /// <summary>
     /// Таблица загруженных документов базы знаний.
@@ -114,6 +117,27 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Обязательно вызываем базовую настройку Identity.
         // Без этого таблицы пользователей и ролей будут созданы неправильно.
         base.OnModelCreating(builder);
+
+        builder.Entity<ComponentModel>().HasIndex(x => new { x.Manufacturer, x.PartNumber, x.Revision }).IsUnique();
+        builder.Entity<ComponentModel>().Property(x => x.Type).HasMaxLength(80);
+        builder.Entity<ComponentModel>().Property(x => x.Manufacturer).HasMaxLength(120);
+        builder.Entity<ComponentModel>().Property(x => x.Series).HasMaxLength(120);
+        builder.Entity<ComponentModel>().Property(x => x.PartNumber).HasMaxLength(160);
+        builder.Entity<ComponentModel>().Property(x => x.Revision).HasMaxLength(80);
+        builder.Entity<MachinePosition>().HasIndex(x => new { x.MachineModel, x.Key }).IsUnique();
+        builder.Entity<MachinePosition>().Property(x => x.MachineModel).HasMaxLength(100);
+        builder.Entity<MachinePosition>().Property(x => x.Key).HasMaxLength(120);
+        builder.Entity<MachinePosition>().Property(x => x.Name).HasMaxLength(200);
+        builder.Entity<MachinePosition>().Property(x => x.ComponentType).HasMaxLength(80);
+        builder.Entity<ComponentInstallation>().HasOne(x => x.MachinePosition).WithMany()
+            .HasForeignKey(x => x.MachinePositionId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ComponentInstallation>().HasOne(x => x.ComponentModel).WithMany()
+            .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ComponentInstallation>().HasOne(x => x.Machine).WithMany()
+            .HasForeignKey(x => x.MachineId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ComponentInstallation>().HasIndex(x => new { x.MachinePositionId, x.MachineId });
+        builder.Entity<KnowledgeDocument>().HasOne(x => x.ComponentModel).WithMany()
+            .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<ChatMessageOperatorRead>()
             .HasKey(x => new { x.ChatMessageId, x.OperatorUserId });
