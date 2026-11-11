@@ -94,6 +94,8 @@ foreach (var scenario in scenarios)
     foreach (var question in scenario.Questions)
     {
         var history = string.Join("\n", transcript.TakeLast(12));
+        var plan = BotConversationPlanner.Create(question, history);
+        Console.WriteLine($"PLAN: followUp={plan.IsFollowUp}, query={plan.SearchQuestion}");
         var answer = await bot.AnswerAsync(question, machine.Id, scenario.Language, history);
         Console.WriteLine($"CLIENT: {question}");
         Console.WriteLine($"SEARCH: {answer.RetrievalQuestion ?? "(none)"}");

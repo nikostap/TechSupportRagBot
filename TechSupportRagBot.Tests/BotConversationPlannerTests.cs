@@ -1,4 +1,5 @@
 using TechSupportRagBot.Services;
+using System.Text;
 
 namespace TechSupportRagBot.Tests;
 
@@ -188,6 +189,24 @@ public class BotConversationPlannerTests
 
         Assert.False(plan.IsFollowUp);
         Assert.Equal("ALF показывает ошибку E34", plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void NormalRussianHistoryIsNotMistakenForMojibake()
+    {
+        const string history = "Клиент: ALF не подаёт этикетку\nБот: Рулон остановился. Проверьте датчик S04.";
+
+        Assert.Equal(history, TextEncodingRepairService.RepairIfNeeded(history));
+    }
+
+    [Fact]
+    public void ActuallyBrokenRussianEncodingCanStillBeRepaired()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        const string original = "Привет, проверьте рулон";
+        var broken = Encoding.GetEncoding(1251).GetString(Encoding.UTF8.GetBytes(original));
+
+        Assert.Equal(original, TextEncodingRepairService.RepairIfNeeded(broken));
     }
 
     [Theory]
