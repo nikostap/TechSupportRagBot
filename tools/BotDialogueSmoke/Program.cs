@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Services;
 
-if (args.Length != 1 || !Directory.Exists(args[0]))
+if (args.Length is < 1 or > 2 || !Directory.Exists(args[0]))
 {
     Console.Error.WriteLine("Usage: BotDialogueSmoke <repository-directory>");
     return 2;
@@ -49,6 +49,33 @@ if (machine is null)
 }
 
 var bot = scope.ServiceProvider.GetRequiredService<SupportBotService>();
+const string servoHistory = "Клиент: Ошибка сервопривода\nБот: Какой именно сервопривод показывает ошибку (например, Серво 2 приемный лоток или Серво3 подмотка 1)? Какой код ошибки отображается?";
+var servoAnswer = await bot.AnswerAsync("третий", machine.Id, "Russian", servoHistory);
+Console.WriteLine("SCENARIO: Servo ordinal with explicit options");
+Console.WriteLine("CLIENT: третий");
+Console.WriteLine($"SEARCH: {servoAnswer.RetrievalQuestion ?? "(none)"}");
+Console.WriteLine($"SECOND SEARCH: {servoAnswer.SupplementalRetrievalQuestion ?? "(none)"}");
+Console.WriteLine($"CHUNKS: {string.Join(",", servoAnswer.SearchResult?.Chunks.Select(x => x.ChunkId) ?? [])}");
+foreach (var chunk in servoAnswer.SearchResult?.Chunks ?? [])
+    Console.WriteLine($"CHUNK {chunk.ChunkId}: {chunk.Title} | {chunk.Text[..Math.Min(chunk.Text.Length, 500)]} | SOLUTION: {chunk.Solution}");
+Console.WriteLine($"BOT: {servoAnswer.Text}");
+var servoChunks = servoAnswer.SearchResult?.Chunks ?? [];
+if (servoChunks.Count != 1
+    || servoChunks[0].Title?.Contains("Серво3", StringComparison.OrdinalIgnoreCase) != true
+    || !servoAnswer.Text.Contains("Серво3", StringComparison.OrdinalIgnoreCase)
+    || servoAnswer.Text.Contains("нет достаточных сведений", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("The ordinal answer did not resolve to the documented third servo.");
+var secondServoAnswer = await bot.AnswerAsync("второй", machine.Id, "Russian", servoHistory);
+Console.WriteLine("CLIENT: второй");
+Console.WriteLine($"SEARCH: {secondServoAnswer.RetrievalQuestion ?? "(none)"}");
+Console.WriteLine($"CHUNKS: {string.Join(",", secondServoAnswer.SearchResult?.Chunks.Select(x => x.ChunkId) ?? [])}");
+Console.WriteLine($"BOT: {secondServoAnswer.Text}");
+var secondServoChunks = secondServoAnswer.SearchResult?.Chunks ?? [];
+if (secondServoChunks.Count != 1
+    || secondServoChunks[0].Title?.Contains("Серво 2", StringComparison.OrdinalIgnoreCase) != true
+    || !secondServoAnswer.Text.Contains("Серво 2", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("The ordinal answer did not resolve to the documented second servo.");
+if (args.Length == 2 && args[1] == "--servo-only") return 0;
 var scenarios = new (string Name, string Language, string[] Questions)[]
 {
     ("Brake coupling clarification", "Russian",

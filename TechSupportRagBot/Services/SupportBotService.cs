@@ -101,10 +101,12 @@ public class SupportBotService
         if (conversationPlan.IsFollowUp && string.IsNullOrEmpty(referenceCode))
             referenceCode = Regex.Match(conversationPlan.SearchQuestion, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value;
         FilterByReferenceCode(ragResult, referenceCode);
+        FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
 
+        var evidenceText = conversationPlan.ResolvedReference ?? question;
         var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
-            ? await _translation.TranslateToRussianForSearchAsync(question, language, cancellationToken)
-            : question;
+            ? await _translation.TranslateToRussianForSearchAsync(evidenceText, language, cancellationToken)
+            : evidenceText;
         var missingTerms = conversationPlan.IsFollowUp
             ? BotEvidenceGate.MissingTerms(evidenceQuestion, ragResult.Chunks)
             : [];
@@ -121,6 +123,7 @@ public class SupportBotService
                 FinalTopK = 5
             }, cancellationToken);
             FilterByReferenceCode(focusedResult, referenceCode);
+            FilterByResolvedReference(focusedResult, conversationPlan.ResolvedReference);
             var merged = focusedResult.Chunks.Concat(ragResult.Chunks)
                 .DistinctBy(x => x.ChunkId).Take(8).ToList();
             ragResult.Chunks = merged;
@@ -189,6 +192,9 @@ public class SupportBotService
                     directAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(directAnswer.Trim(), conversationPlan.PreviousBotAnswer);
                     if (string.IsNullOrWhiteSpace(directAnswer))
                         directAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
+                    if (!string.IsNullOrWhiteSpace(conversationPlan.ResolvedReference)
+                        && !directAnswer.Contains(conversationPlan.ResolvedReference, StringComparison.OrdinalIgnoreCase))
+                        directAnswer = $"{conversationPlan.ResolvedReference}: {directAnswer}";
                     return new BotAnswerResult(directAnswer, false, answerMedia)
                     { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
                 }
@@ -295,7 +301,7 @@ public class SupportBotService
         if (conversationPlan.IsFollowUp)
         {
             cleanAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
-            if (cleanAnswer.Length < 120 && answer.Length > cleanAnswer.Length)
+            if (string.IsNullOrWhiteSpace(cleanAnswer))
             {
                 cleanAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
             }
@@ -451,6 +457,16 @@ public class SupportBotService
         result.Chunks = result.Chunks.Where(x =>
             string.Concat(x.Title, " ", x.Text, " ", x.Solution)
                 .Contains(referenceCode, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (result.Chunks.Count == 0) result.ShouldCallOperator = true;
+    }
+
+    private static void FilterByResolvedReference(RagSearchResult result, string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference)) return;
+        var target = Regex.Replace(reference, @"[\s\p{P}]+", "");
+        result.Chunks = result.Chunks.Where(x =>
+            Regex.Replace(string.Concat(x.Title, " ", x.Text, " ", x.Solution), @"[\s\p{P}]+", "")
+                .Contains(target, StringComparison.OrdinalIgnoreCase)).ToList();
         if (result.Chunks.Count == 0) result.ShouldCallOperator = true;
     }
 

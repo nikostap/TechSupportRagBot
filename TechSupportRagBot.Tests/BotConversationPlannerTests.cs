@@ -51,6 +51,58 @@ public class BotConversationPlannerTests
         Assert.True(plan.SearchQuestion.Length <= 440);
     }
 
+    [Theory]
+    [InlineData("третий", "Серво3")]
+    [InlineData("3-й", "Серво3")]
+    [InlineData("второй", "Серво 2")]
+    [InlineData("third", "Серво3")]
+    public void OrdinalAnswerResolvesNumberedOptionFromPreviousBotQuestion(string reply, string expectedReference)
+    {
+        const string history = "Клиент: Ошибка сервопривода\n"
+            + "Бот: Какой именно сервопривод показывает ошибку: Серво 2 приемный лоток или Серво3 подмотка 1? Какой код ошибки?";
+
+        var plan = BotConversationPlanner.Create(reply, history);
+
+        Assert.True(plan.IsFollowUp);
+        Assert.Equal(expectedReference, plan.ResolvedReference);
+        Assert.Contains(expectedReference, plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void OrdinalWithoutMatchingNamedOptionIsNotInvented()
+    {
+        const string history = "Клиент: Не запускается привод\nБот: Какой привод показывает ошибку?";
+
+        var plan = BotConversationPlanner.Create("третий", history);
+
+        Assert.True(plan.IsFollowUp);
+        Assert.Null(plan.ResolvedReference);
+    }
+
+    [Fact]
+    public void BareNumberDoesNotAssumeWhetherClientMeansServoOrErrorCode()
+    {
+        const string history = "Клиент: Ошибка сервопривода\nБот: Какой сервопривод: Серво3? Какой код ошибки?";
+
+        Assert.Null(BotConversationPlanner.Create("3", history).ResolvedReference);
+    }
+
+    [Fact]
+    public void OrdinalResolutionWorksForOtherNumberedComponents()
+    {
+        const string history = "Клиент: Не работает насос клея\nБот: Какой насос: Насос1 или Насос2?";
+
+        Assert.Equal("Насос2", BotConversationPlanner.Create("второй", history).ResolvedReference);
+    }
+
+    [Fact]
+    public void OrdinalResolutionSupportsLetterNumberComponentCodes()
+    {
+        const string history = "Клиент: Не срабатывает датчик\nБот: Какой датчик: S02 или S03?";
+
+        Assert.Equal("S03", BotConversationPlanner.Create("третий", history).ResolvedReference);
+    }
+
     [Fact]
     public void ShortSymptomContinuesDialogueEvenWhenPreviousAnswerDidNotAskAQuestion()
     {

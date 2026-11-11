@@ -60,15 +60,17 @@ public static class BotConversationPlanner
         var issueStart = clientTurns.FindLastIndex(LooksLikeIndependentQuestion);
         if (issueStart < 0) issueStart = 0;
         var originalProblem = clientTurns[issueStart];
+        var resolvedReference = BotOrdinalReference.Resolve(question, previousBot);
         var details = clientTurns.Skip(issueStart + 1).Append(question)
             .Where(x => !IsBareConfirmation(x))
             .TakeLast(4)
             .Select(x => Truncate(x.Trim(), 90))
             .ToArray();
-        var detailText = Truncate(string.Join("; ", details), 220);
+        var detailText = Truncate(string.Join("; ", details), 190);
+        if (resolvedReference is not null) detailText = $"{detailText}; {resolvedReference}";
         var searchQuestion = $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
         var focusedSearchQuestion = $"{detailText}. {Truncate(originalProblem, 160)}";
-        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail);
+        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail, resolvedReference);
     }
 
     private static bool LooksLikeIndependentQuestion(string value)
@@ -109,4 +111,4 @@ public static class BotConversationPlanner
     }
 }
 
-public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification);
+public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null);
