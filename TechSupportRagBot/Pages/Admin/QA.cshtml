@@ -341,7 +341,7 @@
                                 @foreach (var entry in serialGroup)
                                 {
             <details class="qa-card qa-compact-card" data-updated="@entry.UpdatedAt.Ticks" data-question="@entry.Question" data-status="@entry.Status" data-model="@entry.MachineModel" data-serial="@entry.SerialNumber">
-                <summary class="qa-card-summary">
+                <summary class="qa-card-summary" title="@entry.Question">
                     <input class="qa-select-entry" type="checkbox" name="SelectedIds" value="@entry.Id" form="qa-bulk-form" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectQA")" onclick="event.stopPropagation()" />
                     <span class="qa-summary-main">
                         <select form="qa-status-form-@entry.Id" name="status" class="qa-quick-status-select" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")" onchange="this.form.requestSubmit()" onclick="event.stopPropagation()">

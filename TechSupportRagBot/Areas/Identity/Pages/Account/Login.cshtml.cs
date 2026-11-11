@@ -75,8 +75,8 @@ public class LoginModel : PageModel
     {
         if (_environment.IsDevelopment()) return true;
 
-        var serverKey = _configuration["SmartCaptcha:ServerKey"];
-        var token = Request.Form["smart-token"].ToString();
+        var serverKey = _configuration["Recaptcha:SecretKey"];
+        var token = Request.Form["g-recaptcha-response"].ToString();
         if (string.IsNullOrWhiteSpace(serverKey) || string.IsNullOrWhiteSpace(token)) return false;
 
         try
@@ -84,15 +84,14 @@ public class LoginModel : PageModel
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["secret"] = serverKey,
-                ["token"] = token,
-                ["ip"] = HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty
+                ["response"] = token
             });
-            var response = await _httpClientFactory.CreateClient("SmartCaptcha")
-                .PostAsync("https://smartcaptcha.cloud.yandex.ru/validate", content, HttpContext.RequestAborted);
+            var response = await _httpClientFactory.CreateClient("Recaptcha")
+                .PostAsync("https://www.google.com/recaptcha/api/siteverify", content, HttpContext.RequestAborted);
             if (!response.IsSuccessStatusCode) return false;
 
             var result = await response.Content.ReadFromJsonAsync<CaptchaValidationResponse>(cancellationToken: HttpContext.RequestAborted);
-            return string.Equals(result?.Status, "ok", StringComparison.OrdinalIgnoreCase);
+            return result?.Success == true;
         }
         catch (HttpRequestException) { return false; }
         catch (TaskCanceledException) when (!HttpContext.RequestAborted.IsCancellationRequested) { return false; }
@@ -100,7 +99,7 @@ public class LoginModel : PageModel
 
     private sealed class CaptchaValidationResponse
     {
-        public string? Status { get; init; }
+        public bool Success { get; init; }
     }
 
     public class InputModel

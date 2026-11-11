@@ -124,7 +124,7 @@ builder.Services.AddSingleton<IAmazonS3>(services =>
 builder.Services.AddHttpClient<OllamaClient>();
 builder.Services.AddHttpClient<QdrantKnowledgeClient>();
 builder.Services.AddHttpClient<ChatTranslationService>();
-builder.Services.AddHttpClient("SmartCaptcha", client => client.Timeout = TimeSpan.FromSeconds(5));
+builder.Services.AddHttpClient("Recaptcha", client => client.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddSingleton<LanguageDetectionService>();
 builder.Services.AddScoped<DocumentTextExtractor>();
 builder.Services.AddScoped<DocumentEnrichmentService>();

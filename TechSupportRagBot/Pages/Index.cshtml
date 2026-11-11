@@ -1,6 +1,7 @@
 @page
 @model IndexModel
 @inject IWebHostEnvironment Environment
+@inject IConfiguration Configuration
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle");
     var loginHost = HttpContext.Request.Host.Host;
@@ -13,7 +14,7 @@
 @section Scripts {
     @if (User.Identity?.IsAuthenticated != true && !isLocalLogin)
     {
-        <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }
 }
 
@@ -48,7 +49,7 @@
                 </label>
                 @if (!isLocalLogin)
                 {
-                    <div style="height: 100px" class="smart-captcha" data-sitekey="ysc1_fZghYQp8UE8EfsAbJuoLj03FpAwUeJxohE6Kj4dI7f495857"></div>
+                    <div class="g-recaptcha" data-sitekey="@Configuration["Recaptcha:SiteKey"]"></div>
                 }
                 <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Login")</button>
                 <a class="muted-link" asp-area="Identity" asp-page="/Account/ForgotPassword">@TechSupportRagBot.Services.UiText.T(HttpContext, "Forgot password?")</a>
