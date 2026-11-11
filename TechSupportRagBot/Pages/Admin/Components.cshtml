@@ -94,6 +94,7 @@ else
                 <label>@T("SerialFrom")<input asp-for="Assignment.SerialFrom" type="number" min="0" max="999" /></label>
                 <label>@T("SerialTo")<input asp-for="Assignment.SerialTo" type="number" min="0" max="999" /></label>
                 <label class="component-check"><input asp-for="Assignment.IsConfirmed" /> @T("ConfirmedData")</label>
+                <label class="component-check"><input asp-for="Assignment.ReplaceExisting" /> @T("ReplaceInstallation")</label>
                 <button class="btn-main" type="submit">@T("Save")</button>
             </form>
         </section>
@@ -103,7 +104,7 @@ else
                 @foreach (var item in Model.Installations)
                 { <article class="component-item"><strong>@item.MachinePosition.MachineModel · @item.MachinePosition.Name</strong>
                     <span>@item.ComponentModel.Manufacturer @item.ComponentModel.Series @item.ComponentModel.PartNumber</span>
-                    <small>@(item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation"))</small></article> }
+                    <small>@(item.Machine?.SerialNumber ?? (item.SerialFrom is null ? T("ModelDefault") : $"{item.SerialFrom:000}–{item.SerialTo:000}")) · @(item.IsActive ? (item.IsConfirmed ? T("ConfirmedData") : T("NeedsConfirmation")) : T("RetiredInstallation"))</small></article> }
             </div>
         </section>
     </div>

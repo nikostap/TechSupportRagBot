@@ -100,11 +100,18 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
             return await ErrorAsync("AssignmentInvalid", "configurations");
 
         var existing = await db.ComponentInstallations.Where(x => x.MachinePositionId == position!.Id
-            && x.MachineId == Assignment.MachineId).ToListAsync();
-        if (existing.Any(x => machine != null || x.SerialFrom == null && Assignment.SerialFrom == null
+            && x.MachineId == Assignment.MachineId && x.IsActive).ToListAsync();
+        var overlaps = existing.Where(x => machine != null || x.SerialFrom == null && Assignment.SerialFrom == null
             || x.SerialFrom != null && Assignment.SerialFrom != null
-                && x.SerialFrom <= Assignment.SerialTo && Assignment.SerialFrom <= x.SerialTo))
+                && x.SerialFrom <= Assignment.SerialTo && Assignment.SerialFrom <= x.SerialTo).ToList();
+        if (overlaps.Count > 0 && (!Assignment.ReplaceExisting
+            || overlaps.Any(x => x.SerialFrom != Assignment.SerialFrom || x.SerialTo != Assignment.SerialTo)))
             return await ErrorAsync("AssignmentConflict", "configurations");
+        foreach (var old in overlaps)
+        {
+            old.IsActive = false;
+            old.RetiredAt = DateTime.UtcNow;
+        }
         db.ComponentInstallations.Add(new ComponentInstallation
         {
             MachinePositionId = position.Id, ComponentModelId = component.Id, MachineId = machine?.Id,
@@ -130,7 +137,7 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         Templates = await db.PositionTemplates.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         Installations = await db.ComponentInstallations.AsNoTracking().Include(x => x.MachinePosition)
             .Include(x => x.ComponentModel).Include(x => x.Machine).OrderBy(x => x.MachinePosition.MachineModel)
-            .ThenBy(x => x.MachinePosition.Name).ToListAsync();
+            .ThenBy(x => x.MachinePosition.Name).ThenByDescending(x => x.IsActive).ToListAsync();
         Machines = await db.Machines.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         MachineModels = (await settings.GetMachineModelsAsync(HttpContext.RequestAborted))
             .Concat(Machines.Select(x => x.Model)).Distinct(StringComparer.OrdinalIgnoreCase)
@@ -170,5 +177,6 @@ public class ComponentsModel(ApplicationDbContext db, SystemSettingsService sett
         public int? SerialFrom { get; set; }
         public int? SerialTo { get; set; }
         public bool IsConfirmed { get; set; }
+        public bool ReplaceExisting { get; set; }
     }
 }

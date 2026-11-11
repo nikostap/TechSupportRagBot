@@ -14,5 +14,7 @@ public class ComponentInstallation
     public int? SerialFrom { get; set; }
     public int? SerialTo { get; set; }
     public bool IsConfirmed { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime? RetiredAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

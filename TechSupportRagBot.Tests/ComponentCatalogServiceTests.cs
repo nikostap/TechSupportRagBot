@@ -26,6 +26,7 @@ public sealed class ComponentCatalogServiceTests
         await db.SaveChangesAsync();
         db.ComponentInstallations.AddRange(
             new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = shared.Id, IsConfirmed = true },
+            new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = shared.Id, MachineId = second.Id, IsConfirmed = true, IsActive = false },
             new ComponentInstallation { MachinePositionId = position.Id, ComponentModelId = replacement.Id, MachineId = second.Id, IsConfirmed = true });
         await db.SaveChangesAsync();
 

@@ -10,7 +10,7 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
     {
         var installations = await db.ComponentInstallations.AsNoTracking()
             .Include(x => x.MachinePosition).Include(x => x.ComponentModel)
-            .Where(x => x.IsConfirmed && x.ComponentModel.IsConfirmed && x.MachinePosition.MachineModel == machine.Model
+            .Where(x => x.IsActive && x.IsConfirmed && x.ComponentModel.IsConfirmed && x.MachinePosition.MachineModel == machine.Model
                 && (x.MachineId == null || x.MachineId == machine.Id))
             .ToListAsync(cancellationToken);
 
