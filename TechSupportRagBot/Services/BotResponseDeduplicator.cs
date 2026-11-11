@@ -8,18 +8,26 @@ public static partial class BotResponseDeduplicator
     {
         if (string.IsNullOrWhiteSpace(previousAnswer)) return answer;
         var oldSteps = StepSegment().Matches(previousAnswer).Select(x => Tokens(x.Value)).ToList();
-        if (oldSteps.Count == 0) return answer;
-
         var oldSentences = Sentence().Matches(previousAnswer).Select(x => Tokens(x.Value)).Where(x => x.Count >= 7).ToList();
+        var oldLines = previousAnswer.Split('\n').Select(Tokens).Where(x => x.Count >= 3).ToList();
 
         var lines = answer.Split('\n');
         var retained = new List<string>();
         var skipStepDetails = false;
         foreach (var line in lines)
         {
+            // A repeated measurement can be the direct answer to a follow-up question.
+            // Never discard a documented value merely because it appeared earlier.
+            if (TechnicalValue().IsMatch(line))
+            {
+                skipStepDetails = false;
+                retained.Add(line);
+                continue;
+            }
             if (IsStep(line))
             {
-                skipStepDetails = oldSteps.Any(old => Similarity(Tokens(line), old) >= 0.48);
+                skipStepDetails = oldSteps.Any(old => Similarity(Tokens(line), old) >= 0.48)
+                    || oldLines.Any(old => ContainsSameAction(Tokens(line), old));
                 if (skipStepDetails) continue;
             }
             else if (skipStepDetails && (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith('-')))
@@ -31,7 +39,8 @@ public static partial class BotResponseDeduplicator
                 skipStepDetails = false;
             }
 
-            if (line.Trim().Length > 40 && oldSentences.Any(old => Similarity(Tokens(line), old) >= 0.78)) continue;
+            if (line.Trim().Length > 40 && (oldSentences.Any(old => Similarity(Tokens(line), old) >= 0.78)
+                || oldLines.Any(old => ContainsSameAction(Tokens(line), old)))) continue;
             retained.Add(line);
         }
         if (retained.Count == lines.Length) return answer;
@@ -45,7 +54,15 @@ public static partial class BotResponseDeduplicator
     private static bool IsStep(string line) => StepPrefix().IsMatch(line);
 
     private static HashSet<string> Tokens(string line) => Word().Matches(line.ToLowerInvariant())
-        .Select(x => x.Value).Where(x => x.Length >= 3).ToHashSet();
+        .Select(x => x.Value).Where(x => x.Length >= 3)
+        .Select(x => x.Length > 5 ? x[..5] : x).ToHashSet();
+
+    private static bool ContainsSameAction(HashSet<string> current, HashSet<string> old)
+    {
+        if (current.Count < 3) return false;
+        var common = current.Intersect(old).Count();
+        return common >= 3 && (double)common / current.Count >= 0.75;
+    }
 
     private static double Similarity(HashSet<string> left, HashSet<string> right)
     {
@@ -64,4 +81,7 @@ public static partial class BotResponseDeduplicator
 
     [GeneratedRegex(@"[\p{L}\p{N}]+")]
     private static partial Regex Word();
+
+    [GeneratedRegex(@"\b\d+(?:[.,]\d+)?\s*(?:кг|г|мм|см|мкм|в|а|°|%|kg|mm|cm|µm|v|a)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalValue();
 }

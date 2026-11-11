@@ -98,6 +98,8 @@ public class BotTestModel : PageModel
         }
 
         Input.Question = string.Empty;
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Question)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.HistoryJson)}");
 
         return Page();
     }
@@ -108,6 +110,8 @@ public class BotTestModel : PageModel
         Input.Question = string.Empty;
         Input.HistoryJson = string.Empty;
         History = [];
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Question)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.HistoryJson)}");
         return Page();
     }
 
@@ -149,7 +153,7 @@ public class BotTestModel : PageModel
 
         public string Question { get; set; } = string.Empty;
 
-        public bool ChatMode { get; set; }
+        public bool ChatMode { get; set; } = true;
 
         public string? HistoryJson { get; set; }
     }

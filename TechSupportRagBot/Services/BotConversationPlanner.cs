@@ -1,6 +1,6 @@
 namespace TechSupportRagBot.Services;
 
-/// <summary>Builds a bounded search query from the current turn and the immediately preceding exchange.</summary>
+/// <summary>Builds bounded retrieval queries from the current issue and its client-provided details.</summary>
 public static class BotConversationPlanner
 {
     private static readonly string[] References =
@@ -29,7 +29,8 @@ public static class BotConversationPlanner
                 || previousBot?.Contains("уточните", StringComparison.OrdinalIgnoreCase) == true
                 || previousBot?.Contains("please specify", StringComparison.OrdinalIgnoreCase) == true)
             && question.Length <= 100 && !startsNewQuestion;
-        var isFollowUp = hasExchange && (isConfirmation || hasReference || answersBotQuestion
+        var isShortDetail = question.Length <= 100 && !startsNewQuestion && !question.Contains('?');
+        var isFollowUp = hasExchange && (isConfirmation || hasReference || answersBotQuestion || isShortDetail
             || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question)));
         var lastQuestionMark = previousBot?.LastIndexOf('?') ?? -1;
         var lastBotQuestion = lastQuestionMark >= 0
@@ -54,10 +55,19 @@ public static class BotConversationPlanner
             return new BotConversationPlan(question, question, false, string.Empty, false, false);
         }
 
-        // Search for the original problem plus the new evidence. The bot's wording is not a factual source.
-        var originalProblem = clientTurns.LastOrDefault(x => LooksLikeIndependentQuestion(x)) ?? clientTurns.First();
-        var searchQuestion = $"{Truncate(originalProblem, 260)}. Уточнение клиента: {Truncate(question, 140)}";
-        var focusedSearchQuestion = $"{Truncate(question, 140)}. {Truncate(originalProblem, 220)}";
+        // Keep every recent client clarification belonging to this issue. Bot answers can ask
+        // for details, but must never become search facts. The prompt budget stays bounded.
+        var issueStart = clientTurns.FindLastIndex(LooksLikeIndependentQuestion);
+        if (issueStart < 0) issueStart = 0;
+        var originalProblem = clientTurns[issueStart];
+        var details = clientTurns.Skip(issueStart + 1).Append(question)
+            .Where(x => !IsBareConfirmation(x))
+            .TakeLast(4)
+            .Select(x => Truncate(x.Trim(), 90))
+            .ToArray();
+        var detailText = Truncate(string.Join("; ", details), 220);
+        var searchQuestion = $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
+        var focusedSearchQuestion = $"{detailText}. {Truncate(originalProblem, 160)}";
         return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail);
     }
 
@@ -65,6 +75,13 @@ public static class BotConversationPlanner
     {
         var text = value.Trim().ToLowerInvariant();
         return text.Length > 30 && !(References.Any(x => ContainsWord(text, x)) || text is "да" or "нет" or "yes" or "no");
+    }
+
+    private static bool IsBareConfirmation(string value)
+    {
+        var text = value.Trim().ToLowerInvariant();
+        return text is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
+            or "yes" or "no" or "yeah" or "yep" or "correct";
     }
 
     private static bool SharesTechnicalTerm(string previous, string current)

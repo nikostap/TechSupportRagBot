@@ -51,6 +51,18 @@ if (machine is null)
 var bot = scope.ServiceProvider.GetRequiredService<SupportBotService>();
 var scenarios = new (string Name, string Language, string[] Questions)[]
 {
+    ("Brake coupling clarification", "Russian",
+    [
+        "Тормозная не работает",
+        "муфта",
+        "она не работает"
+    ]),
+    ("Label sensor clarification", "Russian",
+    [
+        "ALF не подаёт этикетку",
+        "датчик S04",
+        "индикатор не горит"
+    ]),
     ("S03 and topic switch", "Russian",
     [
         "Как настроить нулевое положение кулачка приёмного лотка по датчику S03 на ALF?",
@@ -100,6 +112,13 @@ foreach (var scenario in scenarios)
         if (scenario.Name == "S03 and topic switch" && question.Contains("Выходной сигнал")
             && !answer.Text.Contains("нет достаточных сведений"))
             throw new InvalidOperationException("The bot invented an undocumented S03 output-signal procedure.");
+        if (scenario.Name == "Brake coupling clarification" && question == "она не работает"
+            && (answer.RetrievalQuestion?.Contains("муфта", StringComparison.OrdinalIgnoreCase) != true
+                || answer.RetrievalQuestion?.Contains("Тормозная", StringComparison.OrdinalIgnoreCase) != true))
+            throw new InvalidOperationException("The brake coupling follow-up lost an earlier client detail.");
+        if (scenario.Name == "Label sensor clarification" && question == "индикатор не горит"
+            && answer.RetrievalQuestion?.Contains("S04", StringComparison.OrdinalIgnoreCase) != true)
+            throw new InvalidOperationException("The sensor follow-up lost an earlier client detail.");
         transcript.Add($"Клиент: {question}");
         transcript.Add($"Бот: {answer.Text.Replace('\n', ' ')}");
     }

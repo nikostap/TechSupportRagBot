@@ -2455,8 +2455,110 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   min-height: 120px;
 }
 
-.bot-test-result .chat-bubble {
+.bot-test-mode {
+  display: grid;
+  gap: 8px;
+}
+
+.bot-test-mode-title {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.bot-test-mode-switch {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft-2);
+}
+
+.bot-test-mode-option {
+  position: relative;
+  display: block;
+  margin: 0;
+  cursor: pointer;
+}
+
+.bot-test-mode-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.bot-test-mode-option span {
+  display: block;
+  padding: 10px 18px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.bot-test-mode-option input:checked + span {
+  background: var(--accent);
+  color: #10232d;
+}
+
+.bot-test-mode-option input:focus-visible + span {
+  outline: 3px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+.bot-test-mode > .muted-text {
+  margin: 0;
+}
+
+.bot-test-transcript-panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft-2);
+}
+
+.bot-test-transcript-panel[hidden] {
+  display: none;
+}
+
+.bot-test-transcript-panel .section-bar h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.bot-test-transcript {
+  max-height: 55vh;
+  min-height: 100px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.bot-test-transcript .message {
+  width: fit-content;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.bot-test-transcript .message p {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
+.bot-test-empty {
+  align-self: center;
+  margin: auto;
+}
+
+.bot-test-result .message {
   max-width: 960px;
+}
+
+.bot-test-result[hidden],
+#botTestClear[hidden] {
+  display: none;
 }
 
 .bot-test-debug h3 {

@@ -33,6 +33,36 @@ public class BotConversationPlannerTests
         Assert.Contains("Ошибка E34", plan.SearchQuestion);
     }
 
+    [Theory]
+    [InlineData("Тормозная не работает", "муфта", "она не работает")]
+    [InlineData("ALF не подаёт этикетку", "датчик S04", "индикатор не горит")]
+    [InlineData("На ALF течёт клей", "насос", "течёт после остановки")]
+    public void MultipleClarificationsRetainOriginalIssueAndIntermediateDetails(string issue, string detail, string latest)
+    {
+        var history = $"Клиент: {issue}\nБот: Какой именно узел?\nКлиент: {detail}\nБот: Что с ним происходит?";
+
+        var plan = BotConversationPlanner.Create(latest, history);
+
+        Assert.True(plan.IsFollowUp);
+        Assert.Contains(issue, plan.SearchQuestion);
+        Assert.Contains(detail, plan.SearchQuestion);
+        Assert.Contains(latest, plan.SearchQuestion);
+        Assert.True(plan.SearchQuestion.Length <= 440);
+    }
+
+    [Fact]
+    public void ShortSymptomContinuesDialogueEvenWhenPreviousAnswerDidNotAskAQuestion()
+    {
+        const string history = "Клиент: ALF не подаёт этикетку\nБот: Проверьте датчик.\n"
+            + "Клиент: датчик S04\nБот: Проверьте положение датчика S04.";
+
+        var plan = BotConversationPlanner.Create("индикатор не горит", history);
+
+        Assert.True(plan.IsFollowUp);
+        Assert.Contains("датчик S04", plan.SearchQuestion);
+        Assert.Contains("индикатор не горит", plan.SearchQuestion);
+    }
+
     [Fact]
     public void NewAlfQuestionDoesNotInheritPreviousIssue()
     {
@@ -127,6 +157,31 @@ public class BotConversationPlannerTests
     }
 
     [Fact]
+    public void RewordedPriorActionAndItsSubstepsAreNotRepeated()
+    {
+        const string previous = "2. Проверьте и при необходимости отрегулируйте параметр «Натяжение на остановке»:\n"
+            + "- Увеличьте значение, если рулон продолжает вращаться после остановки.";
+        const string answer = "1. Отрегулируйте «Натяжение на остановке»:\n"
+            + "- Если рулон продолжает вращаться, увеличьте значение.\n"
+            + "Уточните, муфта вообще не срабатывает или не удерживает рулон?";
+
+        var result = BotResponseDeduplicator.RemoveRepeatedSteps(answer, previous);
+
+        Assert.DoesNotContain("Отрегулируйте", result);
+        Assert.DoesNotContain("увеличьте значение", result);
+        Assert.Contains("Уточните", result);
+    }
+
+    [Fact]
+    public void RepeatedMeasurementIsKeptWhenClientRequestsTheValue()
+    {
+        const string previous = "2. Подготовьте эталонный груз массой не менее 16 кг.";
+        const string answer = "Для калибровки подготовьте эталонный груз массой не менее 16 кг.";
+
+        Assert.Contains("16 кг", BotResponseDeduplicator.RemoveRepeatedSteps(answer, previous));
+    }
+
+    [Fact]
     public void EmptyHistoryUsesOnlyCurrentQuestion()
     {
         var plan = BotConversationPlanner.Create("ALF показывает ошибку E34", null);
@@ -154,7 +209,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotChatMode", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

@@ -27,8 +27,52 @@
             <select asp-for="Input.Language" asp-items="Model.LanguageOptions"></select>
         </div>
 
-        <div class="full-span">
-            <label><input asp-for="Input.ChatMode" /> @TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatMode")</label>
+        <div class="full-span bot-test-mode">
+            <span class="bot-test-mode-title">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestMode")</span>
+            <div class="bot-test-mode-switch" role="group" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestMode")">
+                <label class="bot-test-mode-option" for="botChatMode">
+                    <input asp-for="Input.ChatMode" type="radio" id="botChatMode" value="true" />
+                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatMode")</span>
+                </label>
+                <label class="bot-test-mode-option" for="botSingleMode">
+                    <input asp-for="Input.ChatMode" type="radio" id="botSingleMode" value="false" />
+                    <span>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotSingleMode")</span>
+                </label>
+            </div>
+            <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatModeHint")</p>
+        </div>
+
+        <div id="botTestTranscriptPanel" class="full-span bot-test-transcript-panel" hidden="@(!Model.Input.ChatMode)">
+            <div class="section-bar"><h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatHistory")</h2></div>
+            <div class="bot-test-transcript chat-shell" role="log" aria-live="polite" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatHistory")">
+                @if (Model.History.Count == 0)
+                {
+                    <p class="muted-text bot-test-empty">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatEmpty")</p>
+                }
+                @foreach (var turn in Model.History)
+                {
+                    <div class="message @(turn.IsBot ? "bot" : "mine")">
+                        <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, turn.IsBot ? "Bot" : "You")</strong>
+                        <p>@turn.Text</p>
+                    </div>
+                }
+            </div>
+            @if (Model.BotAnswer is not null && Model.BotAnswer.Media.Count > 0)
+            {
+                <div class="qa-media-grid">
+                    @foreach (var media in Model.BotAnswer.Media)
+                    {
+                        if (media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <img src="/attachments/@media.PublicId.ToString("D")" alt="@media.OriginalFileName" />
+                        }
+                        else if (media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <video src="/attachments/@media.PublicId.ToString("D")" controls></video>
+                        }
+                    }
+                </div>
+            }
         </div>
 
         <div class="full-span">
@@ -38,33 +82,19 @@
         </div>
 
         <div class="form-actions full-span">
-            <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "AskBot", "Спросить бота")</button>
-            <button class="btn-secondary" type="submit" asp-page-handler="Clear" formnovalidate>@TechSupportRagBot.Services.UiText.T(HttpContext, "ClearBotChat")</button>
+            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "AskBot", "Спросить бота")</button>
+            <button id="botTestClear" class="btn-secondary" type="submit" asp-page-handler="Clear" formnovalidate hidden="@(!Model.Input.ChatMode)">@TechSupportRagBot.Services.UiText.T(HttpContext, "ClearBotChat")</button>
         </div>
     </form>
 </section>
 
-@if (Model.Input.ChatMode && Model.History.Count > 0)
+@if (!Model.Input.ChatMode && Model.BotAnswer is not null)
 {
-    <section class="panel">
-        <div class="section-bar"><h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotChatHistory")</h2></div>
-        @foreach (var turn in Model.History.Take(Model.BotAnswer is null ? Model.History.Count : Model.History.Count - 1))
-        {
-            <div class="chat-bubble @(turn.IsBot ? "bot" : "client")">
-                <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, turn.IsBot ? "Bot" : "Client")</strong>
-                <p>@turn.Text</p>
-            </div>
-        }
-    </section>
-}
-
-@if (Model.BotAnswer is not null)
-{
-    <section class="panel bot-test-result">
+    <section id="botTestSingleResult" class="panel bot-test-result">
         <div class="section-bar">
             <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotAnswer", "Ответ бота")</h2>
         </div>
-        <div class="chat-bubble bot">
+        <div class="message bot">
             @foreach (var paragraph in Model.BotAnswer.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 <p>@paragraph</p>
@@ -167,6 +197,23 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        const chatMode = document.querySelector("#botChatMode");
+        const singleMode = document.querySelector("#botSingleMode");
+        const transcriptPanel = document.querySelector("#botTestTranscriptPanel");
+        const clearButton = document.querySelector("#botTestClear");
+        const singleResult = document.querySelector("#botTestSingleResult");
+        const syncBotTestMode = () => {
+            const inChat = chatMode?.checked === true;
+            if (transcriptPanel) transcriptPanel.hidden = !inChat;
+            if (clearButton) clearButton.hidden = !inChat;
+            if (singleResult) singleResult.hidden = inChat;
+        };
+        chatMode?.addEventListener("change", syncBotTestMode);
+        singleMode?.addEventListener("change", syncBotTestMode);
+        syncBotTestMode();
+        const transcript = document.querySelector(".bot-test-transcript");
+        if (transcript) transcript.scrollTop = transcript.scrollHeight;
+
         document.querySelectorAll("#botTestForm [data-required-message]").forEach((field) => {
             const clearError = () => field.setCustomValidity("");
             field.addEventListener("input", clearError);
