@@ -97,6 +97,8 @@
         makeSelector(nav, list, items);
     }
 
+    window.setupQAFocusList = setupQA;
+
     function setupClientTickets() {
         const list = document.querySelector('.ticket-group-list');
         if (!list || !list.querySelector('.client-ticket-machine-group')) return;

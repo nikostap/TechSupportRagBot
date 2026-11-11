@@ -255,7 +255,7 @@
     </form>
 }
 
-<section class="panel">
+<section class="panel" id="qa-entries-section">
     <div class="section-bar">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "QAEntries")</h2>
         <form method="get" class="qa-search-filter">
@@ -432,7 +432,7 @@
 </section>
 
 <script>
-(() => {
+window.initializeQAEntries = () => {
     const list = document.getElementById('qa-entry-list');
     const sort = document.getElementById('qa-sort-order');
     const all = document.getElementById('qa-select-all');
@@ -493,6 +493,38 @@
             cards.forEach(card => container.appendChild(card));
         });
         document.querySelectorAll('input[name="SortOrder"]').forEach(x => x.value = mode);
+    });
+};
+window.initializeQAEntries();
+
+(() => {
+    let pendingRequest;
+    document.addEventListener('change', async event => {
+        const select = event.target;
+        if (!(select instanceof HTMLSelectElement) ||
+            !select.matches('.qa-search-filter select[name="MachineFilter"], .qa-search-filter select[name="SerialFilter"], .qa-search-filter select[name="StatusFilter"], .qa-search-filter select[name="SearchMode"]')) return;
+
+        const form = select.form;
+        const url = new URL(form.action || window.location.href, window.location.href);
+        url.search = new URLSearchParams(new FormData(form)).toString();
+        pendingRequest?.abort();
+        const request = new AbortController();
+        pendingRequest = request;
+        try {
+            const response = await fetch(url, { signal: request.signal, credentials: 'same-origin' });
+            if (!response.ok) throw new Error(`QA filter request failed: ${response.status}`);
+            const nextSection = new DOMParser().parseFromString(await response.text(), 'text/html')
+                .getElementById('qa-entries-section');
+            if (!nextSection) throw new Error('QA entries section missing');
+            document.getElementById('qa-entries-section').replaceWith(nextSection);
+            window.history.replaceState(null, '', url);
+            window.initializeQAEntries();
+            window.setupQAFocusList?.();
+        } catch (error) {
+            if (error.name !== 'AbortError') form.requestSubmit();
+        } finally {
+            if (pendingRequest === request) pendingRequest = null;
+        }
     });
 })();
 </script>
