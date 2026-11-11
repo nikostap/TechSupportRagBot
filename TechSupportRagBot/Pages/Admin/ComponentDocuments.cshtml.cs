@@ -12,7 +12,7 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize]
 public class ComponentDocumentsModel(
     ApplicationDbContext db, FileStorageService storage, FileUploadValidationService validation,
-    SystemSettingsService settings, AccessProfileService access) : PageModel
+    SystemSettingsService settings, AccessProfileService access, KnowledgeIngestionService ingestion) : PageModel
 {
     private static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" };
@@ -86,6 +86,18 @@ public class ComponentDocumentsModel(
         document.ShowInClientLibrary = true;
         document.Status = "Published";
         await db.SaveChangesAsync(cancellationToken);
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostIndexAsync(int id, CancellationToken cancellationToken)
+    {
+        if (!await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
+        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        if (document == null || document.DocumentKind == "Other") return NotFound();
+        if (document.ClientDownloadAllowed) return BadRequest();
+        if (Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is not (".pdf" or ".docx" or ".txt" or ".xlsx"))
+            return BadRequest();
+        await ingestion.IndexDocumentAsync(document, cancellationToken);
         return RedirectToPage();
     }
 

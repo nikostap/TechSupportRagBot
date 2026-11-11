@@ -50,6 +50,12 @@
                 <small>@(item.ClientDownloadAllowed ? T("PublishedForClients") : T("NeedsConfirmation"))</small>
                 @if (Model.CanPublish)
                 {
+                    @if (!item.ClientDownloadAllowed && new[] { ".pdf", ".docx", ".txt", ".xlsx" }.Contains(System.IO.Path.GetExtension(item.OriginalFileName).ToLowerInvariant()))
+                    {
+                        <form method="post" asp-page-handler="Index" asp-route-id="@item.Id">
+                            <button class="btn-secondary" type="submit">@T("IndexForBot")</button>
+                        </form>
+                    }
                     <form method="post" asp-page-handler="@(item.ClientDownloadAllowed ? "Revoke" : "Publish")" asp-route-id="@item.Id">
                         <button class="btn-secondary" type="submit">@(item.ClientDownloadAllowed ? T("RevokeDocument") : T("PublishDocument"))</button>
                     </form>
