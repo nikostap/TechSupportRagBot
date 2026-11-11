@@ -1,18 +1,13 @@
 @page
 @model IndexModel
-@inject IWebHostEnvironment Environment
 @inject IConfiguration Configuration
 @{
     ViewData["Title"] = TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle");
-    var loginHost = HttpContext.Request.Host.Host;
-    var isLocalLogin = Environment.IsDevelopment()
-        || string.Equals(loginHost, "localhost", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(loginHost, "127.0.0.1", StringComparison.Ordinal)
-        || string.Equals(loginHost, "::1", StringComparison.Ordinal);
+    var captchaRequired = TechSupportRagBot.Services.LoginCaptchaPolicy.IsRequired(HttpContext);
 }
 
 @section Scripts {
-    @if (User.Identity?.IsAuthenticated != true && !isLocalLogin)
+    @if (User.Identity?.IsAuthenticated != true && captchaRequired)
     {
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }
@@ -25,7 +20,7 @@
             <img class="hero-company-logo" src="/images/class-engineering-transparent.png" alt="Class Engineering" />
             <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroEyebrow")</p>
             <h1>@TechSupportRagBot.Services.UiText.T(HttpContext, "HeroTitle")</h1>
-            @if (Model.LoginError == "captcha")
+            @if (Model.LoginError == "captcha" && captchaRequired)
             {
                 <p class="text-danger">@TechSupportRagBot.Services.UiText.T(HttpContext, "CaptchaRetry")</p>
             }
@@ -47,7 +42,7 @@
                     <input name="Input.RememberMe" type="checkbox" value="true" />
                     @TechSupportRagBot.Services.UiText.T(HttpContext, "RememberMe")
                 </label>
-                @if (!isLocalLogin)
+                @if (captchaRequired)
                 {
                     <div class="g-recaptcha" data-sitekey="@Configuration["Recaptcha:SiteKey"]"></div>
                 }

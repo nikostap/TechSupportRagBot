@@ -1,17 +1,12 @@
 @page
 @model TechSupportRagBot.Areas.Identity.Pages.Account.LoginModel
-@inject IWebHostEnvironment Environment
 @inject IConfiguration Configuration
 @{
-    var loginHost = HttpContext.Request.Host.Host;
-    var isLocalLogin = Environment.IsDevelopment()
-        || string.Equals(loginHost, "localhost", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(loginHost, "127.0.0.1", StringComparison.Ordinal)
-        || string.Equals(loginHost, "::1", StringComparison.Ordinal);
+    var captchaRequired = TechSupportRagBot.Services.LoginCaptchaPolicy.IsRequired(HttpContext);
 }
 
 @section Scripts {
-    @if (!isLocalLogin)
+    @if (captchaRequired)
     {
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }
@@ -41,7 +36,7 @@
             <input asp-for="Input.RememberMe" />
             @TechSupportRagBot.Services.UiText.T(HttpContext, "RememberMe", "Запомнить меня")
         </label>
-        @if (!isLocalLogin)
+        @if (captchaRequired)
         {
             <div class="g-recaptcha" data-sitekey="@Configuration["Recaptcha:SiteKey"]"></div>
         }

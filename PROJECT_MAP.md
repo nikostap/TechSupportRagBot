@@ -28,7 +28,7 @@
 
 ### Неавторизованный пользователь
 
-- `/` — приветственная страница и вход с Google reCAPTCHA v2.
+- `/` — приветственная страница и вход с Google reCAPTCHA v2 на публичном сайте. На прямом локальном подключении через `localhost` или loopback-адрес капча скрыта и серверная проверка пропускается; интерфейс и обработчик входа используют общий `LoginCaptchaPolicy`.
 - `/Identity/Account/ForgotPassword` — запрос шестизначного кода на почту учётной записи; `/Identity/Account/ResetPassword` проверяет код, затем позволяет сохранить новый пароль. Код хранится в защищённом токене Identity, действует 10 минут, допускает пять неверных попыток; запрос ограничен по адресу и IP.
 - `/Identity/Account/Login` — технический POST-обработчик авторизации ASP.NET Identity; GET перенаправляет на `/`.
 - `/Language` — переключение языка интерфейса.
@@ -234,7 +234,7 @@
 - Вложения по умолчанию хранятся локально в `/app/App_Data/Uploads` (`chat`, `qa`, `avatars`, `videos`), а не в `wwwroot`; запросы к старому `/uploads` возвращают 404.
 - В `/Admin/Settings` выбирается `Local` или `S3`. Production использует S3-совместимое хранилище REG.RU (`https://s3.regru.cloud`, бакет `bucket`); endpoint, регион и ключи задаются только переменными `Storage__S3__*` в `.env`. Ключи не хранятся в Git и не выводятся в логах.
 - Docker volume `app_uploads` подключён к `/app/App_Data/Uploads`. Стартовая миграция нормализует ключи в БД и переносит доступные legacy-файлы из `wwwroot/uploads`.
-- Для проверки входа Google reCAPTCHA v2 использует `Recaptcha__SiteKey` и `Recaptcha__SecretKey` из `.env`; секретный ключ используется только на сервере. Капча отключена лишь в Development. Доверенные адреса reverse proxy для заголовков `X-Forwarded-*` задаются в `ReverseProxy__KnownProxies`.
+- Для проверки входа Google reCAPTCHA v2 использует `Recaptcha__SiteKey` и `Recaptcha__SecretKey` из `.env`; секретный ключ используется только на сервере. Локальное исключение требует одновременно loopback-адрес в Host и loopback IP клиента, независимо от ASP.NET-окружения. Для всех остальных запросов капча обязательна, в том числе при Production. Доверенные адреса reverse proxy для заголовков `X-Forwarded-*` задаются в `ReverseProxy__KnownProxies`.
 - `.env.example`: безопасный шаблон.
 - Первый администратор создаётся только при явном задании `BootstrapAdmin__Login`,
   `BootstrapAdmin__Email` и `BootstrapAdmin__Password`; после входа требуется смена пароля.

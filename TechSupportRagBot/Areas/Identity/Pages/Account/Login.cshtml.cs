@@ -13,15 +13,13 @@ public class LoginModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
-    private readonly IWebHostEnvironment _environment;
 
-    public LoginModel(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, IHttpClientFactory httpClientFactory, IConfiguration configuration, IWebHostEnvironment environment)
+    public LoginModel(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
-        _environment = environment;
     }
 
     [BindProperty]
@@ -73,7 +71,7 @@ public class LoginModel : PageModel
 
     private async Task<bool> IsCaptchaValidAsync()
     {
-        if (_environment.IsDevelopment()) return true;
+        if (!TechSupportRagBot.Services.LoginCaptchaPolicy.IsRequired(HttpContext)) return true;
 
         var serverKey = _configuration["Recaptcha:SecretKey"];
         var token = Request.Form["g-recaptcha-response"].ToString();
