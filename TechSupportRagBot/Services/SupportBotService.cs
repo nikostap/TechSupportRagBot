@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
 
@@ -76,19 +77,58 @@ public class SupportBotService
             return BotAnswerResult.Escalate(EscalationText(isEnglish));
         }
 
-        if (IsConfirmationReply(question) && !string.IsNullOrWhiteSpace(conversationContext))
+        var conversationPlan = BotConversationPlanner.Create(question, conversationContext);
+        if (conversationPlan.NeedsChoiceClarification)
         {
-            return await AnswerFollowUpConfirmationAsync(question, machineId, language, isEnglish, conversationContext, traceId, cancellationToken);
+            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []);
         }
-
-        var retrievalQuestion = await BuildRussianRetrievalQuestionAsync(question, language, traceId, cancellationToken);
+        if (conversationPlan.NeedsDetailClarification)
+        {
+            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotDescribeFollowUp"), false, []);
+        }
+        var retrievalQuestion = await BuildRussianRetrievalQuestionAsync(conversationPlan.SearchQuestion, language, traceId, cancellationToken);
         var ragResult = await _ragSearch.SearchAsync(new RagSearchRequest
         {
             TraceId = traceId,
             Question = retrievalQuestion,
             MachineId = machineId,
-            FinalTopK = 8
+            FinalTopK = 5
         }, cancellationToken);
+
+        var referenceCode = conversationPlan.IsFollowUp
+            ? Regex.Match(question, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value
+            : string.Empty;
+        if (conversationPlan.IsFollowUp && string.IsNullOrEmpty(referenceCode))
+            referenceCode = Regex.Match(conversationPlan.SearchQuestion, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value;
+        FilterByReferenceCode(ragResult, referenceCode);
+
+        var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
+            ? await _translation.TranslateToRussianForSearchAsync(question, language, cancellationToken)
+            : question;
+        var missingTerms = conversationPlan.IsFollowUp
+            ? BotEvidenceGate.MissingTerms(evidenceQuestion, ragResult.Chunks)
+            : [];
+        string? supplementalRetrievalQuestion = null;
+        if (conversationPlan.IsFollowUp && (ragResult.ShouldCallOperator || missingTerms.Count > 0))
+        {
+            supplementalRetrievalQuestion = await BuildRussianRetrievalQuestionAsync(
+                conversationPlan.FocusedSearchQuestion, language, traceId, cancellationToken);
+            var focusedResult = await _ragSearch.SearchAsync(new RagSearchRequest
+            {
+                TraceId = traceId,
+                Question = supplementalRetrievalQuestion,
+                MachineId = machineId,
+                FinalTopK = 5
+            }, cancellationToken);
+            FilterByReferenceCode(focusedResult, referenceCode);
+            var merged = focusedResult.Chunks.Concat(ragResult.Chunks)
+                .DistinctBy(x => x.ChunkId).Take(8).ToList();
+            ragResult.Chunks = merged;
+            ragResult.ShouldCallOperator = merged.Count == 0
+                || (ragResult.ShouldCallOperator && focusedResult.ShouldCallOperator);
+            ragResult.Confidence = Math.Max(ragResult.Confidence, focusedResult.Confidence);
+            missingTerms = BotEvidenceGate.MissingTerms(evidenceQuestion, merged);
+        }
 
         _logger.LogInformation(
             "Bot RAG result. MachineId={MachineId}, Chunks={Chunks}, Confidence={Confidence:F3}, ShouldCallOperator={ShouldCallOperator}, Warning={Warning}",
@@ -113,7 +153,13 @@ public class SupportBotService
             return new BotAnswerResult(
                 await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken),
                 false,
-                []);
+                []) { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult };
+        }
+
+        if (conversationPlan.IsFollowUp && missingTerms.Count > 0)
+        {
+            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFollowUpEvidenceMissing"), false, [])
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) };
         }
 
         var answerMedia = await LoadAnswerMediaAsync(ragResult, cancellationToken);
@@ -128,8 +174,31 @@ public class SupportBotService
             context
         }, traceId, cancellationToken);
 
-        var promptHistory = BuildPromptHistoryForAnswer(question, conversationContext);
-        var historyIncluded = IsConversationHistoryIncluded(promptHistory);
+        if (conversationPlan.IsFollowUp && ragResult.Chunks.Count == 1)
+        {
+            var exactQa = ragResult.Chunks[0];
+            if (string.Equals(exactQa.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(exactQa.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(exactQa.Solution))
+            {
+                var directAnswer = isEnglish
+                    ? await _translation.TranslateAsync(exactQa.Solution, "Russian", language, cancellationToken)
+                    : exactQa.Solution;
+                if (!string.IsNullOrWhiteSpace(directAnswer))
+                {
+                    directAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(directAnswer.Trim(), conversationPlan.PreviousBotAnswer);
+                    if (string.IsNullOrWhiteSpace(directAnswer))
+                        directAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
+                    return new BotAnswerResult(directAnswer, false, answerMedia)
+                    { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+                }
+            }
+        }
+
+        var promptHistory = conversationPlan.IsFollowUp
+            ? TrimForPrompt(conversationContext ?? string.Empty, 1100)
+            : "История не используется: новый вопрос.";
+        var historyIncluded = conversationPlan.IsFollowUp;
 
         var prompt = $"""
         Ты инженер высокой квалификации и специалист технической поддержки станков.
@@ -143,12 +212,16 @@ public class SupportBotService
         - Если история противоречит найденному контексту, игнорируй историю.
         - Не выдумывай факты, номера ошибок, причины и действия.
         - Если точной информации нет, напиши: "Информация не найдена в документации."
-        - Сначала дай пользователю фактическую инструкцию из контекста.
+        - Для нового вопроса сначала дай фактическую инструкцию из контекста. Для продолжения дай только новое действие или ответ на уточнение.
         - Не добавляй источники, файлы, страницы и названия документов в текст ответа.
         - Не используй шаблонные заголовки: "Краткий вывод", "Порядок проверки", "Порядок устранения", "Источник".
         - Отвечай как живой инженер техподдержки: связно, спокойно, по делу.
         - Если нужны шаги, используй короткие абзацы или нумерованный список.
         - Не смешивай разные узлы станка.
+        - Не перечисляй соседние функции и настройки, о которых клиент не спрашивал.
+        - Если это продолжение диалога, отвечай именно на новое уточнение. Не повторяй уже предложенные шаги без новой причины и не пересказывай предыдущий ответ.
+        - Если уточнение просит одно значение или параметр, дай это значение и необходимое условие в одном-двух предложениях.
+        - Если новый признак не позволяет дать дополнительный подтверждённый шаг, задай один конкретный уточняющий вопрос.
 
         Вопрос клиента:
         {question}
@@ -203,28 +276,38 @@ public class SupportBotService
                     source = "deterministic-context-fallback"
                 }, traceId, cancellationToken);
 
-                return new BotAnswerResult(deterministicAnswer, false, answerMedia);
+                return new BotAnswerResult(deterministicAnswer, false, answerMedia)
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
             }
 
             var fallback = isEnglish
                 ? "I found context, but could not form a reliable answer. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
                 : "Контекст найден, но я не смог сформировать надежный ответ. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
-            return new BotAnswerResult(fallback, false, answerMedia);
+            return new BotAnswerResult(fallback, false, answerMedia)
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
+        if (conversationPlan.IsFollowUp)
+        {
+            cleanAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
+            if (cleanAnswer.Length < 120 && answer.Length > cleanAnswer.Length)
+            {
+                cleanAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
+            }
+        }
         if (LooksLikeSourceOnlyAnswer(cleanAnswer))
         {
             cleanAnswer = await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken);
         }
 
         var mustEscalate = ShouldEscalateFromAnswer(cleanAnswer);
-        if (!mustEscalate && !ContainsHelpFollowup(cleanAnswer))
+        if (!mustEscalate && !conversationPlan.IsFollowUp && !ContainsHelpFollowup(cleanAnswer))
         {
             cleanAnswer += "\n\n" + HelpFollowup(isEnglish);
         }
 
-        if (!mustEscalate && !ContainsOperatorHint(cleanAnswer))
+        if (!mustEscalate && !conversationPlan.IsFollowUp && !ContainsOperatorHint(cleanAnswer))
         {
             cleanAnswer += "\n\n" + OperatorHint(isEnglish);
         }
@@ -241,7 +324,8 @@ public class SupportBotService
             shouldEscalate = mustEscalate
         }, traceId, cancellationToken);
 
-        return new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia);
+        return new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia)
+        { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
     }
 
     private async Task<string?> BuildDeterministicAnswerFromContextAsync(
@@ -347,74 +431,6 @@ public class SupportBotService
         return retrievalQuestion;
     }
 
-    private static string BuildPromptHistoryForAnswer(string question, string? conversationContext)
-    {
-        if (string.IsNullOrWhiteSpace(conversationContext))
-        {
-            return "Истории нет.";
-        }
-
-        if (!ShouldIncludeConversationHistory(question))
-        {
-            return "История не используется: текущий вопрос выглядит самостоятельным. Отвечай по текущему вопросу и найденному контексту базы знаний.";
-        }
-
-        return TrimForPrompt(conversationContext, 1800);
-    }
-
-    private static bool IsConversationHistoryIncluded(string promptHistory)
-    {
-        return !promptHistory.StartsWith("Истории нет.", StringComparison.OrdinalIgnoreCase)
-            && !promptHistory.StartsWith("История не используется:", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ShouldIncludeConversationHistory(string question)
-    {
-        var text = (question ?? string.Empty).Trim().ToLowerInvariant();
-        if (text.Length == 0)
-        {
-            return false;
-        }
-
-        if (IsConfirmationReply(text))
-        {
-            return true;
-        }
-
-        var followUpMarkers = new[]
-        {
-            "это", "этот", "эта", "эти", "того", "тот", "та", "там", "здесь",
-            "он", "она", "оно", "они", "его", "ее", "их", "такой", "такая",
-            "this", "that", "it", "there", "same", "previous"
-        };
-
-        return text.Length <= 120 && followUpMarkers.Any(marker => ContainsWholeWord(text, marker));
-    }
-
-    private static bool ContainsWholeWord(string text, string word)
-    {
-        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(word))
-        {
-            return false;
-        }
-
-        var index = text.IndexOf(word, StringComparison.OrdinalIgnoreCase);
-        while (index >= 0)
-        {
-            var beforeOk = index == 0 || !char.IsLetterOrDigit(text[index - 1]);
-            var afterIndex = index + word.Length;
-            var afterOk = afterIndex >= text.Length || !char.IsLetterOrDigit(text[afterIndex]);
-            if (beforeOk && afterOk)
-            {
-                return true;
-            }
-
-            index = text.IndexOf(word, index + word.Length, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
-
     private static string TrimForPrompt(string text, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
@@ -425,55 +441,13 @@ public class SupportBotService
         return text[^maxLength..];
     }
 
-    private async Task<BotAnswerResult> AnswerFollowUpConfirmationAsync(
-        string question,
-        int machineId,
-        string language,
-        bool isEnglish,
-        string conversationContext,
-        string traceId,
-        CancellationToken cancellationToken)
+    private static void FilterByReferenceCode(RagSearchResult result, string referenceCode)
     {
-        var prompt = $"""
-        Ты инженер техподдержки. Пользователь ответил коротко: "{question}".
-
-        История диалога:
-        {conversationContext}
-
-        Правила:
-        - Отвечай строго на языке: {language}.
-        - Если пользователь подтвердил предположение бота, продолжи по этому предположению и попроси один-два конкретных уточняющих признака или предложи следующий безопасный шаг из уже названного контекста.
-        - Если пользователь ответил отрицательно, попроси уточнить узел, ошибку, датчик, серийный номер или симптомы.
-        - Не переводи к оператору автоматически.
-        - В конце добавь, что если нужен оператор, можно написать "оператор".
-        """;
-
-        var answer = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
-        var cleanAnswer = string.IsNullOrWhiteSpace(answer)
-            ? (isEnglish
-                ? "Please clarify the unit, error text, sensor number, or visible symptom. If you need an operator, write \"operator\" in the chat."
-                : "Уточните, что именно происходит на станке: узел, текст ошибки, номер датчика или видимый симптом. Если нужен оператор, напишите в чат: оператор.")
-            : CleanHumanAnswer(answer.Trim());
-
-        if (!ContainsHelpFollowup(cleanAnswer))
-        {
-            cleanAnswer += "\n\n" + HelpFollowup(isEnglish);
-        }
-
-        if (!ContainsOperatorHint(cleanAnswer))
-        {
-            cleanAnswer += "\n\n" + OperatorHint(isEnglish);
-        }
-
-        await _audit.WriteAsync("Bot.Answer.FollowUpConfirmation", new
-        {
-            machineId,
-            question,
-            conversationContext,
-            finalAnswer = cleanAnswer
-        }, traceId, cancellationToken);
-
-        return new BotAnswerResult(cleanAnswer, false, []);
+        if (string.IsNullOrWhiteSpace(referenceCode)) return;
+        result.Chunks = result.Chunks.Where(x =>
+            string.Concat(x.Title, " ", x.Text, " ", x.Solution)
+                .Contains(referenceCode, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (result.Chunks.Count == 0) result.ShouldCallOperator = true;
     }
 
     private async Task<string> BuildClarificationAnswerAsync(
@@ -547,12 +521,6 @@ public class SupportBotService
             || answer.Contains("forwarding the request", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsConfirmationReply(string text)
-    {
-        var normalized = text.Trim().ToLowerInvariant();
-        return normalized is "да" or "нет" or "ага" or "угу" or "верно" or "правильно" or "не то" or "не это" or "yes" or "no" or "yeah" or "yep" or "correct";
-    }
-
     private static string EscalationText(bool isEnglish)
     {
         return isEnglish
@@ -610,6 +578,10 @@ public class SupportBotService
 
 public sealed record BotAnswerResult(string Text, bool ShouldEscalate, IReadOnlyList<BotAnswerMedia> Media)
 {
+    public string? RetrievalQuestion { get; init; }
+    public string? SupplementalRetrievalQuestion { get; init; }
+    public RagSearchResult? SearchResult { get; init; }
+    public string? ContextForLlm { get; init; }
     public static BotAnswerResult Escalate(string text) => new(text, true, []);
 }
 

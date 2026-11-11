@@ -562,7 +562,7 @@ public class TicketModel : PageModel
         var history = messages
             .Where(x => x.Id < currentQuestionId && !string.IsNullOrWhiteSpace(x.Text))
             .OrderByDescending(x => x.CreatedAt)
-            .Take(8)
+            .Take(12)
             .OrderBy(x => x.CreatedAt)
             .Select(x =>
             {
