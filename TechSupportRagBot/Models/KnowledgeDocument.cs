@@ -56,6 +56,11 @@ public class KnowledgeDocument
     public ComponentModel? ComponentModel { get; set; }
     public bool ClientDownloadAllowed { get; set; }
     public bool ShowInClientLibrary { get; set; }
+    public string IndexStatus { get; set; } = DocumentIndexStates.NotStarted;
+    public int IndexTotalChunks { get; set; }
+    public int IndexCompletedChunks { get; set; }
+    public string? IndexErrorCode { get; set; }
+    public DateTime? IndexUpdatedAt { get; set; }
 
     /// <summary>
     /// Модель станка, к которой относится документ.

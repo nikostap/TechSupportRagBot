@@ -16,6 +16,19 @@ public class MachineDocumentsModel(ApplicationDbContext db, ComponentCatalogServ
     public Machine? Machine { get; private set; }
     public IReadOnlyList<KnowledgeDocument> Documents { get; private set; } = [];
     public List<Machine> AvailableMachines { get; private set; } = [];
+    public static string GroupKey(KnowledgeDocument document) => document.DocumentKind == "MachineManual" ? "machine"
+        : document.DocumentKind is "ElectricalScheme" or "PneumaticScheme" ? "general"
+        : document.ComponentModel?.Type is { Length: > 0 } type ? $"device:{type}"
+        : document.DocumentKind == "SetupGuide" ? "general"
+        : "other";
+    public int GroupOrder(string key) => key switch { "machine" => 0, "general" => 1, "other" => 3, _ => 2 };
+    public string GroupTitle(string key) => key switch
+    {
+        "machine" => UiText.T(HttpContext, "MachineManualsGroup"),
+        "general" => UiText.T(HttpContext, "GeneralInstructionsAndSchemes"),
+        "other" => UiText.T(HttpContext, "OtherDeviceDocuments"),
+        _ => key[7..]
+    };
 
     public async Task<IActionResult> OnGetAsync(int machineId, CancellationToken cancellationToken)
     {

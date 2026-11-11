@@ -14,15 +14,37 @@
 { <section class="panel"><p>@T("NoMachineDocuments")</p></section> }
 else
 {
-    <div class="card-grid client-machine-grid">
-    @foreach (var item in Model.Documents)
+    @foreach (var group in Model.Documents.GroupBy(TechSupportRagBot.Pages.Client.MachineDocumentsModel.GroupKey, StringComparer.OrdinalIgnoreCase).OrderBy(x => Model.GroupOrder(x.Key)).ThenBy(x => Model.GroupTitle(x.Key)))
     {
-        <article class="machine-card client-machine-card">
-            <h2>@(item.Title ?? item.OriginalFileName)</h2>
-            <p>@T(item.DocumentKind)</p>
-            <a class="btn-main" asp-page="/Client/MachineDocuments" asp-page-handler="Download"
-               asp-route-machineId="@Model.Machine!.Id" asp-route-documentId="@item.Id">@T("DownloadDocument")</a>
+    <section class="client-doc-section" aria-label="@Model.GroupTitle(group.Key)">
+        <div class="client-doc-section-head"><h2>@Model.GroupTitle(group.Key)</h2><span>@group.Count()</span></div>
+        <div class="client-doc-grid">
+    @foreach (var item in group)
+    {
+        var extension = System.IO.Path.GetExtension(item.OriginalFileName).TrimStart('.').ToUpperInvariant();
+        var format = extension is "PDF" or "DOCX" or "XLSX" or "TXT" or "PNG" or "JPG" or "JPEG" or "WEBP" or "HEIC"
+            ? extension : T("File");
+        var formatClass = extension switch
+        {
+            "PDF" => "pdf", "DOCX" => "docx", "XLSX" => "xlsx", "TXT" => "txt",
+            "PNG" or "JPG" or "JPEG" or "WEBP" or "HEIC" => "image", _ => "file"
+        };
+        <article class="client-doc-card">
+            <div class="client-doc-preview format-@formatClass" aria-hidden="true">
+                <div class="client-doc-sheet"><strong>@format</strong><span></span><span></span><span></span></div>
+            </div>
+            <div class="client-doc-content">
+                <span class="client-doc-kind">@T(item.DocumentKind)</span>
+                <h3>@(string.IsNullOrWhiteSpace(item.Title) ? item.OriginalFileName : item.Title)</h3>
+                @if (!string.IsNullOrWhiteSpace(item.Summary)) { <p class="client-doc-summary">@item.Summary</p> }
+                <p class="client-doc-filename">@item.OriginalFileName</p>
+                <a class="btn-main" asp-page="/Client/MachineDocuments" asp-page-handler="Download"
+                   asp-route-machineId="@Model.Machine!.Id" asp-route-documentId="@item.Id"
+                   aria-label="@($"{T("DownloadDocument")}: {item.Title ?? item.OriginalFileName}")">@T("DownloadDocument")</a>
+            </div>
         </article>
     }
-    </div>
+        </div>
+    </section>
+    }
 }

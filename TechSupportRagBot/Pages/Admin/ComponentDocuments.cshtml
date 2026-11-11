@@ -40,7 +40,7 @@
             <button class="btn-main" type="submit">@T("UploadDocument")</button>
         </form>
     </section>
-    <section class="panel"><h2>@T("ComponentDocuments")</h2>
+    <section class="panel" id="component-document-list" data-status-url="@Url.Page("/Admin/ComponentDocuments", "IndexStatus")" data-progress-label="@T("DocumentIndexProgress")"><h2>@T("ComponentDocuments")</h2>
         @if (Model.Documents.Count == 0) { <p>@T("NoDocuments")</p> }
         <div class="component-list">
         @foreach (var item in Model.Documents)
@@ -48,6 +48,15 @@
             <article class="component-item"><strong>@(item.Title ?? item.OriginalFileName)</strong>
                 <span>@T(item.DocumentKind) · @(item.AppliesToAllMachines ? T("AllMachines") : item.ComponentModel == null ? item.MachineModel : $"{item.ComponentModel.Manufacturer} {item.ComponentModel.PartNumber}")</span>
                 <small>@(item.Status == "Retired" ? T("RetiredDocument") : item.ClientDownloadAllowed ? T("PublishedForClients") : T("NeedsConfirmation"))</small>
+                <div class="document-index-state" data-index-id="@item.Id" data-index-status="@item.IndexStatus" aria-live="polite">
+                    <strong data-index-label>@(Model.CanIndex(item) ? Model.IndexStatusText(item) : T("DocumentIndexDownloadOnly"))</strong>
+                    @if (Model.CanIndex(item))
+                    {
+                        <span data-index-progress hidden="@(item.IndexStatus is not (TechSupportRagBot.Models.DocumentIndexStates.Processing or TechSupportRagBot.Models.DocumentIndexStates.Ready))">@T("DocumentIndexProgress"): @item.IndexCompletedChunks / @item.IndexTotalChunks</span>
+                        <progress data-index-bar value="@item.IndexCompletedChunks" max="@Math.Max(1, item.IndexTotalChunks)" hidden="@(item.IndexStatus is not (TechSupportRagBot.Models.DocumentIndexStates.Processing or TechSupportRagBot.Models.DocumentIndexStates.Ready))"></progress>
+                        <small data-index-error>@(item.IndexErrorCode == null ? "" : T(item.IndexErrorCode))</small>
+                    }
+                </div>
                 @if (!item.ClientDownloadAllowed && item.Status != "Retired")
                 {
                     <details><summary data-help="@T("DocumentEditHelp")">@T("EditCatalogEntry")</summary>
@@ -75,14 +84,14 @@
                 </form>
                 @if (Model.CanPublish)
                 {
-                    @if (item.Status != "Retired" && !item.ClientDownloadAllowed && new[] { ".pdf", ".docx", ".txt", ".xlsx" }.Contains(System.IO.Path.GetExtension(item.OriginalFileName).ToLowerInvariant()))
+                    @if (item.Status != "Retired" && !item.ClientDownloadAllowed && Model.CanIndex(item))
                     {
                         <form method="post" asp-page-handler="Index" asp-route-id="@item.Id">
-                            <button class="btn-secondary" type="submit">@T("IndexForBot")</button>
+                            <button class="btn-secondary" data-index-action type="submit" disabled="@(item.IndexStatus is TechSupportRagBot.Models.DocumentIndexStates.Queued or TechSupportRagBot.Models.DocumentIndexStates.Processing)">@T("IndexForBot")</button>
                         </form>
                     }
                     @if (item.Status != "Retired") { <form method="post" asp-page-handler="@(item.ClientDownloadAllowed ? "Revoke" : "Publish")" asp-route-id="@item.Id">
-                        <button class="btn-secondary" type="submit">@(item.ClientDownloadAllowed ? T("RevokeDocument") : T("PublishDocument"))</button>
+                        <button class="btn-secondary" data-publish-action type="submit" disabled="@(!item.ClientDownloadAllowed && !Model.CanPublishDocument(item))">@(item.ClientDownloadAllowed ? T("RevokeDocument") : T("PublishDocument"))</button>
                     </form> }
                 }
             </article>
@@ -91,3 +100,4 @@
     </section>
 </div>
 <script src="~/js/component-help.js" asp-append-version="true" defer></script>
+<script src="~/js/component-document-status.js" asp-append-version="true" defer></script>

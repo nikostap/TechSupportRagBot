@@ -42,7 +42,7 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
     {
         var componentIds = (await ResolveAsync(machine, cancellationToken))
             .Select(x => x.Component.Id).ToHashSet();
-        var documents = await db.KnowledgeDocuments.AsNoTracking()
+        var documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel)
             .Where(x => x.ClientDownloadAllowed && x.ShowInClientLibrary && x.Status == "Published")
             .ToListAsync(cancellationToken);
         return documents.Where(x => x.ComponentModelId is int componentId

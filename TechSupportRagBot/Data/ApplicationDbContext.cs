@@ -509,6 +509,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .IsUnique();
 
         builder.Entity<KnowledgeDocument>().Property(x => x.StorageProvider).HasMaxLength(20);
+        builder.Entity<KnowledgeDocument>().Property(x => x.IndexStatus).HasMaxLength(20);
+        builder.Entity<KnowledgeDocument>().Property(x => x.IndexErrorCode).HasMaxLength(40);
+        builder.Entity<KnowledgeDocument>().HasIndex(x => x.IndexStatus);
 
         // Ограничиваем длину категории чанка.
         builder.Entity<KnowledgeChunk>()

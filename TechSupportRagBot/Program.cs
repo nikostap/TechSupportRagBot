@@ -164,6 +164,7 @@ builder.Services.AddScoped<ApiUsageService>();
 builder.Services.AddScoped<IRagSearchService, RagSearchService>();
 builder.Services.AddHostedService<TicketAutoCloseService>();
 builder.Services.AddHostedService<VideoProcessingBackgroundService>();
+builder.Services.AddHostedService<DocumentIndexBackgroundService>();
 builder.Services.AddHostedService<EmailNotificationBackgroundService>();
 
 var app = builder.Build();

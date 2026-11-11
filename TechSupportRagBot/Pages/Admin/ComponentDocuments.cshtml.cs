@@ -12,7 +12,7 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize]
 public class ComponentDocumentsModel(
     ApplicationDbContext db, FileStorageService storage, FileUploadValidationService validation,
-    SystemSettingsService settings, AccessProfileService access, KnowledgeIngestionService ingestion) : PageModel
+    SystemSettingsService settings, AccessProfileService access) : PageModel
 {
     private static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" };
@@ -23,6 +23,12 @@ public class ComponentDocumentsModel(
     public List<Machine> Machines { get; private set; } = [];
     public IReadOnlyList<string> MachineModels { get; private set; } = [];
     public bool CanPublish { get; private set; }
+    public bool CanIndex(KnowledgeDocument document) =>
+        Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is ".pdf" or ".docx" or ".txt" or ".xlsx";
+    public bool CanPublishDocument(KnowledgeDocument document) => !CanIndex(document)
+        || document.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText;
+    public string IndexStatusText(KnowledgeDocument document) =>
+        UiText.T(HttpContext, "DocumentIndex" + document.IndexStatus);
 
     public async Task OnGetAsync() => await LoadAsync();
 
@@ -82,6 +88,12 @@ public class ComponentDocumentsModel(
             || document.MachineId == null && string.IsNullOrWhiteSpace(document.MachineModel)
                 && document.ComponentModelId == null && !document.AppliesToAllMachines)
             return NotFound();
+        if (!CanPublishDocument(document))
+        {
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "DocumentIndexRequiredBeforePublish"));
+            await LoadAsync();
+            return Page();
+        }
         await using var stored = await storage.OpenReadAsync(document.StorageProvider, document.FilePath, cancellationToken);
         if (stored == null) return NotFound();
         document.ClientDownloadAllowed = true;
@@ -95,7 +107,10 @@ public class ComponentDocumentsModel(
     {
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
         if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
-        if (document.ClientDownloadAllowed) return BadRequest();
+        if (document.ClientDownloadAllowed || document.IndexStatus is DocumentIndexStates.Queued or DocumentIndexStates.Processing)
+            return BadRequest();
+        var wasIndexed = document.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText
+            || await db.KnowledgeChunks.AnyAsync(x => x.KnowledgeDocumentId == id, cancellationToken);
         var modelName = EditInput.MachineModel?.Trim();
         var machine = EditInput.MachineId is int machineId ? await db.Machines.FindAsync([machineId], cancellationToken) : null;
         var component = EditInput.ComponentModelId is int componentId ? await db.ComponentModels.FindAsync([componentId], cancellationToken) : null;
@@ -119,9 +134,12 @@ public class ComponentDocumentsModel(
         document.ComponentModelId = component?.Id;
         document.AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName);
         document.Status = "NeedsReview";
+        document.IndexStatus = wasIndexed && CanIndex(document) ? DocumentIndexStates.Queued : DocumentIndexStates.NotStarted;
+        document.IndexTotalChunks = 0;
+        document.IndexCompletedChunks = 0;
+        document.IndexErrorCode = null;
+        document.IndexUpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
-        if (await db.KnowledgeChunks.AnyAsync(x => x.KnowledgeDocumentId == id, cancellationToken))
-            await ingestion.IndexDocumentAsync(document, cancellationToken);
         return RedirectToPage();
     }
 
@@ -130,6 +148,7 @@ public class ComponentDocumentsModel(
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
         if (document == null || document.DocumentKind == "Other") return NotFound();
         if (document.ClientDownloadAllowed && !await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
+        if (document.IndexStatus is DocumentIndexStates.Queued or DocumentIndexStates.Processing) return BadRequest();
         document.ClientDownloadAllowed = false;
         document.ShowInClientLibrary = false;
         document.Status = "Retired";
@@ -152,10 +171,38 @@ public class ComponentDocumentsModel(
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
         if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
         if (document.ClientDownloadAllowed) return BadRequest();
-        if (Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is not (".pdf" or ".docx" or ".txt" or ".xlsx"))
-            return BadRequest();
-        await ingestion.IndexDocumentAsync(document, cancellationToken);
+        if (!CanIndex(document)) return BadRequest();
+        await db.KnowledgeDocuments.Where(x => x.Id == id && !x.ClientDownloadAllowed
+                && x.IndexStatus != DocumentIndexStates.Queued && x.IndexStatus != DocumentIndexStates.Processing)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.IndexStatus, DocumentIndexStates.Queued)
+                .SetProperty(x => x.IndexCompletedChunks, 0)
+                .SetProperty(x => x.IndexTotalChunks, 0)
+                .SetProperty(x => x.IndexErrorCode, (string?)null)
+                .SetProperty(x => x.IndexUpdatedAt, DateTime.UtcNow), cancellationToken);
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnGetIndexStatusAsync(CancellationToken cancellationToken)
+    {
+        if (!await access.IsAllowedAsync(User, "ManageMachines", cancellationToken)) return Forbid();
+        var documents = await db.KnowledgeDocuments.AsNoTracking()
+            .Where(x => x.DocumentKind != "Other")
+            .Select(x => new { x.Id, x.IndexStatus, x.IndexTotalChunks, x.IndexCompletedChunks,
+                x.IndexErrorCode, x.ClientDownloadAllowed, x.Status, x.OriginalFileName })
+            .ToListAsync(cancellationToken);
+        return new JsonResult(documents.Select(x => new
+        {
+            x.Id,
+            x.IndexStatus,
+            x.IndexTotalChunks,
+            x.IndexCompletedChunks,
+            Indexable = CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName }),
+            StatusText = UiText.T(HttpContext, "DocumentIndex" + x.IndexStatus),
+            ErrorText = x.IndexErrorCode == null ? null : UiText.T(HttpContext, x.IndexErrorCode),
+            CanPublish = !CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName })
+                || x.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText
+        }));
     }
 
     public async Task<IActionResult> OnPostRevokeAsync(int id, CancellationToken cancellationToken)

@@ -38,10 +38,19 @@ public class KnowledgeIngestionService
         _storage = storage;
     }
 
-    public async Task IndexDocumentAsync(KnowledgeDocument document, CancellationToken cancellationToken = default)
+    public async Task IndexDocumentAsync(KnowledgeDocument document, CancellationToken cancellationToken = default,
+        bool componentJob = false)
     {
         var traceId = Guid.NewGuid().ToString("N");
         document.Status = "Обрабатывается";
+        if (componentJob)
+        {
+            document.IndexStatus = DocumentIndexStates.Processing;
+            document.IndexCompletedChunks = 0;
+            document.IndexTotalChunks = 0;
+            document.IndexErrorCode = null;
+            document.IndexUpdatedAt = DateTime.UtcNow;
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
         await _audit.WriteAsync("Knowledge.DocumentIndex.Started", new
@@ -58,6 +67,7 @@ public class KnowledgeIngestionService
 
         try
         {
+            if (componentJob) await DeleteDocumentChunksAsync(document.Id, cancellationToken);
             var localPath = await _storage.MaterializeToWorkFileAsync(
                 document.StorageProvider,
                 document.FilePath,
@@ -131,15 +141,22 @@ public class KnowledgeIngestionService
                 })
             }, traceId, cancellationToken);
 
-            var sourceIndex = 0;
-            var index = 0;
-            foreach (var textChunk in chunks)
+            var selectedChunks = chunks.Select((textChunk, sourceIndex) => new
             {
-                var enrichedChunk = enrichmentDraft?.Chunks.FirstOrDefault(x => x.ChunkIndex == sourceIndex++);
-                if (enrichedChunk?.Include == false)
-                {
-                    continue;
-                }
+                textChunk,
+                enrichedChunk = enrichmentDraft?.Chunks.FirstOrDefault(x => x.ChunkIndex == sourceIndex)
+            }).Where(x => x.enrichedChunk?.Include != false).ToList();
+            if (componentJob)
+            {
+                document.IndexTotalChunks = selectedChunks.Count;
+                document.IndexUpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+            var index = 0;
+            foreach (var selected in selectedChunks)
+            {
+                var textChunk = selected.textChunk;
+                var enrichedChunk = selected.enrichedChunk;
                 var chunk = new KnowledgeChunk
                 {
                     KnowledgeDocumentId = document.Id,
@@ -180,6 +197,8 @@ public class KnowledgeIngestionService
 
                 var vector = await _ollama.EmbedAsync(BuildEmbeddingText(chunk, enrichmentDraft), cancellationToken, ApiUsageCategories.Vectorization);
                 var qdrantUpserted = vector != null && await _qdrant.UpsertAsync(chunk, vector, "Document", cancellationToken);
+                if (componentJob && vector == null) throw new DocumentIndexException("DocumentIndexEmbeddingFailed");
+                if (componentJob && !qdrantUpserted) throw new DocumentIndexException("DocumentIndexVectorFailed");
                 if (qdrantUpserted)
                 {
                     await _db.SaveChangesAsync(cancellationToken);
@@ -221,9 +240,20 @@ public class KnowledgeIngestionService
                     embeddingSize = vector?.Length,
                     qdrantUpserted
                 }, traceId, cancellationToken);
+                if (componentJob)
+                {
+                    document.IndexCompletedChunks = index;
+                    document.IndexUpdatedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
             }
 
-            document.Status = chunks.Count == 0 ? "Без текста" : "Готов";
+            document.Status = selectedChunks.Count == 0 ? "Без текста" : "Готов";
+            if (componentJob)
+            {
+                document.IndexStatus = selectedChunks.Count == 0 ? DocumentIndexStates.NoText : DocumentIndexStates.Ready;
+                document.IndexUpdatedAt = DateTime.UtcNow;
+            }
             await _audit.WriteAsync("Knowledge.DocumentIndex.Completed", new
             {
                 document.Id,
@@ -234,6 +264,20 @@ public class KnowledgeIngestionService
         }
         catch (Exception ex)
         {
+            if (componentJob && cancellationToken.IsCancellationRequested) throw;
+            if (componentJob)
+            {
+                await DeleteDocumentChunksAsync(document.Id, cancellationToken);
+                document.IndexCompletedChunks = 0;
+                document.IndexStatus = DocumentIndexStates.Failed;
+                document.IndexErrorCode = ex switch
+                {
+                    DocumentIndexException indexError => indexError.Code,
+                    InvalidDataException => "DocumentIndexLimit",
+                    _ => "DocumentIndexFailed"
+                };
+                document.IndexUpdatedAt = DateTime.UtcNow;
+            }
             document.Status = "Ошибка";
             await _audit.WriteAsync("Knowledge.DocumentIndex.Failed", new
             {
@@ -244,6 +288,23 @@ public class KnowledgeIngestionService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task DeleteDocumentChunksAsync(int documentId, CancellationToken cancellationToken)
+    {
+        var oldChunks = await _db.KnowledgeChunks.Where(x => x.KnowledgeDocumentId == documentId)
+            .ToListAsync(cancellationToken);
+        if (oldChunks.Count == 0) return;
+        await _qdrant.DeletePointsAsync(oldChunks.Select(x => x.QdrantPointId), cancellationToken);
+        await _fts.DeleteChunksAsync(oldChunks.Select(x => x.Id), cancellationToken);
+        _db.KnowledgeChunks.RemoveRange(oldChunks);
+        await _db.SaveChangesAsync(cancellationToken);
+        foreach (var oldChunk in oldChunks) _db.Entry(oldChunk).State = EntityState.Detached;
+    }
+
+    private sealed class DocumentIndexException(string code) : Exception
+    {
+        public string Code { get; } = code;
     }
 
     public async Task IndexResolvedAnswerAsync(ResolvedAnswer resolvedAnswer, CancellationToken cancellationToken = default)
