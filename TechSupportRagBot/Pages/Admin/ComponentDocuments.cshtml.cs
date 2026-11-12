@@ -37,16 +37,17 @@ public class ComponentDocumentsModel(
 
     public async Task<IActionResult> OnPostUploadAsync(CancellationToken cancellationToken)
     {
-        var modelName = Input.MachineModel?.Trim();
-        var machine = Input.MachineId is int machineId ? await db.Machines.FindAsync([machineId], cancellationToken) : null;
+        var modelNames = Input.MachineModels.Select(x => x.Trim()).Where(x => x.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var machineIds = Input.MachineIds.Distinct().ToList();
+        var machines = await db.Machines.Where(x => machineIds.Contains(x.Id)).ToListAsync(cancellationToken);
         var component = Input.ComponentModelId is int componentId ? await db.ComponentModels.FindAsync([componentId], cancellationToken) : null;
         var models = (await settings.GetMachineModelsAsync(cancellationToken))
             .Concat(await db.Machines.Select(x => x.Model).ToListAsync(cancellationToken));
-        if (Input.File == null || Input.MachineId != null && machine == null
+        if (Input.File == null || machines.Count != machineIds.Count
             || Input.ComponentModelId != null && (component == null || component.IsArchived)
-            || !string.IsNullOrWhiteSpace(modelName) && !models.Contains(modelName, StringComparer.OrdinalIgnoreCase)
-            || !AllowedKinds.Contains(Input.DocumentKind)
-            || machine != null && !string.IsNullOrWhiteSpace(modelName) && machine.Model != modelName)
+            || modelNames.Any(x => !models.Contains(x, StringComparer.OrdinalIgnoreCase))
+            || !AllowedKinds.Contains(Input.DocumentKind))
         {
             ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "DocumentSelectionInvalid"));
             await LoadAsync();
@@ -92,9 +93,10 @@ public class ComponentDocumentsModel(
                 IndexStatus = preparedKey == null ? DocumentIndexStates.NotStarted : DocumentIndexStates.Queued,
                 IndexUpdatedAt = preparedKey == null ? null : DateTime.UtcNow,
                 DocumentKind = Input.DocumentKind,
-                Title = Input.Title?.Trim(), MachineId = machine?.Id,
-                MachineModel = machine?.Model ?? modelName, ComponentModelId = component?.Id,
-                AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName),
+                Title = Input.Title?.Trim(), ComponentModelId = component?.Id,
+                Targets = modelNames.Select(x => new KnowledgeDocumentTarget { MachineModel = x })
+                    .Concat(machineIds.Select(x => new KnowledgeDocumentTarget { MachineId = x })).ToList(),
+                AppliesToAllMachines = machineIds.Count == 0 && modelNames.Count == 0 && component == null,
                 UploadedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!, Status = "NeedsReview",
                 ClientDownloadAllowed = false, ShowInClientLibrary = false
             });
@@ -175,7 +177,8 @@ public class ComponentDocumentsModel(
         var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
         if (document == null || document.DocumentKind == "Other" || document.Status == "Retired"
             || document.MachineId == null && string.IsNullOrWhiteSpace(document.MachineModel)
-                && document.ComponentModelId == null && !document.AppliesToAllMachines)
+                && document.ComponentModelId == null && !document.AppliesToAllMachines
+                && !await db.KnowledgeDocumentTargets.AnyAsync(x => x.KnowledgeDocumentId == id, cancellationToken))
             return NotFound();
         if (!CanPublishDocument(document))
         {
@@ -194,22 +197,24 @@ public class ComponentDocumentsModel(
 
     public async Task<IActionResult> OnPostUpdateAsync(int id, CancellationToken cancellationToken)
     {
-        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        var document = await db.KnowledgeDocuments.Include(x => x.Targets)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
         if (document.ClientDownloadAllowed || document.IndexStatus is DocumentIndexStates.Queued or DocumentIndexStates.Processing)
             return BadRequest();
         var wasIndexed = document.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText
             || await db.KnowledgeChunks.AnyAsync(x => x.KnowledgeDocumentId == id, cancellationToken);
-        var modelName = EditInput.MachineModel?.Trim();
-        var machine = EditInput.MachineId is int machineId ? await db.Machines.FindAsync([machineId], cancellationToken) : null;
+        var modelNames = EditInput.MachineModels.Select(x => x.Trim()).Where(x => x.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var machineIds = EditInput.MachineIds.Distinct().ToList();
+        var machines = await db.Machines.Where(x => machineIds.Contains(x.Id)).ToListAsync(cancellationToken);
         var component = EditInput.ComponentModelId is int componentId ? await db.ComponentModels.FindAsync([componentId], cancellationToken) : null;
         var models = (await settings.GetMachineModelsAsync(cancellationToken))
             .Concat(await db.Machines.Select(x => x.Model).ToListAsync(cancellationToken));
         if (!AllowedKinds.Contains(EditInput.DocumentKind)
-            || EditInput.MachineId != null && machine == null
+            || machines.Count != machineIds.Count
             || EditInput.ComponentModelId != null && (component == null || component.IsArchived && component.Id != document.ComponentModelId)
-            || !string.IsNullOrWhiteSpace(modelName) && !models.Contains(modelName, StringComparer.OrdinalIgnoreCase)
-            || machine != null && !string.IsNullOrWhiteSpace(modelName) && machine.Model != modelName)
+            || modelNames.Any(x => !models.Contains(x, StringComparer.OrdinalIgnoreCase)))
         {
             ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "DocumentSelectionInvalid"));
             await LoadAsync();
@@ -218,10 +223,13 @@ public class ComponentDocumentsModel(
         document.Title = EditInput.Title?.Trim();
         document.DocumentKind = EditInput.DocumentKind;
         document.Category = EditInput.DocumentKind;
-        document.MachineId = machine?.Id;
-        document.MachineModel = machine?.Model ?? modelName;
+        document.MachineId = null;
+        document.MachineModel = null;
         document.ComponentModelId = component?.Id;
-        document.AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName);
+        document.Targets.Clear();
+        foreach (var modelName in modelNames) document.Targets.Add(new KnowledgeDocumentTarget { MachineModel = modelName });
+        foreach (var machineId in machineIds) document.Targets.Add(new KnowledgeDocumentTarget { MachineId = machineId });
+        document.AppliesToAllMachines = machineIds.Count == 0 && modelNames.Count == 0 && component == null;
         document.Status = "NeedsReview";
         document.IndexStatus = (wasIndexed || document.PreparedFilePath != null) && CanIndex(document)
             ? DocumentIndexStates.Queued : DocumentIndexStates.NotStarted;
@@ -297,7 +305,7 @@ public class ComponentDocumentsModel(
 
     private async Task LoadAsync()
     {
-        Documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel)
+        Documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel).Include(x => x.Targets)
             .Where(x => x.DocumentKind != "Other").OrderByDescending(x => x.UploadedAt).ToListAsync();
         Components = await db.ComponentModels.AsNoTracking()
             .OrderBy(x => x.Manufacturer).ThenBy(x => x.PartNumber).ToListAsync();
@@ -314,8 +322,8 @@ public class ComponentDocumentsModel(
         public IFormFile? PreparedFile { get; set; }
         public string DocumentKind { get; set; } = "";
         public string? Title { get; set; }
-        public int? MachineId { get; set; }
-        public string? MachineModel { get; set; }
+        public List<int> MachineIds { get; set; } = [];
+        public List<string> MachineModels { get; set; } = [];
         public int? ComponentModelId { get; set; }
     }
 
@@ -323,8 +331,8 @@ public class ComponentDocumentsModel(
     {
         public string DocumentKind { get; set; } = "";
         public string? Title { get; set; }
-        public int? MachineId { get; set; }
-        public string? MachineModel { get; set; }
+        public List<int> MachineIds { get; set; } = [];
+        public List<string> MachineModels { get; set; } = [];
         public int? ComponentModelId { get; set; }
     }
 }

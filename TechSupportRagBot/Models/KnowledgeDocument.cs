@@ -149,4 +149,5 @@ public class KnowledgeDocument
     public string? EnrichmentModel { get; set; }
 
     public ICollection<KnowledgeChunk> Chunks { get; set; } = new List<KnowledgeChunk>();
+    public ICollection<KnowledgeDocumentTarget> Targets { get; set; } = new List<KnowledgeDocumentTarget>();
 }

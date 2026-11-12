@@ -327,6 +327,8 @@ public class RagSearchService : IRagSearchService
                         @machineId IS NULL
                         OR c."MachineId" = @machineId
                         OR d."AppliesToAllMachines" = TRUE
+                        OR EXISTS (SELECT 1 FROM "KnowledgeDocumentTargets" target WHERE target."KnowledgeDocumentId" = d."Id"
+                            AND (target."MachineId" = @machineId OR target."MachineModel" = @machineModel))
                         OR d."ComponentModelId" IS NOT NULL
                         OR (c."DocumentType" = 'QA' AND COALESCE(c."MachineModel", '') = '' AND COALESCE(c."SerialNumber", '') = '')
                         OR (@serialNumber IS NOT NULL AND COALESCE(c."SerialNumber", d."SerialNumber") <> '')
@@ -371,6 +373,8 @@ public class RagSearchService : IRagSearchService
                             @machineId IS NULL
                             OR c."MachineId" = @machineId
                             OR d."AppliesToAllMachines" = TRUE
+                            OR EXISTS (SELECT 1 FROM "KnowledgeDocumentTargets" target WHERE target."KnowledgeDocumentId" = d."Id"
+                                AND (target."MachineId" = @machineId OR target."MachineModel" = @machineModel))
                             OR d."ComponentModelId" IS NOT NULL
                             OR (c."DocumentType" = 'QA' AND COALESCE(c."MachineModel", '') = '' AND COALESCE(c."SerialNumber", '') = '')
                             OR (@serialNumber IS NOT NULL AND COALESCE(c."SerialNumber", d."SerialNumber") <> '')
@@ -418,6 +422,8 @@ public class RagSearchService : IRagSearchService
                         $machineId IS NULL
                         OR c.MachineId = $machineId
                         OR d.AppliesToAllMachines = 1
+                        OR EXISTS (SELECT 1 FROM KnowledgeDocumentTargets target WHERE target.KnowledgeDocumentId = d.Id
+                            AND (target.MachineId = $machineId OR target.MachineModel = $machineModel))
                         OR d.ComponentModelId IS NOT NULL
                         OR (c.DocumentType = 'QA' AND COALESCE(c.MachineModel, '') = '' AND COALESCE(c.SerialNumber, '') = '')
                         OR ($serialNumber IS NOT NULL AND COALESCE(c.SerialNumber, d.SerialNumber) <> '')
@@ -504,6 +510,8 @@ public class RagSearchService : IRagSearchService
             .AsNoTracking()
             .Include(x => x.KnowledgeDocument)
             .ThenInclude(x => x!.Machine)
+            .Include(x => x.KnowledgeDocument)
+            .ThenInclude(x => x!.Targets)
             .Include(x => x.QAEntry)
             .Where(x => chunkIds.Contains(x.Id))
             .ToListAsync(cancellationToken);
@@ -543,11 +551,18 @@ public class RagSearchService : IRagSearchService
                 filteredOut.Add(new { chunk.Id, reason = "Document is not published for clients" });
                 continue;
             }
+            if (document?.Targets.Count > 0 && (request.MachineId.HasValue || !string.IsNullOrWhiteSpace(request.MachineModel))
+                && !document.Targets.Any(target => target.MachineId == request.MachineId
+                    || target.MachineModel == request.MachineModel))
+            {
+                filteredOut.Add(new { chunk.Id, reason = "Document target applicability" });
+                continue;
+            }
             if (document?.ComponentModelId is int componentId
                 && (!request.MachineId.HasValue || !allowedComponents.Contains(componentId)
                     || document.Status != "Published" || !document.ClientDownloadAllowed
-                    || document.MachineId != null && document.MachineId != request.MachineId
-                    || !string.IsNullOrWhiteSpace(document.MachineModel)
+                    || document.Targets.Count == 0 && document.MachineId != null && document.MachineId != request.MachineId
+                    || document.Targets.Count == 0 && !string.IsNullOrWhiteSpace(document.MachineModel)
                         && document.MachineModel != request.MachineModel
                     || !string.IsNullOrWhiteSpace(document.SerialNumber)
                         && document.SerialNumber != request.SerialNumber))
@@ -572,6 +587,8 @@ public class RagSearchService : IRagSearchService
                     && string.IsNullOrWhiteSpace(machineModel)
                     && string.IsNullOrWhiteSpace(serialNumber))
                 || document?.AppliesToAllMachines == true
+                || document?.Targets.Any(target => target.MachineId == request.MachineId
+                    || target.MachineModel == request.MachineModel) == true
                 || (!string.IsNullOrWhiteSpace(request.MachineModel)
                     && IsMachineModelCompatible(machineModel, request.MachineModel, chunk.DocumentType)
                     && matchesSerialRule);

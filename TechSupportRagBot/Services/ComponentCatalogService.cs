@@ -42,17 +42,19 @@ public sealed class ComponentCatalogService(ApplicationDbContext db)
     {
         var componentIds = (await ResolveAsync(machine, cancellationToken))
             .Select(x => x.Component.Id).ToHashSet();
-        var documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel)
+        var documents = await db.KnowledgeDocuments.AsNoTracking().Include(x => x.ComponentModel).Include(x => x.Targets)
             .Where(x => x.ClientDownloadAllowed && x.ShowInClientLibrary && x.Status == "Published")
             .ToListAsync(cancellationToken);
-        return documents.Where(x => x.ComponentModelId is int componentId
+        return documents.Where(x => (x.Targets.Count == 0 || x.Targets.Any(target =>
+                    target.MachineId == machine.Id || target.MachineModel == machine.Model))
+            && (x.ComponentModelId is int componentId
                 ? componentIds.Contains(componentId)
                     && (x.MachineId == null || x.MachineId == machine.Id)
                     && (string.IsNullOrWhiteSpace(x.MachineModel) || x.MachineModel == machine.Model)
                     && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber)
-                : x.AppliesToAllMachines || x.MachineId == machine.Id || x.MachineId == null
+                : x.Targets.Count > 0 || x.AppliesToAllMachines || x.MachineId == machine.Id || x.MachineId == null
                     && x.MachineModel == machine.Model
-                    && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber))
+                    && (string.IsNullOrWhiteSpace(x.SerialNumber) || x.SerialNumber == machine.SerialNumber)))
             .OrderBy(x => x.DocumentKind).ThenBy(x => x.Title ?? x.OriginalFileName).ToList();
     }
 }

@@ -73,6 +73,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     /// Таблица загруженных документов базы знаний.
     /// </summary>
     public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
+    public DbSet<KnowledgeDocumentTarget> KnowledgeDocumentTargets => Set<KnowledgeDocumentTarget>();
 
     /// <summary>
     /// Таблица смысловых чанков документов.
@@ -146,6 +147,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ComponentInstallation>().HasIndex(x => new { x.MachinePositionId, x.SpecificSerialNumber });
         builder.Entity<KnowledgeDocument>().HasOne(x => x.ComponentModel).WithMany()
             .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<KnowledgeDocumentTarget>().HasOne(x => x.KnowledgeDocument).WithMany(x => x.Targets)
+            .HasForeignKey(x => x.KnowledgeDocumentId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<KnowledgeDocumentTarget>().HasOne(x => x.Machine).WithMany()
+            .HasForeignKey(x => x.MachineId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<KnowledgeDocumentTarget>().Property(x => x.MachineModel).HasMaxLength(100);
+        builder.Entity<KnowledgeDocumentTarget>().HasIndex(x => new { x.KnowledgeDocumentId, x.MachineModel });
+        builder.Entity<KnowledgeDocumentTarget>().HasIndex(x => new { x.KnowledgeDocumentId, x.MachineId });
         builder.Entity<QAEntry>().HasOne(x => x.ComponentModel).WithMany()
             .HasForeignKey(x => x.ComponentModelId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<QAEntry>().Property(x => x.Scope).HasMaxLength(30);

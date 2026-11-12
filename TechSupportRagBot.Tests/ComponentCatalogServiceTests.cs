@@ -182,4 +182,35 @@ public sealed class ComponentCatalogServiceTests
         Assert.Contains("machine.pdf", names);
         Assert.Contains("global.pdf", names);
     }
+
+    [Fact]
+    public async Task DocumentTargetsSelectSeveralModelsAndMachinesWithoutLeakingToOthers()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var author = new ApplicationUser { Id = "author", UserName = "author" };
+        var alf = new Machine { Name = "ALF", Model = "ALF-506", SerialNumber = "033", LicenseKey = "one" };
+        var ms = new Machine { Name = "MS", Model = "MS", SerialNumber = "010", LicenseKey = "two" };
+        var specific = new Machine { Name = "PRO 1", Model = "PRO", SerialNumber = "001", LicenseKey = "three" };
+        var excluded = new Machine { Name = "PRO 2", Model = "PRO", SerialNumber = "002", LicenseKey = "four" };
+        db.AddRange(author, alf, ms, specific, excluded);
+        await db.SaveChangesAsync();
+        db.KnowledgeDocuments.Add(new KnowledgeDocument
+        {
+            OriginalFileName = "shared.pdf", StoredFileName = "shared.pdf", FilePath = "shared.pdf",
+            UploadedByUserId = author.Id, DocumentKind = "ComponentManual",
+            ClientDownloadAllowed = true, ShowInClientLibrary = true, Status = "Published",
+            Targets = [new() { MachineModel = "ALF-506" }, new() { MachineModel = "MS" },
+                new() { MachineId = specific.Id }]
+        });
+        await db.SaveChangesAsync();
+        var catalog = new ComponentCatalogService(db);
+        Assert.Single(await catalog.ClientDocumentsAsync(alf));
+        Assert.Single(await catalog.ClientDocumentsAsync(ms));
+        Assert.Single(await catalog.ClientDocumentsAsync(specific));
+        Assert.Empty(await catalog.ClientDocumentsAsync(excluded));
+    }
 }

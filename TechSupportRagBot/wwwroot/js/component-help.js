@@ -7,9 +7,9 @@
         }
     };
 
-    for (const owner of document.querySelectorAll('.component-form label[data-help], .component-template-form label[data-help], .component-item summary[data-help]')) {
+    for (const owner of document.querySelectorAll('.component-form label[data-help], .component-form fieldset[data-help], .component-template-form label[data-help], .component-item summary[data-help]')) {
         let target = owner;
-        if (owner.tagName === 'LABEL') {
+        if (owner.tagName === 'LABEL' || owner.tagName === 'FIELDSET') {
             const wrapper = document.createElement('div');
             wrapper.className = 'component-help-field';
             wrapper.dataset.help = owner.dataset.help;
