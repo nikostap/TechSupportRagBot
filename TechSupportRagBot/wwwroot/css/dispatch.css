@@ -294,7 +294,7 @@
   .dispatch-theme .client-ticket-record-end{width:100%;justify-content:space-between}
 }
 .document-targets { min-width: 0; border: 1px solid var(--line, #49606b); border-radius: 8px; padding: 10px 12px 12px; }
-.document-targets legend { padding: 0 5px; font-weight: 700; }
-.document-target-list { max-height: 175px; overflow-y: auto; display: grid; gap: 6px; }
-.document-target-list label { display: flex; align-items: center; gap: 9px; margin: 0; font-weight: 400; }
+.document-targets legend { padding: 0 5px; font-size: 13px; line-height: 1.4; font-weight: 700; }
+.document-target-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }
+.document-target-list label { display: flex; align-items: center; gap: 9px; min-width: 0; margin: 0; font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
 .component-form .document-target-list input { width: auto; min-height: auto; margin: 0; }
