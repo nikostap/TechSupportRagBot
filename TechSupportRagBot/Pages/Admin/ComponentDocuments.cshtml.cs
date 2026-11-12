@@ -12,19 +12,22 @@ namespace TechSupportRagBot.Pages.Admin;
 [Authorize]
 public class ComponentDocumentsModel(
     ApplicationDbContext db, FileStorageService storage, FileUploadValidationService validation,
-    SystemSettingsService settings, AccessProfileService access, KnowledgeIngestionService ingestion) : PageModel
+    SystemSettingsService settings, AccessProfileService access, KnowledgeIngestionService ingestion,
+    PreparedManualService preparedManual, ILogger<ComponentDocumentsModel> logger) : PageModel
 {
     private static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     { "MachineManual", "ElectricalScheme", "PneumaticScheme", "ComponentManual", "ErrorCatalog", "SetupGuide" };
     [BindProperty] public DocumentInput Input { get; set; } = new();
     [BindProperty] public DocumentEditInput EditInput { get; set; } = new();
+    [BindProperty] public IFormFile? PreparedReplacement { get; set; }
     public List<KnowledgeDocument> Documents { get; private set; } = [];
     public List<ComponentModel> Components { get; private set; } = [];
     public List<Machine> Machines { get; private set; } = [];
     public IReadOnlyList<string> MachineModels { get; private set; } = [];
     public bool CanPublish { get; private set; }
     public bool CanIndex(KnowledgeDocument document) =>
-        Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is ".pdf" or ".docx" or ".txt" or ".xlsx";
+        !string.IsNullOrWhiteSpace(document.PreparedFilePath)
+        || Path.GetExtension(document.OriginalFileName).ToLowerInvariant() is ".pdf" or ".docx" or ".txt" or ".xlsx";
     public bool CanPublishDocument(KnowledgeDocument document) => !CanIndex(document)
         || document.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText;
     public string IndexStatusText(KnowledgeDocument document) =>
@@ -50,18 +53,44 @@ public class ComponentDocumentsModel(
             return Page();
         }
 
+        PreparedManual? prepared = null;
+        if (Input.PreparedFile != null)
+        {
+            try { prepared = await ReadPreparedUploadAsync(Input.PreparedFile, cancellationToken); }
+            catch (InvalidDataException)
+            {
+                ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "PreparedManualInvalid"));
+                await LoadAsync();
+                return Page();
+            }
+        }
+        var createdKeys = new List<string>();
+        string? provider = null;
         try
         {
             await using var upload = await validation.ValidateAsync(Input.File, UploadPurpose.Knowledge, cancellationToken);
             if (upload.Kind == UploadKind.Video) throw new InvalidOperationException();
-            var provider = await storage.GetSelectedProviderAsync(cancellationToken);
+            provider = await storage.GetSelectedProviderAsync(cancellationToken);
             var storedName = $"{Guid.NewGuid():N}{upload.Extension}";
             var key = $"knowledge/components/{storedName}";
+            createdKeys.Add(key);
             await storage.SaveAsync(provider, key, upload.Content, upload.ContentType, cancellationToken);
+            string? preparedKey = null;
+            if (prepared != null)
+            {
+                preparedKey = $"knowledge/components/prepared/{Guid.NewGuid():N}.json";
+                createdKeys.Add(preparedKey);
+                await using var preparedStream = new MemoryStream(preparedManual.Serialize(prepared));
+                await storage.SaveAsync(provider, preparedKey, preparedStream, "application/json", cancellationToken);
+            }
             db.KnowledgeDocuments.Add(new KnowledgeDocument
             {
                 OriginalFileName = upload.OriginalFileName, StoredFileName = storedName,
                 FilePath = key, StorageProvider = provider, Category = Input.DocumentKind,
+                PreparedFilePath = preparedKey,
+                PreparedFileName = preparedKey == null ? null : Path.GetFileName(Input.PreparedFile!.FileName)[..Math.Min(255, Path.GetFileName(Input.PreparedFile.FileName).Length)],
+                IndexStatus = preparedKey == null ? DocumentIndexStates.NotStarted : DocumentIndexStates.Queued,
+                IndexUpdatedAt = preparedKey == null ? null : DateTime.UtcNow,
                 DocumentKind = Input.DocumentKind,
                 Title = Input.Title?.Trim(), MachineId = machine?.Id,
                 MachineModel = machine?.Model ?? modelName, ComponentModelId = component?.Id,
@@ -70,14 +99,74 @@ public class ComponentDocumentsModel(
                 ClientDownloadAllowed = false, ShowInClientLibrary = false
             });
             await db.SaveChangesAsync(cancellationToken);
+            createdKeys.Clear();
             return RedirectToPage();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException)
+        catch (Exception ex)
         {
+            if (provider != null)
+                foreach (var key in createdKeys)
+                    try { await storage.DeleteAsync(provider, key, cancellationToken); }
+                    catch (Exception cleanupError) { logger.LogWarning(cleanupError, "Failed to remove incomplete document upload"); }
+            if (ex is not (InvalidOperationException or InvalidDataException)) throw;
             ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "DocumentUploadInvalid"));
             await LoadAsync();
             return Page();
         }
+    }
+
+    public async Task<IActionResult> OnPostUploadPreparedAsync(int id, CancellationToken cancellationToken)
+    {
+        if (!await access.IsAllowedAsync(User, "QA", cancellationToken)) return Forbid();
+        var document = await db.KnowledgeDocuments.FindAsync([id], cancellationToken);
+        if (document == null || document.DocumentKind == "Other" || document.Status == "Retired") return NotFound();
+        if (document.ClientDownloadAllowed || document.IndexStatus is DocumentIndexStates.Queued or DocumentIndexStates.Processing)
+            return BadRequest();
+        try
+        {
+            var prepared = await ReadPreparedUploadAsync(PreparedReplacement, cancellationToken);
+            var newKey = $"knowledge/components/prepared/{Guid.NewGuid():N}.json";
+            await using var stream = new MemoryStream(preparedManual.Serialize(prepared));
+            await storage.SaveAsync(document.StorageProvider, newKey, stream, "application/json", cancellationToken);
+            var oldKey = document.PreparedFilePath;
+            try
+            {
+                document.PreparedFilePath = newKey;
+                document.PreparedFileName = Path.GetFileName(PreparedReplacement!.FileName)[..Math.Min(255, Path.GetFileName(PreparedReplacement.FileName).Length)];
+                document.IndexStatus = DocumentIndexStates.Queued;
+                document.IndexTotalChunks = 0;
+                document.IndexCompletedChunks = 0;
+                document.IndexErrorCode = null;
+                document.IndexUpdatedAt = DateTime.UtcNow;
+                document.Status = "NeedsReview";
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                try { await storage.DeleteAsync(document.StorageProvider, newKey, cancellationToken); }
+                catch (Exception cleanupError) { logger.LogWarning(cleanupError, "Failed to remove incomplete prepared manual upload"); }
+                throw;
+            }
+            if (oldKey != null)
+                try { await storage.DeleteAsync(document.StorageProvider, oldKey, cancellationToken); }
+                catch (Exception cleanupError) { logger.LogWarning(cleanupError, "Failed to remove replaced prepared manual"); }
+            return RedirectToPage();
+        }
+        catch (InvalidDataException)
+        {
+            ModelState.AddModelError(string.Empty, UiText.T(HttpContext, "PreparedManualInvalid"));
+            await LoadAsync();
+            return Page();
+        }
+    }
+
+    private async Task<PreparedManual> ReadPreparedUploadAsync(IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length is <= 0 or > PreparedManualService.MaxBytes
+            || !string.Equals(Path.GetExtension(file.FileName), ".json", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Prepared manual must be a JSON file within the size limit.");
+        await using var stream = file.OpenReadStream();
+        return await preparedManual.ReadAsync(stream, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostPublishAsync(int id, CancellationToken cancellationToken)
@@ -134,7 +223,8 @@ public class ComponentDocumentsModel(
         document.ComponentModelId = component?.Id;
         document.AppliesToAllMachines = machine == null && component == null && string.IsNullOrWhiteSpace(modelName);
         document.Status = "NeedsReview";
-        document.IndexStatus = wasIndexed && CanIndex(document) ? DocumentIndexStates.Queued : DocumentIndexStates.NotStarted;
+        document.IndexStatus = (wasIndexed || document.PreparedFilePath != null) && CanIndex(document)
+            ? DocumentIndexStates.Queued : DocumentIndexStates.NotStarted;
         document.IndexTotalChunks = 0;
         document.IndexCompletedChunks = 0;
         document.IndexErrorCode = null;
@@ -177,7 +267,7 @@ public class ComponentDocumentsModel(
         var documents = await db.KnowledgeDocuments.AsNoTracking()
             .Where(x => x.DocumentKind != "Other")
             .Select(x => new { x.Id, x.IndexStatus, x.IndexTotalChunks, x.IndexCompletedChunks,
-                x.IndexErrorCode, x.ClientDownloadAllowed, x.Status, x.OriginalFileName })
+                x.IndexErrorCode, x.ClientDownloadAllowed, x.Status, x.OriginalFileName, x.PreparedFilePath })
             .ToListAsync(cancellationToken);
         return new JsonResult(documents.Select(x => new
         {
@@ -185,10 +275,10 @@ public class ComponentDocumentsModel(
             x.IndexStatus,
             x.IndexTotalChunks,
             x.IndexCompletedChunks,
-            Indexable = CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName }),
+            Indexable = CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName, PreparedFilePath = x.PreparedFilePath }),
             StatusText = UiText.T(HttpContext, "DocumentIndex" + x.IndexStatus),
             ErrorText = x.IndexErrorCode == null ? null : UiText.T(HttpContext, x.IndexErrorCode),
-            CanPublish = !CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName })
+            CanPublish = !CanIndex(new KnowledgeDocument { OriginalFileName = x.OriginalFileName, PreparedFilePath = x.PreparedFilePath })
                 || x.IndexStatus is DocumentIndexStates.Ready or DocumentIndexStates.NoText
         }));
     }
@@ -221,6 +311,7 @@ public class ComponentDocumentsModel(
     public class DocumentInput
     {
         public IFormFile? File { get; set; }
+        public IFormFile? PreparedFile { get; set; }
         public string DocumentKind { get; set; } = "";
         public string? Title { get; set; }
         public int? MachineId { get; set; }

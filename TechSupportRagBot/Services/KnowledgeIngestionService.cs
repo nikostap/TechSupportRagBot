@@ -15,6 +15,7 @@ public class KnowledgeIngestionService
     private readonly DocumentTypeDetector _typeDetector;
     private readonly DocumentEnrichmentService _enrichment;
     private readonly FileStorageService _storage;
+    private readonly PreparedManualService _preparedManual;
 
     public KnowledgeIngestionService(
         ApplicationDbContext db,
@@ -25,7 +26,8 @@ public class KnowledgeIngestionService
         RagAuditLogger audit,
         DocumentTypeDetector typeDetector,
         DocumentEnrichmentService enrichment,
-        FileStorageService storage)
+        FileStorageService storage,
+        PreparedManualService preparedManual)
     {
         _db = db;
         _extractor = extractor;
@@ -36,6 +38,7 @@ public class KnowledgeIngestionService
         _typeDetector = typeDetector;
         _enrichment = enrichment;
         _storage = storage;
+        _preparedManual = preparedManual;
     }
 
     public async Task IndexDocumentAsync(KnowledgeDocument document, CancellationToken cancellationToken = default,
@@ -68,39 +71,44 @@ public class KnowledgeIngestionService
         try
         {
             if (componentJob) await DeleteDocumentChunksAsync(document.Id, cancellationToken);
-            var localPath = await _storage.MaterializeToWorkFileAsync(
-                document.StorageProvider,
-                document.FilePath,
-                Path.GetExtension(document.OriginalFileName),
-                cancellationToken);
             ExtractedDocument extracted;
-            try
-            {
-                extracted = await _extractor.ExtractDocumentAsync(localPath, document.Category, cancellationToken);
-            }
-            finally
-            {
-                File.Delete(localPath);
-            }
-            extracted.DocumentType = _typeDetector.Detect(document.OriginalFileName, document.Category, extracted.FullText);
             DocumentEnrichmentDraft? enrichmentDraft = null;
-            if (!string.IsNullOrWhiteSpace(document.EnrichmentJson))
+            PreparedManual? prepared = null;
+            IReadOnlyList<TextChunkInfo> chunks;
+            if (!string.IsNullOrWhiteSpace(document.PreparedFilePath))
             {
-                enrichmentDraft = _enrichment.Deserialize(document.EnrichmentJson);
-                if (Enum.TryParse<DocumentType>(enrichmentDraft.DocumentType, true, out var enrichedType))
+                await using var preparedFile = await _storage.OpenReadAsync(
+                    document.StorageProvider, document.PreparedFilePath, cancellationToken)
+                    ?? throw new InvalidDataException("Prepared manual file is missing.");
+                prepared = await _preparedManual.ReadAsync(preparedFile.Stream, cancellationToken);
+                extracted = new ExtractedDocument { FileName = document.OriginalFileName,
+                    DocumentType = DocumentType.Manual };
+                chunks = PreparedManualService.ToChunks(prepared, document);
+            }
+            else
+            {
+                var localPath = await _storage.MaterializeToWorkFileAsync(
+                    document.StorageProvider, document.FilePath,
+                    Path.GetExtension(document.OriginalFileName), cancellationToken);
+                try
                 {
-                    extracted.DocumentType = enrichedType;
+                    extracted = await _extractor.ExtractDocumentAsync(localPath, document.Category, cancellationToken);
                 }
+                finally { File.Delete(localPath); }
+                extracted.DocumentType = _typeDetector.Detect(document.OriginalFileName, document.Category, extracted.FullText);
+                if (!string.IsNullOrWhiteSpace(document.EnrichmentJson))
+                {
+                    enrichmentDraft = _enrichment.Deserialize(document.EnrichmentJson);
+                    if (Enum.TryParse<DocumentType>(enrichmentDraft.DocumentType, true, out var enrichedType))
+                        extracted.DocumentType = enrichedType;
+                }
+                var extension = Path.GetExtension(document.OriginalFileName);
+                if ((extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                        || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
+                    && extracted.DocumentType != DocumentType.ErrorTable)
+                    extracted.DocumentType = DocumentType.Spreadsheet;
+                chunks = TextChunker.SplitDetailed(extracted, document.MachineModel);
             }
-            var extension = Path.GetExtension(document.OriginalFileName);
-            if ((extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
-                    || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
-                && extracted.DocumentType != DocumentType.ErrorTable)
-            {
-                extracted.DocumentType = DocumentType.Spreadsheet;
-            }
-
-            var chunks = TextChunker.SplitDetailed(extracted, document.MachineModel);
             var lengths = chunks.Select(x => x.Text.Length).ToList();
 
             await _audit.WriteAsync("Knowledge.DocumentParsed", new
@@ -108,8 +116,8 @@ public class KnowledgeIngestionService
                 document.Id,
                 document.OriginalFileName,
                 detectedDocumentType = extracted.DocumentType.ToString(),
-                extractedTextLength = extracted.FullText.Length,
-                extractedTextPreview = Truncate(extracted.FullText, 8000),
+                extractedTextLength = prepared == null ? extracted.FullText.Length : chunks.Sum(x => x.Text.Length),
+                extractedTextPreview = prepared == null ? Truncate(extracted.FullText, 8000) : Truncate(chunks.FirstOrDefault()?.Text ?? "", 8000),
                 chunksCount = chunks.Count,
                 chunksCreated = chunks.Count,
                 averageChunkLength = lengths.Count > 0 ? lengths.Average() : 0,
@@ -144,7 +152,8 @@ public class KnowledgeIngestionService
             var selectedChunks = chunks.Select((textChunk, sourceIndex) => new
             {
                 textChunk,
-                enrichedChunk = enrichmentDraft?.Chunks.FirstOrDefault(x => x.ChunkIndex == sourceIndex)
+                enrichedChunk = enrichmentDraft?.Chunks.FirstOrDefault(x => x.ChunkIndex == sourceIndex),
+                preparedSection = prepared?.Sections[sourceIndex]
             }).Where(x => x.enrichedChunk?.Include != false).ToList();
             if (componentJob)
             {
@@ -157,6 +166,7 @@ public class KnowledgeIngestionService
             {
                 var textChunk = selected.textChunk;
                 var enrichedChunk = selected.enrichedChunk;
+                var preparedSection = selected.preparedSection;
                 var chunk = new KnowledgeChunk
                 {
                     KnowledgeDocumentId = document.Id,
@@ -185,9 +195,9 @@ public class KnowledgeIngestionService
                     Participants = textChunk.Participants,
                     Topic = textChunk.Topic,
                     SourceChat = textChunk.SourceChat,
-                    Tags = JoinMetadata(enrichedChunk?.Tags, enrichmentDraft?.Tags),
-                    SearchQuestions = JoinMetadata(enrichedChunk?.SearchQuestions),
-                    Operations = JoinMetadata(enrichedChunk?.Operations),
+                    Tags = JoinMetadata(preparedSection?.Keywords, preparedSection?.Tags, enrichedChunk?.Tags, enrichmentDraft?.Tags),
+                    SearchQuestions = JoinMetadata(preparedSection?.Questions, enrichedChunk?.SearchQuestions),
+                    Operations = JoinMetadata(preparedSection?.Operation == null ? null : [preparedSection.Operation], enrichedChunk?.Operations),
                     Source = "Document"
                 };
 
@@ -434,6 +444,7 @@ public class KnowledgeIngestionService
         await _qdrant.DeletePointsAsync(document.Chunks.Select(x => x.QdrantPointId), cancellationToken);
         await _fts.DeleteChunksAsync(document.Chunks.Select(x => x.Id), cancellationToken);
 
+        await _storage.DeleteAsync(document.StorageProvider, document.PreparedFilePath, cancellationToken);
         await _storage.DeleteAsync(document.StorageProvider, document.FilePath, cancellationToken);
 
         _db.KnowledgeDocuments.Remove(document);

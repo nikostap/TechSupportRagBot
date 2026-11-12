@@ -17,6 +17,8 @@
     <section class="panel"><h2>@T("UploadDocument")</h2>
         <form method="post" enctype="multipart/form-data" asp-page-handler="Upload" class="component-form">
             <label>@T("ChooseFile")<input asp-for="Input.File" type="file" required /></label>
+            <label data-help="@T("PreparedManualHelp")">@T("PreparedManualFile")<input asp-for="Input.PreparedFile" type="file" accept=".json,application/json" /></label>
+            <a href="~/templates/prepared-manual-v1.json" download>@T("DownloadPreparedManualTemplate")</a>
             <label>@T("DocumentKind")<select asp-for="Input.DocumentKind" required>
                 <option value="">@T("ChooseDocumentKind")</option>
                 <option value="MachineManual">@T("MachineManual")</option>
@@ -48,6 +50,10 @@
             <article class="component-item"><strong>@(item.Title ?? item.OriginalFileName)</strong>
                 <span>@T(item.DocumentKind) · @(item.AppliesToAllMachines ? T("AllMachines") : item.ComponentModel == null ? item.MachineModel : $"{item.ComponentModel.Manufacturer} {item.ComponentModel.PartNumber}")</span>
                 <small>@(item.Status == "Retired" ? T("RetiredDocument") : item.ClientDownloadAllowed ? T("PublishedForClients") : T("NeedsConfirmation"))</small>
+                @if (item.PreparedFilePath != null)
+                {
+                    <small>@T("PreparedManualAttached"): @item.PreparedFileName</small>
+                }
                 <div class="document-index-state" data-index-id="@item.Id" data-index-status="@item.IndexStatus" aria-live="polite">
                     <strong data-index-label>@(Model.CanIndex(item) ? Model.IndexStatusText(item) : T("DocumentIndexDownloadOnly"))</strong>
                     @if (Model.CanIndex(item))
@@ -59,6 +65,15 @@
                 </div>
                 @if (!item.ClientDownloadAllowed && item.Status != "Retired")
                 {
+                    @if (Model.CanPublish && item.IndexStatus is not (TechSupportRagBot.Models.DocumentIndexStates.Queued or TechSupportRagBot.Models.DocumentIndexStates.Processing))
+                    {
+                        <details><summary>@T("AttachPreparedManual")</summary>
+                            <form method="post" enctype="multipart/form-data" asp-page-handler="UploadPrepared" asp-route-id="@item.Id" class="component-form">
+                                <label data-help="@T("PreparedManualHelp")">@T("PreparedManualFile")<input asp-for="PreparedReplacement" type="file" accept=".json,application/json" required /></label>
+                                <button class="btn-secondary" type="submit">@T("SaveAndIndexPreparedManual")</button>
+                            </form>
+                        </details>
+                    }
                     <details><summary data-help="@T("DocumentEditHelp")">@T("EditCatalogEntry")</summary>
                         <form method="post" asp-page-handler="Update" asp-route-id="@item.Id" class="component-form">
                             <label>@T("Name")<input name="EditInput.Title" value="@item.Title" /></label>

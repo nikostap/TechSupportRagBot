@@ -61,6 +61,8 @@ public class KnowledgeDocument
     public int IndexCompletedChunks { get; set; }
     public string? IndexErrorCode { get; set; }
     public DateTime? IndexUpdatedAt { get; set; }
+    public string? PreparedFilePath { get; set; }
+    public string? PreparedFileName { get; set; }
 
     /// <summary>
     /// Модель станка, к которой относится документ.

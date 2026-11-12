@@ -511,6 +511,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<KnowledgeDocument>().Property(x => x.StorageProvider).HasMaxLength(20);
         builder.Entity<KnowledgeDocument>().Property(x => x.IndexStatus).HasMaxLength(20);
         builder.Entity<KnowledgeDocument>().Property(x => x.IndexErrorCode).HasMaxLength(40);
+        builder.Entity<KnowledgeDocument>().Property(x => x.PreparedFilePath).HasMaxLength(500);
+        builder.Entity<KnowledgeDocument>().Property(x => x.PreparedFileName).HasMaxLength(255);
         builder.Entity<KnowledgeDocument>().HasIndex(x => x.IndexStatus);
 
         // Ограничиваем длину категории чанка.
