@@ -319,6 +319,8 @@ public class BotConversationPlannerTests
         Assert.Equal("PGF1", BotTechnicalCode.ResolveSuggestedCodeReply("Да, PGF1", history)?.SelectedCode);
         Assert.Equal("pfg1", BotTechnicalCode.ResolveSuggestedCodeReply("Да, PFG1", history)?.SelectedCode);
         Assert.Null(BotTechnicalCode.ResolveSuggestedCodeReply("Нет, это другая ошибка", history)?.SelectedCode);
+        var afterFailedConfirmation = history + "\nКлиент: Да эта ошибка\nБот: Вы снова указали PFG1. В документации найден похожий код PGF1: ошибка энкодера.";
+        Assert.Equal("PGF1", BotTechnicalCode.ResolveSuggestedCodeReply("Да эта ошибка", afterFailedConfirmation)?.SelectedCode);
     }
 
     [Fact]

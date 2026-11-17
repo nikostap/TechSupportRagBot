@@ -62,8 +62,9 @@ public static partial class BotTechnicalCode
         if (turns.LastOrDefault()?.Role != "Бот") return null;
         var suggestion = SuggestedCode().Match(turns[^1].Text);
         if (!suggestion.Success) return null;
-        var reported = turns.LastOrDefault(x => x.Role == "Клиент")?.Text;
-        var reportedCode = Extract(reported ?? string.Empty, null);
+        var reportedCode = turns.Where(x => x.Role == "Клиент")
+            .Select(x => Extract(x.Text, null))
+            .LastOrDefault(x => x != null);
         var suggestedCode = suggestion.Groups[1].Value;
         if (reportedCode == null || string.Equals(reportedCode, suggestedCode, StringComparison.OrdinalIgnoreCase))
             return null;
