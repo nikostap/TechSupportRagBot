@@ -571,17 +571,17 @@ public class TicketModel : PageModel
                     : CompanyUserIds.Contains(x.AuthorUserId)
                         ? "Клиент"
                         : "Оператор";
-                return $"{role}: {TrimForContext(x.Text)}";
+                return $"{role}: {TrimForContext(x.Text, x.IsBotMessage ? 4000 : 1000)}";
             })
             .ToList();
 
         return string.Join("\n", history);
     }
 
-    private static string TrimForContext(string text)
+    private static string TrimForContext(string text, int limit)
     {
         var normalized = string.Join(" ", text.Split(Array.Empty<char>(), StringSplitOptions.RemoveEmptyEntries));
-        return normalized.Length <= 700 ? normalized : normalized[..700] + "...";
+        return normalized.Length <= limit ? normalized : normalized[..limit] + "...";
     }
 
     private List<ChatMessageView> BuildMessageViews(List<ChatMessage> messages, ApplicationUser? currentUser)

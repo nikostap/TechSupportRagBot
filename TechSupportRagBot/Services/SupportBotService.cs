@@ -128,14 +128,40 @@ public class SupportBotService
         if (technicalCode == null) FilterByReferenceCode(ragResult, referenceCode);
         FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
 
+        if (conversationPlan.AsksAboutPriorAnswer && technicalCode == null)
+        {
+            var related = BotFollowUpFocus.Select(ragResult.Chunks,
+                conversationPlan.OriginalProblem, conversationPlan.LastBotAnswer);
+            if (related.Count == 0)
+            {
+                supplementalRetrievalQuestion = await BuildRussianRetrievalQuestionAsync(
+                    $"{conversationPlan.OriginalProblem}. {question}", language, traceId, cancellationToken);
+                var focusedResult = await _ragSearch.SearchAsync(new RagSearchRequest
+                {
+                    TraceId = traceId,
+                    Question = supplementalRetrievalQuestion,
+                    MachineId = machineId,
+                    FinalTopK = 8
+                }, cancellationToken);
+                related = BotFollowUpFocus.Select(focusedResult.Chunks,
+                    conversationPlan.OriginalProblem, conversationPlan.LastBotAnswer);
+                ragResult.Confidence = Math.Max(ragResult.Confidence, focusedResult.Confidence);
+                ragResult.ShouldCallOperator = focusedResult.ShouldCallOperator;
+            }
+            ragResult.Chunks = related.ToList();
+            if (related.Count == 0) ragResult.ShouldCallOperator = true;
+        }
+
         var evidenceText = conversationPlan.ResolvedReference ?? question;
         var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
             ? await _translation.TranslateToRussianForSearchAsync(evidenceText, language, cancellationToken)
             : evidenceText;
-        var missingTerms = conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AnswersBotQuestion
+        var missingTerms = conversationPlan.IsFollowUp && technicalCode == null
+            && !conversationPlan.AnswersBotQuestion && !conversationPlan.AsksAboutPriorAnswer
             ? BotEvidenceGate.MissingTerms(evidenceQuestion, ragResult.Chunks)
             : [];
-        if (conversationPlan.IsFollowUp && technicalCode == null && (ragResult.ShouldCallOperator || missingTerms.Count > 0))
+        if (conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AsksAboutPriorAnswer
+            && (ragResult.ShouldCallOperator || missingTerms.Count > 0))
         {
             supplementalRetrievalQuestion = await BuildRussianRetrievalQuestionAsync(
                 conversationPlan.FocusedSearchQuestion, language, traceId, cancellationToken);
@@ -218,7 +244,7 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
         }
 
-        if (conversationPlan.IsFollowUp && ragResult.Chunks.Count == 1)
+        if (conversationPlan.IsFollowUp && !conversationPlan.AsksAboutPriorAnswer && ragResult.Chunks.Count == 1)
         {
             var exactQa = ragResult.Chunks[0];
             if (string.Equals(exactQa.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
@@ -230,7 +256,7 @@ public class SupportBotService
                     : exactQa.Solution;
                 if (!string.IsNullOrWhiteSpace(directAnswer))
                 {
-                    if (technicalCode == null)
+                    if (technicalCode == null && !conversationPlan.AsksAboutPriorAnswer)
                         directAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(directAnswer.Trim(), conversationPlan.PreviousBotAnswer);
                     if (string.IsNullOrWhiteSpace(directAnswer))
                         directAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
@@ -244,7 +270,7 @@ public class SupportBotService
         }
 
         var promptHistory = conversationPlan.IsFollowUp
-            ? TrimForPrompt(conversationContext ?? string.Empty, 1100)
+            ? BuildPromptHistory(conversationContext)
             : "История не используется: новый вопрос.";
         var historyIncluded = conversationPlan.IsFollowUp;
 
@@ -269,6 +295,7 @@ public class SupportBotService
         - Не перечисляй соседние функции и настройки, о которых клиент не спрашивал.
         - Если неясно, какой узел или какой именно симптом имеется в виду, задай один конкретный вопрос до перечисления разных процедур.
         - Если это продолжение диалога, отвечай именно на новое уточнение. Не повторяй уже предложенные шаги без новой причины и не пересказывай предыдущий ответ.
+        - Если клиент спрашивает, что именно означает предмет или действие из предыдущего ответа, объясни именно этот предмет в рамках исходной неисправности. Не примешивай похожие инструкции других узлов. Если найденный источник не уточняет цвет, номер или расположение, прямо скажи об этом.
         - Если уточнение лишь называет узел или повторяет неисправность без нового признака, коротко подтверди понятое и спроси, что именно наблюдается; не выдавай прежнюю инструкцию повторно.
         - Не повторяй уже заданный уточняющий вопрос дословно. Если ответа всё ещё недостаточно, спроси об одном другом наблюдаемом признаке, который разделит возможные причины.
         - Если уточнение просит одно значение или параметр, дай это значение и необходимое условие в одном-двух предложениях.
@@ -340,7 +367,7 @@ public class SupportBotService
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
-        if (conversationPlan.IsFollowUp && technicalCode == null)
+        if (conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AsksAboutPriorAnswer)
         {
             cleanAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
             if (string.IsNullOrWhiteSpace(cleanAnswer))
@@ -483,14 +510,15 @@ public class SupportBotService
         return retrievalQuestion;
     }
 
-    private static string TrimForPrompt(string text, int maxLength)
+    private static string BuildPromptHistory(string? context)
     {
-        if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
+        var turns = BotConversationHistory.Parse(context).TakeLast(4).ToList();
+        return string.Join("\n", turns.Select((turn, index) =>
         {
-            return text;
-        }
-
-        return text[^maxLength..];
+            var limit = index == turns.Count - 1 && turn.Role == "Бот" ? 4000 : 700;
+            var text = turn.Text.Length <= limit ? turn.Text : turn.Text[..limit] + "...";
+            return $"{turn.Role}: {text}";
+        }));
     }
 
     private static void FilterByReferenceCode(RagSearchResult result, string referenceCode)

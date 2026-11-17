@@ -81,7 +81,7 @@ public class BotTestModel : PageModel
             ? saved.Turns.TakeLast(12).ToList()
             : [];
         var context = Input.ChatMode
-            ? string.Join("\n", turns.Select(x => $"{(x.IsBot ? "Бот" : "Клиент")}: {x.Text[..Math.Min(x.Text.Length, 700)]}"))
+            ? string.Join("\n", turns.Select(x => $"{(x.IsBot ? "Бот" : "Клиент")}: {NormalizeForContext(x.Text)}"))
             : null;
 
         BotAnswer = await _bot.AnswerAsync(Input.Question, Input.MachineId.Value, language, context, cancellationToken);
@@ -92,7 +92,7 @@ public class BotTestModel : PageModel
         if (Input.ChatMode)
         {
             turns.Add(new BotTestTurn(false, Input.Question.Trim()[..Math.Min(Input.Question.Trim().Length, 1500)]));
-            turns.Add(new BotTestTurn(true, BotAnswer.Text[..Math.Min(BotAnswer.Text.Length, 1500)]));
+            turns.Add(new BotTestTurn(true, BotAnswer.Text[..Math.Min(BotAnswer.Text.Length, 4000)]));
             History = turns.TakeLast(12).ToList();
             Input.HistoryJson = _historyProtector.Protect(JsonSerializer.Serialize(new BotTestHistory(Input.MachineId.Value, language, History)));
         }
@@ -117,15 +117,18 @@ public class BotTestModel : PageModel
 
     private BotTestHistory? ReadHistory(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json) || json.Length > 35000) return null;
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 100000) return null;
         try
         {
             var saved = JsonSerializer.Deserialize<BotTestHistory>(_historyProtector.Unprotect(json));
-            if (saved?.Turns is null || saved.Turns.Count > 12 || saved.Turns.Any(x => x.Text.Length > 1500)) return null;
+            if (saved?.Turns is null || saved.Turns.Count > 12 || saved.Turns.Any(x => x.Text.Length > (x.IsBot ? 4000 : 1500))) return null;
             return saved;
         }
         catch (Exception ex) when (ex is JsonException or System.Security.Cryptography.CryptographicException) { return null; }
     }
+
+    private static string NormalizeForContext(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private async Task LoadAsync()
     {

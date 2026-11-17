@@ -12,25 +12,26 @@ public static class BotConversationPlanner
     public static BotConversationPlan Create(string question, string? history)
     {
         question = question.Trim();
-        var lines = (history ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var clientTurns = lines.Where(x => x.StartsWith("Клиент: ", StringComparison.Ordinal)).Select(x => x[8..]).ToList();
+        var turns = BotConversationHistory.Parse(history);
+        var clientTurns = turns.Where(x => x.Role == "Клиент").Select(x => x.Text).ToList();
         var previousClient = clientTurns.LastOrDefault();
-        var previousBot = lines.LastOrDefault(x => x.StartsWith("Бот: ", StringComparison.Ordinal))?[5..];
-        var previousAnswers = string.Join(" ", lines.Where(x => x.StartsWith("Бот: ", StringComparison.Ordinal)).Select(x => x[5..]));
+        var previousBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
         var hasExchange = !string.IsNullOrWhiteSpace(previousClient) && !string.IsNullOrWhiteSpace(previousBot);
         var normalized = question.ToLowerInvariant();
         var isConfirmation = normalized is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
             or "не то" or "не это" or "yes" or "no" or "yeah" or "yep" or "correct";
         var hasReference = References.Any(x => ContainsWord(normalized, x));
         var newQuestion = normalized.TrimStart('а', ' ', ',');
-        var startsNewQuestion = new[] { "как ", "почему ", "можно ", "что делать", "где ", "какой ", "какое ", "какая ", "какие ", "какую ", "сколько ", "how ", "why ", "where ", "what ", "which " }
+        var startsNewQuestion = new[] { "как ", "почему ", "можно ", "что делать", "где ", "какой ", "какое ", "какая ", "какие ", "какую ", "каких ", "каким ", "сколько ", "how ", "why ", "where ", "what ", "which " }
             .Any(x => newQuestion.StartsWith(x, StringComparison.Ordinal));
+        var asksAboutPriorAnswer = hasExchange && question.Length <= 120 && question.Contains('?')
+            && SharesAnswerTopic(previousBot!, question);
         var answersBotQuestion = (previousBot?.Contains('?') == true
                 || previousBot?.Contains("уточните", StringComparison.OrdinalIgnoreCase) == true
                 || previousBot?.Contains("please specify", StringComparison.OrdinalIgnoreCase) == true)
             && question.Length <= 100 && !startsNewQuestion;
         var isShortDetail = question.Length <= 100 && !startsNewQuestion && !question.Contains('?');
-        var isFollowUp = hasExchange && (isConfirmation || hasReference || answersBotQuestion || isShortDetail
+        var isFollowUp = hasExchange && (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
             || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question)));
         var lastQuestionMark = previousBot?.LastIndexOf('?') ?? -1;
         var lastBotQuestion = lastQuestionMark >= 0
@@ -70,7 +71,7 @@ public static class BotConversationPlanner
         if (resolvedReference is not null) detailText = $"{detailText}; {resolvedReference}";
         var searchQuestion = $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
         var focusedSearchQuestion = $"{detailText}. {Truncate(originalProblem, 160)}";
-        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail, resolvedReference, answersBotQuestion);
+        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousBot ?? string.Empty, 4000), needsChoice, needsDetail, resolvedReference, answersBotQuestion, originalProblem, asksAboutPriorAnswer, previousBot);
     }
 
     private static bool LooksLikeIndependentQuestion(string value)
@@ -95,6 +96,15 @@ public static class BotConversationPlanner
         return Terms(previous).Overlaps(Terms(current));
     }
 
+    private static bool SharesAnswerTopic(string answer, string question)
+    {
+        static HashSet<string> Terms(string value) => value.ToLowerInvariant()
+            .Split(value.Where(x => !char.IsLetterOrDigit(x)).Distinct().ToArray(), StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => x.Length >= 6 && x is not ("какого" or "какими" or "каким" or "каких" or "который" or "которая" or "почему" or "можете" or "помочь" or "помогите"))
+            .Select(x => x[..5]).ToHashSet();
+        return Terms(answer).Overlaps(Terms(question));
+    }
+
     private static string Truncate(string value, int length) => value.Length <= length ? value : value[..length];
 
     private static bool ContainsWord(string text, string word)
@@ -111,4 +121,4 @@ public static class BotConversationPlanner
     }
 }
 
-public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null, bool AnswersBotQuestion = false);
+public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null, bool AnswersBotQuestion = false, string? OriginalProblem = null, bool AsksAboutPriorAnswer = false, string? LastBotAnswer = null);

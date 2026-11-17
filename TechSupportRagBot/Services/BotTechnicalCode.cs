@@ -13,10 +13,9 @@ public static partial class BotTechnicalCode
         var token = question.Trim().Trim('.', ',', ':', ';', '!', '?');
         if (!CodeToken().IsMatch(token)) return null;
 
-        var lastBot = (history ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .LastOrDefault(x => x.StartsWith("Бот: ", StringComparison.Ordinal));
-        var lastClient = (history ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .LastOrDefault(x => x.StartsWith("Клиент: ", StringComparison.Ordinal));
+        var turns = BotConversationHistory.Parse(history);
+        var lastBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
+        var lastClient = turns.LastOrDefault(x => x.Role == "Клиент")?.Text;
         var context = string.Concat(lastClient, " ", lastBot);
         if (FaultContext().IsMatch(context)) return token;
         // With no history, a code-like identifier can still be searched by itself.
@@ -34,9 +33,9 @@ public static partial class BotTechnicalCode
         var current = Extract(question, history);
         if (current != null || !isFollowUp) return current;
 
-        var clientTurns = (history ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Where(x => x.StartsWith("Клиент: ", StringComparison.Ordinal))
-            .Select(x => x[8..])
+        var clientTurns = BotConversationHistory.Parse(history)
+            .Where(x => x.Role == "Клиент")
+            .Select(x => x.Text)
             .TakeLast(4)
             .Reverse();
         return clientTurns.Select(turn => Extract(turn, history)).FirstOrDefault(code => code != null);

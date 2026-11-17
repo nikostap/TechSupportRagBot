@@ -268,6 +268,64 @@ public class BotConversationPlannerTests
     }
 
     [Fact]
+    public void MultilineAnswerIsPreservedAndWireQuestionStaysOnOriginalIssue()
+    {
+        const string history = "Клиент: Ошибка нити отрезки что делать?\n"
+            + "Бот: Проверьте провода нити отрезки.\n"
+            + "1. Замените повреждённые провода.\n"
+            + "2. Проверьте блок питания нити.\n"
+            + "Чем могу помочь ещё?";
+
+        var turns = BotConversationHistory.Parse(history);
+        Assert.Equal(2, turns.Count);
+        Assert.Contains("Замените повреждённые провода", turns[1].Text);
+
+        var plan = BotConversationPlanner.Create("Каких проводов?", history);
+        Assert.True(plan.IsFollowUp);
+        Assert.True(plan.AsksAboutPriorAnswer);
+        Assert.Equal("Ошибка нити отрезки что делать?", plan.OriginalProblem);
+        Assert.Contains("провода нити отрезки", plan.LastBotAnswer);
+        Assert.Contains("Каких проводов?", plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void FollowUpFocusExcludesOtherWiringAndUnmentionedNeighborProcedure()
+    {
+        const string prior = "Проверьте подключение проводов нити отрезки. Замените повреждённые провода. "
+            + "Убедитесь, что нить ничего не касается. Понаблюдайте за блоком питания нити: его индикатор должен гореть постоянно.";
+        var discussed = new RagChunkCandidate
+        {
+            Title = "Предупреждение о нити отрезки",
+            Solution = "Проверьте подключение проводов нити отрезки и замените повреждённые провода. "
+                + "Проверить что нить ничего не касается. Понаблюдать за блоком питания нити, что индикатор горит постоянно."
+        };
+        var neighbor = new RagChunkCandidate
+        {
+            Title = "После замены нити отрезки нет нагрева",
+            Solution = "Проверьте гибкие силовые кабели к подвижному узлу нити отрезки."
+        };
+        var unrelated = new RagChunkCandidate
+        {
+            Title = "Подключение датчика E3RB-DN22",
+            Solution = "Соедините белый и коричневый провода с красным проводом."
+        };
+
+        var selected = BotFollowUpFocus.Select([unrelated, neighbor, discussed],
+            "Ошибка нити отрезки что делать?", prior);
+
+        Assert.Single(selected);
+        Assert.Same(discussed, selected[0]);
+        Assert.Empty(BotFollowUpFocus.Select([unrelated], "Ошибка нити отрезки что делать?", prior));
+    }
+
+    [Fact]
+    public void UnrelatedNewQuestionDoesNotInheritPreviousAnswer()
+    {
+        const string history = "Клиент: Ошибка нити отрезки\nБот: Проверьте провода нити отрезки.";
+        Assert.False(BotConversationPlanner.Create("Как настроить датчик?", history).IsFollowUp);
+    }
+
+    [Fact]
     public void FaultCodeMatchesWholeIdentifierInEvidence()
     {
         var exact = new RagChunkCandidate { ErrorCode = "ocn", Text = "Авария ocn: перегрузка по току." };
