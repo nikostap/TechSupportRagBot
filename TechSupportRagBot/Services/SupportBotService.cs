@@ -220,9 +220,9 @@ public class SupportBotService
             {
                 var priorMentions = BotTechnicalCode.CountConsecutivePriorMentions(technicalCode, conversationContext);
                 var near = nearCodeCandidate;
-                var key = priorMentions >= 2 ? "BotFaultCodeEscalated"
-                    : priorMentions == 1 ? "BotFaultCodeStillNotFound"
-                    : near != null ? "BotFaultCodeNearMatch" : "BotFaultCodeNotFound";
+                var key = near != null
+                    ? priorMentions > 0 ? "BotFaultCodeNearMatchRepeated" : "BotFaultCodeNearMatch"
+                    : priorMentions > 0 ? "BotFaultCodeStillNotFound" : "BotFaultCodeNotFound";
                 var template = UiText.ForLanguage(isEnglish ? "en" : "ru", key);
                 var nearDescription = near?.Text.Trim() ?? string.Empty;
                 if (near != null && isEnglish)
@@ -230,10 +230,10 @@ public class SupportBotService
                     var translated = await _translation.TranslateAsync(nearDescription, "Russian", language, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(translated)) nearDescription = translated;
                 }
-                var reply = near != null && priorMentions == 0
+                var reply = near != null
                     ? string.Format(template, technicalCode.ToUpperInvariant(), near.ErrorCode!.ToUpperInvariant(), nearDescription)
                     : string.Format(template, technicalCode.ToUpperInvariant());
-                return new BotAnswerResult(reply, priorMentions >= 2, [])
+                return new BotAnswerResult(reply, false, [])
                 { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
                     SearchResult = ragResult, UnmatchedCodeCandidates = unmatchedCodeCandidates };
             }
