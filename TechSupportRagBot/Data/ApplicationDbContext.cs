@@ -203,9 +203,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasIndex(x => x.LicenseKey)
             .IsUnique();
 
-        // Серийный номер станка тоже должен быть уникальным.
+        // Номер может повторяться у разных моделей станков.
         builder.Entity<Machine>()
-            .HasIndex(x => x.SerialNumber)
+            .HasIndex(x => new { x.Model, x.SerialNumber })
             .IsUnique();
 
         // Ограничиваем длину названия станка.

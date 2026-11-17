@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TechSupportRagBot.Data;
 using TechSupportRagBot.Models;
 using TechSupportRagBot.Services;
@@ -42,16 +43,29 @@ public class MachinesModel : PageModel
             return Page();
         }
 
+        var model = MachineModelOptions.First(x => string.Equals(x, Input.Model, StringComparison.OrdinalIgnoreCase));
+        var serial = SerialNumberFormatter.NormalizeMachine(Input.SerialNumber);
+        if (await SerialAlreadyUsedAsync(model, serial))
+        {
+            ModelState.AddModelError(nameof(Input.SerialNumber), UiText.T(HttpContext, "MachineSerialDuplicate"));
+            return Page();
+        }
+
         _db.Machines.Add(new Machine
         {
             Name = Input.Name.Trim(),
-            Model = Input.Model.Trim(),
-            SerialNumber = SerialNumberFormatter.NormalizeMachine(Input.SerialNumber),
+            Model = model,
+            SerialNumber = serial,
             Description = Input.Description,
             LicenseKey = LicenseKeyGenerator.Generate()
         });
 
-        await _db.SaveChangesAsync();
+        try { await _db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) when (IsDuplicateMachine(ex))
+        {
+            ModelState.AddModelError(nameof(Input.SerialNumber), UiText.T(HttpContext, "MachineSerialDuplicate"));
+            return Page();
+        }
         return RedirectToPage();
     }
 
@@ -72,11 +86,25 @@ public class MachinesModel : PageModel
             return RedirectToPage();
         }
 
+        var model = MachineModelOptions.FirstOrDefault(x => string.Equals(x, input.Model, StringComparison.OrdinalIgnoreCase))
+            ?? machine.Model;
+        var serial = SerialNumberFormatter.NormalizeMachine(input.SerialNumber);
+        if (await SerialAlreadyUsedAsync(model, serial, id))
+        {
+            AlertMessage = UiText.T(HttpContext, "MachineSerialDuplicate");
+            return RedirectToPage();
+        }
+
         machine.Name = input.Name.Trim();
-        machine.Model = input.Model.Trim();
-        machine.SerialNumber = SerialNumberFormatter.NormalizeMachine(input.SerialNumber);
+        machine.Model = model;
+        machine.SerialNumber = serial;
         machine.Description = input.Description;
-        await _db.SaveChangesAsync();
+        try { await _db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) when (IsDuplicateMachine(ex))
+        {
+            AlertMessage = UiText.T(HttpContext, "MachineSerialDuplicate");
+            return RedirectToPage();
+        }
         return RedirectToPage();
     }
 
@@ -87,7 +115,8 @@ public class MachinesModel : PageModel
         if (machine != null)
         {
             var hasTickets = await _db.Tickets.AnyAsync(x => x.MachineId == id);
-            var hasKnowledge = await _db.KnowledgeDocuments.AnyAsync(x => x.MachineId == id);
+            var hasKnowledge = await _db.KnowledgeDocuments.AnyAsync(x => x.MachineId == id)
+                || await _db.KnowledgeDocumentTargets.AnyAsync(x => x.MachineId == id);
             if (hasTickets || hasKnowledge)
             {
                 AlertMessage = TechSupportRagBot.Services.UiText.T(HttpContext, "MachineDeleteBlocked");
@@ -110,6 +139,21 @@ public class MachinesModel : PageModel
         Machines = await _db.Machines.OrderBy(x => x.Name).ToListAsync();
         MachineModelOptions = await _settings.GetMachineModelsAsync(HttpContext.RequestAborted);
     }
+
+    private async Task<bool> SerialAlreadyUsedAsync(string model, string serial, int? exceptId = null)
+    {
+        var existing = await _db.Machines.AsNoTracking()
+            .Where(x => x.Model == model && (!exceptId.HasValue || x.Id != exceptId.Value))
+            .Select(x => x.SerialNumber).ToListAsync();
+        return existing.Any(x => SerialNumberFormatter.NormalizeMachine(x) == serial);
+    }
+
+    private static bool IsDuplicateMachine(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "IX_Machines_Model_SerialNumber"
+        };
 
     public class MachineInput
     {
