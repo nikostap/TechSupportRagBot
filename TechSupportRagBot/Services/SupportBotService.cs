@@ -78,7 +78,15 @@ public class SupportBotService
         }
 
         var conversationPlan = BotConversationPlanner.Create(question, conversationContext);
-        var technicalCode = BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
+        var suggestedCodeReply = BotTechnicalCode.ResolveSuggestedCodeReply(question, conversationContext);
+        if (suggestedCodeReply is { SelectedCode: null })
+        {
+            var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotSuggestedFaultRejected");
+            return new BotAnswerResult(string.Format(template,
+                suggestedCodeReply.SuggestedCode.ToUpperInvariant()), false, []);
+        }
+        var technicalCode = suggestedCodeReply?.SelectedCode
+            ?? BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
         if (conversationPlan.NeedsChoiceClarification)
         {
             return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []);

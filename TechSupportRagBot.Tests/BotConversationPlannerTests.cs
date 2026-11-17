@@ -306,6 +306,22 @@ public class BotConversationPlannerTests
     }
 
     [Fact]
+    public void ConfirmationAfterNearCodeAcceptsOrRejectsSuggestion()
+    {
+        const string history = "Клиент: Ошибка выскочила новая pfg1\n"
+            + "Бот: Вы снова указали PFG1. В документации найден похожий код PGF1: ошибка энкодера. Если на дисплее именно PFG1, приложите фото.";
+
+        var confirmed = BotTechnicalCode.ResolveSuggestedCodeReply("Да эта ошибка", history);
+        Assert.NotNull(confirmed);
+        Assert.Equal("pfg1", confirmed.ReportedCode);
+        Assert.Equal("PGF1", confirmed.SuggestedCode);
+        Assert.Equal("PGF1", confirmed.SelectedCode);
+        Assert.Equal("PGF1", BotTechnicalCode.ResolveSuggestedCodeReply("Да, PGF1", history)?.SelectedCode);
+        Assert.Equal("pfg1", BotTechnicalCode.ResolveSuggestedCodeReply("Да, PFG1", history)?.SelectedCode);
+        Assert.Null(BotTechnicalCode.ResolveSuggestedCodeReply("Нет, это другая ошибка", history)?.SelectedCode);
+    }
+
+    [Fact]
     public void MultilineAnswerIsPreservedAndWireQuestionStaysOnOriginalIssue()
     {
         const string history = "Клиент: Ошибка нити отрезки что делать?\n"
@@ -409,7 +425,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

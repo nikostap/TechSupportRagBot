@@ -56,6 +56,32 @@ public static partial class BotTechnicalCode
         return clientTurns.Select(turn => Extract(turn, history)).FirstOrDefault(code => code != null);
     }
 
+    public static BotSuggestedCodeReply? ResolveSuggestedCodeReply(string question, string? history)
+    {
+        var turns = BotConversationHistory.Parse(history);
+        if (turns.LastOrDefault()?.Role != "Бот") return null;
+        var suggestion = SuggestedCode().Match(turns[^1].Text);
+        if (!suggestion.Success) return null;
+        var reported = turns.LastOrDefault(x => x.Role == "Клиент")?.Text;
+        var reportedCode = Extract(reported ?? string.Empty, null);
+        var suggestedCode = suggestion.Groups[1].Value;
+        if (reportedCode == null || string.Equals(reportedCode, suggestedCode, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        static bool Mentions(string text, string code) => Regex.IsMatch(text,
+            $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(code)}(?![\p{{L}}\p{{N}}])", RegexOptions.IgnoreCase);
+        var mentionsReported = Mentions(question, reportedCode);
+        var mentionsSuggested = Mentions(question, suggestedCode);
+        if (mentionsReported != mentionsSuggested)
+            return new BotSuggestedCodeReply(reportedCode, suggestedCode,
+                mentionsSuggested ? suggestedCode : reportedCode);
+        if (question.Length <= 80 && AffirmativeReply().IsMatch(question.Trim()))
+            return new BotSuggestedCodeReply(reportedCode, suggestedCode, suggestedCode);
+        if (question.Length <= 80 && NegativeReply().IsMatch(question.Trim()))
+            return new BotSuggestedCodeReply(reportedCode, suggestedCode, null);
+        return null;
+    }
+
     public static int CountConsecutivePriorMentions(string code, string? history) =>
         BotConversationHistory.Parse(history)
             .Where(x => x.Role == "Клиент")
@@ -120,4 +146,15 @@ public static partial class BotTechnicalCode
 
     [GeneratedRegex(@"ошибк|авари|код ошиб|инвертор|преобразовател|сервопривод|fault|error|alarm|inverter|drive", RegexOptions.IgnoreCase)]
     private static partial Regex FaultContext();
+
+    [GeneratedRegex(@"(?:похожий код|similar code,?)\s+([A-Za-z][A-Za-z0-9._-]{1,9})", RegexOptions.IgnoreCase)]
+    private static partial Regex SuggestedCode();
+
+    [GeneratedRegex(@"^(?:да|ага|угу|верно|правильно|yes|yeah|yep|correct)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AffirmativeReply();
+
+    [GeneratedRegex(@"^(?:нет|не она|не то|no|nope|wrong)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex NegativeReply();
 }
+
+public sealed record BotSuggestedCodeReply(string ReportedCode, string SuggestedCode, string? SelectedCode);
