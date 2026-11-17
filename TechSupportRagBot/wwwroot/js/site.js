@@ -464,6 +464,10 @@
           return;
         }
 
+        if (form.dataset.ajaxBotTest === "true") {
+          return;
+        }
+
         if (form.dataset.submitting === "true") {
           event.preventDefault();
           return;

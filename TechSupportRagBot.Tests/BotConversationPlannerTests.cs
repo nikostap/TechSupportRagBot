@@ -476,7 +476,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotChooseFaultCode", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "BotTestRequestFailed", "BotTestCloseImage", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotChooseFaultCode", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

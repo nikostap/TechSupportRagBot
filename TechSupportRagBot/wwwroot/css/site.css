@@ -2539,7 +2539,24 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
 .bot-test-transcript .message {
   width: fit-content;
   min-width: 140px;
+  max-width: min(100%, 780px);
   margin-bottom: 0;
+}
+
+.bot-test-transcript .attachments,
+.bot-test-result .attachments {
+  max-width: 100%;
+}
+
+.bot-test-transcript .chat-image-button,
+.bot-test-result .chat-image-button,
+.bot-test-transcript .video-card,
+.bot-test-result .video-card {
+  max-width: 100%;
+}
+
+#botTestRequestError[hidden] {
+  display: none;
 }
 
 .bot-test-transcript .message p {

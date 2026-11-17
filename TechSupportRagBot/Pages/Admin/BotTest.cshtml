@@ -12,7 +12,9 @@
 </section>
 
 <section class="panel">
-    <form id="botTestForm" method="post" asp-page-handler="Ask" class="form-grid bot-test-form">
+    <form id="botTestForm" method="post" asp-page-handler="Ask" class="form-grid bot-test-form" data-ajax-bot-test="true"
+          data-you-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "You")"
+          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping")">
         <input asp-for="Input.HistoryJson" type="hidden" />
         <div>
             <label asp-for="Input.MachineId">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</label>
@@ -52,27 +54,30 @@
                 @foreach (var turn in Model.History)
                 {
                     <div class="message @(turn.IsBot ? "bot" : "mine")">
-                        <strong>@TechSupportRagBot.Services.UiText.T(HttpContext, turn.IsBot ? "Bot" : "You")</strong>
+                        <div class="message-meta">@TechSupportRagBot.Services.UiText.T(HttpContext, turn.IsBot ? "Bot" : "You")</div>
                         <p>@turn.Text</p>
+                        @if (turn.Media is { Count: > 0 })
+                        {
+                            <div class="attachments">
+                                @foreach (var media in turn.Media)
+                                {
+                                    var mediaUrl = $"/attachments/{media.PublicId:D}";
+                                    if (media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <button class="chat-image-button" type="button" data-full-image="@mediaUrl" aria-label="@media.OriginalFileName">
+                                            <img src="@mediaUrl" alt="@media.OriginalFileName" loading="lazy" />
+                                        </button>
+                                    }
+                                    else if (media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <div class="video-card"><video src="@mediaUrl" controls preload="metadata"></video><span>@media.OriginalFileName</span></div>
+                                    }
+                                }
+                            </div>
+                        }
                     </div>
                 }
             </div>
-            @if (Model.BotAnswer is not null && Model.BotAnswer.Media.Count > 0)
-            {
-                <div class="qa-media-grid">
-                    @foreach (var media in Model.BotAnswer.Media)
-                    {
-                        if (media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <img src="/attachments/@media.PublicId.ToString("D")" alt="@media.OriginalFileName" />
-                        }
-                        else if (media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <video src="/attachments/@media.PublicId.ToString("D")" controls></video>
-                        }
-                    }
-                </div>
-            }
         </div>
 
         <div class="full-span">
@@ -86,6 +91,7 @@
             <button id="botTestClear" class="btn-secondary" type="submit" form="botTestClearForm" hidden="@(!Model.Input.ChatMode)">@TechSupportRagBot.Services.UiText.T(HttpContext, "ClearBotChat")</button>
         </div>
     </form>
+    <p id="botTestRequestError" class="alert-warning" role="alert" hidden>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestRequestFailed")</p>
     <form id="botTestClearForm" method="post" asp-page-handler="Clear">
         <input type="hidden" name="Input.MachineId" value="@Model.Input.MachineId" />
         <input type="hidden" name="Input.Language" value="@Model.Input.Language" />
@@ -93,6 +99,7 @@
     </form>
 </section>
 
+<div id="botTestResults" aria-live="polite">
 @if (!Model.Input.ChatMode && Model.BotAnswer is not null)
 {
     <section id="botTestSingleResult" class="panel bot-test-result">
@@ -104,27 +111,36 @@
             {
                 <p>@paragraph</p>
             }
-        </div>
-
-        @if (Model.BotAnswer.Media.Count > 0)
-        {
-            <div class="qa-media-grid">
-                @foreach (var media in Model.BotAnswer.Media)
+            @if (Model.BotAnswer.Media.Count > 0)
+            {
+                <div class="attachments">
+                @foreach (var media in Model.BotAnswer.Media.Take(12))
                 {
+                    var mediaUrl = $"/attachments/{media.PublicId:D}";
                     if (media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                     {
-                        <img src="/attachments/@media.PublicId.ToString("D")" alt="@media.OriginalFileName" />
+                        <button class="chat-image-button" type="button" data-full-image="@mediaUrl" aria-label="@media.OriginalFileName">
+                            <img src="@mediaUrl" alt="@media.OriginalFileName" loading="lazy" />
+                        </button>
                     }
                     else if (media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
                     {
-                        <video src="/attachments/@media.PublicId.ToString("D")" controls></video>
+                        <div class="video-card"><video src="@mediaUrl" controls preload="metadata"></video><span>@media.OriginalFileName</span></div>
                     }
                 }
-            </div>
-        }
+                </div>
+            }
+        </div>
     </section>
 }
+</div>
 
+<div class="image-lightbox" id="imageLightbox" hidden>
+    <button class="image-lightbox-close" type="button" aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestCloseImage")">×</button>
+    <img alt="" />
+</div>
+
+<div id="botTestDiagnostics">
 @if (Model.SearchResult is not null)
 {
     <section class="panel bot-test-debug">
@@ -232,6 +248,7 @@
         }
     </section>
 }
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
@@ -240,11 +257,15 @@
         const singleMode = document.querySelector("#botSingleMode");
         const transcriptPanel = document.querySelector("#botTestTranscriptPanel");
         const clearButton = document.querySelector("#botTestClear");
-        const singleResult = document.querySelector("#botTestSingleResult");
+        const botTestForm = document.querySelector("#botTestForm");
+        const results = document.querySelector("#botTestResults");
+        const diagnostics = document.querySelector("#botTestDiagnostics");
+        const requestError = document.querySelector("#botTestRequestError");
         const syncBotTestMode = () => {
             const inChat = chatMode?.checked === true;
             if (transcriptPanel) transcriptPanel.hidden = !inChat;
             if (clearButton) clearButton.hidden = !inChat;
+            const singleResult = document.querySelector("#botTestSingleResult");
             if (singleResult) singleResult.hidden = inChat;
         };
         chatMode?.addEventListener("change", syncBotTestMode);
@@ -257,6 +278,89 @@
         });
         const transcript = document.querySelector(".bot-test-transcript");
         if (transcript) transcript.scrollTop = transcript.scrollHeight;
+
+        const createMessage = (kind, label, message) => {
+            const node = document.createElement("div");
+            node.className = `message ${kind}`;
+            const meta = document.createElement("div");
+            meta.className = "message-meta";
+            meta.textContent = label;
+            node.appendChild(meta);
+            if (message != null) {
+                const paragraph = document.createElement("p");
+                paragraph.textContent = message;
+                node.appendChild(paragraph);
+            } else {
+                node.classList.add("typing-message");
+                const dots = document.createElement("div");
+                dots.className = "typing-dots";
+                for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+                node.appendChild(dots);
+            }
+            return node;
+        };
+
+        let requestInFlight = false;
+        botTestForm?.addEventListener("submit", async (event) => {
+            if (event.defaultPrevented) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (requestInFlight || !botTestForm.checkValidity()
+                || (window.jQuery?.(botTestForm).data("validator") && !window.jQuery(botTestForm).valid())) return;
+
+            requestInFlight = true;
+            requestError.hidden = true;
+            const questionField = botTestForm.querySelector("#Input_Question");
+            const question = questionField.value.trim();
+            const formData = new FormData(botTestForm);
+            const inChat = chatMode.checked;
+            const target = inChat ? transcript : results;
+            if (inChat) {
+                transcript.querySelector(".bot-test-empty")?.remove();
+                transcript.appendChild(createMessage("mine", botTestForm.dataset.youLabel, question));
+            } else {
+                results.replaceChildren();
+            }
+            target.appendChild(createMessage("bot", botTestForm.dataset.botTyping, null));
+            if (inChat) transcript.scrollTop = transcript.scrollHeight;
+            questionField.blur();
+            questionField.value = "";
+            window.jQuery?.(botTestForm).data("validator")?.resetForm();
+
+            try {
+                const response = await fetch(botTestForm.action, {
+                    method: "POST",
+                    body: formData,
+                    headers: { "Accept": "text/html" },
+                    credentials: "same-origin"
+                });
+                if (!response.ok) throw new Error("request-failed");
+                const page = new DOMParser().parseFromString(await response.text(), "text/html");
+                const nextHistory = page.querySelector("#Input_HistoryJson");
+                const nextTranscript = page.querySelector(".bot-test-transcript");
+                const nextResults = page.querySelector("#botTestResults");
+                const nextDiagnostics = page.querySelector("#botTestDiagnostics");
+                if (!nextHistory || !nextTranscript || !nextResults || !nextDiagnostics) throw new Error("invalid-response");
+                botTestForm.querySelector("#Input_HistoryJson").value = nextHistory.value;
+                transcript.innerHTML = nextTranscript.innerHTML;
+                results.innerHTML = nextResults.innerHTML;
+                diagnostics.innerHTML = nextDiagnostics.innerHTML;
+                syncBotTestMode();
+                transcript.scrollTop = transcript.scrollHeight;
+            } catch {
+                if (!questionField.value) questionField.value = question;
+                if (inChat) {
+                    target.querySelectorAll(".message").forEach((node) => {
+                        if (node === target.lastElementChild || node === target.lastElementChild?.previousElementSibling) node.remove();
+                    });
+                } else {
+                    results.replaceChildren();
+                }
+                requestError.hidden = false;
+            } finally {
+                requestInFlight = false;
+            }
+        });
 
         document.querySelectorAll("#botTestForm [data-required-message]").forEach((field) => {
             const clearError = () => field.setCustomValidity("");

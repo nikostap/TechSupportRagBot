@@ -98,7 +98,13 @@ public class BotTestModel : PageModel
         if (Input.ChatMode)
         {
             turns.Add(new BotTestTurn(false, Input.Question.Trim()[..Math.Min(Input.Question.Trim().Length, 1500)]));
-            turns.Add(new BotTestTurn(true, BotAnswer.Text[..Math.Min(BotAnswer.Text.Length, 4000)]));
+            turns.Add(new BotTestTurn(true, BotAnswer.Text[..Math.Min(BotAnswer.Text.Length, 4000)],
+                BotAnswer.Media
+                    .Where(x => x.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                        || x.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                    .Take(12)
+                    .Select(x => new BotTestMedia(x.PublicId, x.OriginalFileName, x.ContentType))
+                    .ToList()));
             History = turns.TakeLast(12).ToList();
             Input.HistoryJson = _historyProtector.Protect(JsonSerializer.Serialize(new BotTestHistory(Input.MachineId.Value, language, History)));
         }
@@ -127,7 +133,13 @@ public class BotTestModel : PageModel
         try
         {
             var saved = JsonSerializer.Deserialize<BotTestHistory>(_historyProtector.Unprotect(json));
-            if (saved?.Turns is null || saved.Turns.Count > 12 || saved.Turns.Any(x => x.Text.Length > (x.IsBot ? 4000 : 1500))) return null;
+            if (saved?.Turns is null || saved.Turns.Count > 12 || saved.Turns.Any(x =>
+                x.Text.Length > (x.IsBot ? 4000 : 1500)
+                || x.Media is { Count: > 12 }
+                || (x.Media?.Any(media => media.OriginalFileName.Length > 255
+                    || media.ContentType.Length > 100
+                    || !(media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                        || media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))) == true))) return null;
             return saved;
         }
         catch (Exception ex) when (ex is JsonException or System.Security.Cryptography.CryptographicException) { return null; }
@@ -167,6 +179,7 @@ public class BotTestModel : PageModel
         public string? HistoryJson { get; set; }
     }
 
-    public sealed record BotTestTurn(bool IsBot, string Text);
+    public sealed record BotTestTurn(bool IsBot, string Text, IReadOnlyList<BotTestMedia>? Media = null);
+    public sealed record BotTestMedia(Guid PublicId, string OriginalFileName, string ContentType);
     public sealed record BotTestHistory(int MachineId, string Language, IReadOnlyList<BotTestTurn> Turns);
 }
