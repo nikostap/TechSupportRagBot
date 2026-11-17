@@ -282,6 +282,29 @@ public class BotConversationPlannerTests
         Assert.Null(BotTechnicalCode.Extract("Датчик S04", history));
     }
 
+    [Theory]
+    [InlineData("Ошибка выскочила новая pfg1", "pfg1")]
+    [InlineData("Новая ошибка ocn", "ocn")]
+    [InlineData("ocn ошибка", "ocn")]
+    [InlineData("New fault appeared A003", "A003")]
+    public void FaultCodeIsExtractedFromNaturalReports(string report, string code)
+    {
+        Assert.Equal(code, BotTechnicalCode.Extract(report, null));
+    }
+
+    [Fact]
+    public void NearFaultCodeIsOnlySuggestedWhenUnique()
+    {
+        var pgf1 = new RagChunkCandidate { ErrorCode = "PGF1", Text = "Ошибка энкодера." };
+        var pgf2 = new RagChunkCandidate { ErrorCode = "PGF2" };
+        Assert.Same(pgf1, BotTechnicalCode.FindSingleNearMatch("PFG1", [pgf1]));
+        Assert.Same(pgf1, BotTechnicalCode.FindSingleNearMatch("PGF", [pgf1]));
+        Assert.Same(pgf1, BotTechnicalCode.FindSingleNearMatch("PGX1", [pgf1]));
+        Assert.Null(BotTechnicalCode.FindSingleNearMatch("PGF3", [pgf1, pgf2]));
+        Assert.Equal(2, BotTechnicalCode.CountConsecutivePriorMentions("PFG1",
+            "Клиент: ocn ошибка\nБот: Ответ\nКлиент: Ошибка pfg1\nБот: Нет записи\nКлиент: Ошибка pfg1\nБот: Проверьте код"));
+    }
+
     [Fact]
     public void MultilineAnswerIsPreservedAndWireQuestionStaysOnOriginalIssue()
     {
@@ -386,7 +409,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeStillNotFound", "BotFaultCodeEscalated", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

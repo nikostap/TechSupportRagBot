@@ -164,6 +164,10 @@
         }
 
         <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "SelectedChunks", "Выбранные чанки")</h3>
+        @if (Model.SearchResult.Chunks.Count == 0)
+        {
+            <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotNoChunksSelected")</p>
+        }
         <div class="qa-compact-list bot-test-chunk-list">
             @foreach (var chunk in Model.SearchResult.Chunks)
             {
@@ -194,8 +198,38 @@
             }
         </div>
 
-        <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "ContextSentToLlm", "Контекст, который ушёл в LLM")</h3>
-        <pre class="debug-pre">@Model.ContextForLlm</pre>
+        @if (Model.UnmatchedCodeCandidates.Count > 0)
+        {
+            <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotUnmatchedCodeCandidates")</h3>
+            <div class="qa-compact-list bot-test-chunk-list">
+                @foreach (var chunk in Model.UnmatchedCodeCandidates)
+                {
+                    <details class="qa-compact-card">
+                        <summary class="qa-card-summary">
+                            <span class="qa-summary-main">
+                                <strong>#@chunk.ChunkId · @(chunk.DocumentType ?? chunk.SourceType)</strong>
+                                <small>@(chunk.SectionTitle ?? chunk.Title ?? chunk.DocumentName ?? chunk.FileName)</small>
+                            </span>
+                        </summary>
+                        <div class="qa-card-body"><pre class="debug-pre">@chunk.Text</pre></div>
+                    </details>
+                }
+            </div>
+        }
+
+        <h3>@TechSupportRagBot.Services.UiText.T(HttpContext, Model.LlmInvoked ? "ContextSentToLlm" : "BotContextPreparedNotSent")</h3>
+        @if (!Model.LlmInvoked)
+        {
+            <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotLlmNotCalled")</p>
+        }
+        @if (string.IsNullOrWhiteSpace(Model.ContextForLlm))
+        {
+            <p class="muted-text">@TechSupportRagBot.Services.UiText.T(HttpContext, "BotNoContextPrepared")</p>
+        }
+        else
+        {
+            <pre class="debug-pre">@Model.ContextForLlm</pre>
+        }
     </section>
 }
 

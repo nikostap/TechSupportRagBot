@@ -47,6 +47,10 @@ public class BotTestModel : PageModel
 
     public string? ContextForLlm { get; private set; }
 
+    public bool LlmInvoked { get; private set; }
+
+    public IReadOnlyList<RagChunkCandidate> UnmatchedCodeCandidates { get; private set; } = [];
+
     public BotAnswerResult? BotAnswer { get; private set; }
 
     public IReadOnlyList<BotTestTurn> History { get; private set; } = [];
@@ -89,6 +93,8 @@ public class BotTestModel : PageModel
         SupplementalRetrievalQuestion = BotAnswer.SupplementalRetrievalQuestion;
         SearchResult = BotAnswer.SearchResult;
         ContextForLlm = BotAnswer.ContextForLlm;
+        LlmInvoked = BotAnswer.LlmInvoked;
+        UnmatchedCodeCandidates = BotAnswer.UnmatchedCodeCandidates;
         if (Input.ChatMode)
         {
             turns.Add(new BotTestTurn(false, Input.Question.Trim()[..Math.Min(Input.Question.Trim().Length, 1500)]));

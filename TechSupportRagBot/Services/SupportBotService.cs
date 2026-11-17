@@ -96,12 +96,15 @@ public class SupportBotService
             FinalTopK = 5
         }, cancellationToken);
         string? supplementalRetrievalQuestion = null;
+        IReadOnlyList<RagChunkCandidate> unmatchedCodeCandidates = [];
+        RagChunkCandidate? nearCodeCandidate = null;
 
         if (technicalCode != null)
         {
             // A short reply can supply the fault code requested by the bot. Search that
             // identifier directly; broad dialogue queries can bury its manual entry.
             var exact = ragResult.Chunks.Where(x => BotTechnicalCode.Matches(x, technicalCode)).ToList();
+            var candidates = ragResult.Chunks.ToList();
             if (exact.Count == 0)
             {
                 supplementalRetrievalQuestion = $"ошибка {technicalCode}";
@@ -113,9 +116,19 @@ public class SupportBotService
                     FinalTopK = 8
                 }, cancellationToken);
                 exact = codeResult.Chunks.Where(x => BotTechnicalCode.Matches(x, technicalCode)).ToList();
+                candidates.AddRange(codeResult.Chunks);
                 if (exact.Count > 0) ragResult.Confidence = Math.Max(ragResult.Confidence, codeResult.Confidence);
             }
 
+            if (exact.Count == 0)
+            {
+                var distinctCandidates = candidates.DistinctBy(x => x.ChunkId).ToList();
+                nearCodeCandidate = BotTechnicalCode.FindSingleNearMatch(technicalCode, distinctCandidates);
+                unmatchedCodeCandidates = (nearCodeCandidate == null
+                        ? distinctCandidates
+                        : new[] { nearCodeCandidate }.Concat(distinctCandidates.Where(x => x.ChunkId != nearCodeCandidate.ChunkId)))
+                    .Take(5).ToList();
+            }
             ragResult.Chunks = exact;
             ragResult.ShouldCallOperator = exact.Count == 0;
         }
@@ -205,9 +218,24 @@ public class SupportBotService
 
             if (technicalCode != null && ragResult.Chunks.Count == 0)
             {
-                var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFaultCodeNotFound");
-                return new BotAnswerResult(string.Format(template, technicalCode.ToUpperInvariant()), false, [])
-                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult };
+                var priorMentions = BotTechnicalCode.CountConsecutivePriorMentions(technicalCode, conversationContext);
+                var near = nearCodeCandidate;
+                var key = priorMentions >= 2 ? "BotFaultCodeEscalated"
+                    : priorMentions == 1 ? "BotFaultCodeStillNotFound"
+                    : near != null ? "BotFaultCodeNearMatch" : "BotFaultCodeNotFound";
+                var template = UiText.ForLanguage(isEnglish ? "en" : "ru", key);
+                var nearDescription = near?.Text.Trim() ?? string.Empty;
+                if (near != null && isEnglish)
+                {
+                    var translated = await _translation.TranslateAsync(nearDescription, "Russian", language, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(translated)) nearDescription = translated;
+                }
+                var reply = near != null && priorMentions == 0
+                    ? string.Format(template, technicalCode.ToUpperInvariant(), near.ErrorCode!.ToUpperInvariant(), nearDescription)
+                    : string.Format(template, technicalCode.ToUpperInvariant());
+                return new BotAnswerResult(reply, priorMentions >= 2, [])
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
+                    SearchResult = ragResult, UnmatchedCodeCandidates = unmatchedCodeCandidates };
             }
 
             return new BotAnswerResult(
@@ -363,14 +391,14 @@ public class SupportBotService
                 }, traceId, cancellationToken);
 
                 return new BotAnswerResult(deterministicAnswer, false, answerMedia)
-                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
             }
 
             var fallback = isEnglish
                 ? "I found context, but could not form a reliable answer. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
                 : "Контекст найден, но я не смог сформировать надежный ответ. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
             return new BotAnswerResult(fallback, false, answerMedia)
-            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
@@ -411,7 +439,7 @@ public class SupportBotService
         }, traceId, cancellationToken);
 
         return new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia)
-        { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+        { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
     }
 
     private async Task<string?> BuildDeterministicAnswerFromContextAsync(
@@ -679,6 +707,8 @@ public sealed record BotAnswerResult(string Text, bool ShouldEscalate, IReadOnly
     public string? SupplementalRetrievalQuestion { get; init; }
     public RagSearchResult? SearchResult { get; init; }
     public string? ContextForLlm { get; init; }
+    public bool LlmInvoked { get; init; }
+    public IReadOnlyList<RagChunkCandidate> UnmatchedCodeCandidates { get; init; } = [];
     public static BotAnswerResult Escalate(string text) => new(text, true, []);
 }
 
