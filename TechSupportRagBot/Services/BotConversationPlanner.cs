@@ -9,7 +9,8 @@ public static class BotConversationPlanner
         "такой", "такая", "this", "that", "it", "same", "previous"
     ];
 
-    public static BotConversationPlan Create(string question, string? history)
+    public static BotConversationPlan Create(string question, string? history, bool? forceFollowUp = null,
+        BotTurnIntent interpretedIntent = BotTurnIntent.Unknown)
     {
         question = question.Trim();
         var turns = BotConversationHistory.Parse(history);
@@ -18,8 +19,11 @@ public static class BotConversationPlanner
         var previousBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
         var hasExchange = !string.IsNullOrWhiteSpace(previousClient) && !string.IsNullOrWhiteSpace(previousBot);
         var normalized = question.ToLowerInvariant();
-        var isConfirmation = normalized is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
+        var isConfirmation = interpretedIntent is BotTurnIntent.Affirmation or BotTurnIntent.Negation
+            || normalized is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
             or "не то" or "не это" or "yes" or "no" or "yeah" or "yep" or "correct";
+        var isNegative = interpretedIntent == BotTurnIntent.Negation
+            || normalized is "нет" or "no" or "не то" or "не это";
         var hasReference = References.Any(x => ContainsWord(normalized, x));
         var newQuestion = normalized.TrimStart('а', ' ', ',');
         var startsNewQuestion = new[] { "как ", "почему ", "можно ", "что делать", "где ", "какой ", "какое ", "какая ", "какие ", "какую ", "каких ", "каким ", "сколько ", "how ", "why ", "where ", "what ", "which " }
@@ -31,16 +35,16 @@ public static class BotConversationPlanner
                 || previousBot?.Contains("please specify", StringComparison.OrdinalIgnoreCase) == true)
             && question.Length <= 100 && !startsNewQuestion;
         var isShortDetail = question.Length <= 100 && !startsNewQuestion && !question.Contains('?');
-        var isFollowUp = hasExchange && (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
-            || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question)));
+        var isFollowUp = hasExchange && (forceFollowUp ?? (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
+            || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question))));
         var lastQuestionMark = previousBot?.LastIndexOf('?') ?? -1;
         var lastBotQuestion = lastQuestionMark >= 0
             ? previousBot![Math.Max(0, lastQuestionMark - 160)..(lastQuestionMark + 1)]
             : string.Empty;
-        var needsChoice = isConfirmation && normalized is not ("нет" or "no" or "не то" or "не это")
+        var needsChoice = isConfirmation && !isNegative
             && (lastBotQuestion.Contains(" или ", StringComparison.OrdinalIgnoreCase)
                 || (lastBotQuestion.Contains('(') && lastBotQuestion.Contains(", ", StringComparison.OrdinalIgnoreCase)));
-        var needsDetail = isConfirmation && normalized is not ("нет" or "no" or "не то" or "не это")
+        var needsDetail = isConfirmation && !isNegative
             && (lastBotQuestion.Length == 0
                 || lastBotQuestion.Contains("чем могу помочь", StringComparison.OrdinalIgnoreCase)
                 || lastBotQuestion.Contains("ещё", StringComparison.OrdinalIgnoreCase)

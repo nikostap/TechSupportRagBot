@@ -56,32 +56,47 @@ public static partial class BotTechnicalCode
         return clientTurns.Select(turn => Extract(turn, history)).FirstOrDefault(code => code != null);
     }
 
-    public static BotSuggestedCodeReply? ResolveSuggestedCodeReply(string question, string? history)
+    public static BotSuggestedCodeReply? ResolveSuggestedCodeReply(
+        string question, string? history, BotTurnIntent interpretedIntent = BotTurnIntent.Unknown)
     {
-        var turns = BotConversationHistory.Parse(history);
-        if (turns.LastOrDefault()?.Role != "Бот") return null;
-        var suggestion = SuggestedCode().Match(turns[^1].Text);
-        if (!suggestion.Success) return null;
-        var reportedCode = turns.Where(x => x.Role == "Клиент")
-            .Select(x => Extract(x.Text, null))
-            .LastOrDefault(x => x != null);
-        var suggestedCode = suggestion.Groups[1].Value;
-        if (reportedCode == null || string.Equals(reportedCode, suggestedCode, StringComparison.OrdinalIgnoreCase))
-            return null;
+        var pending = GetPendingSuggestedCode(history);
+        if (pending == null) return null;
+        var reportedCode = pending.ReportedCode;
+        var suggestedCode = pending.SuggestedCode;
 
         static bool Mentions(string text, string code) => Regex.IsMatch(text,
             $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(code)}(?![\p{{L}}\p{{N}}])", RegexOptions.IgnoreCase);
         var mentionsReported = Mentions(question, reportedCode);
         var mentionsSuggested = Mentions(question, suggestedCode);
         if (mentionsReported != mentionsSuggested)
-            return new BotSuggestedCodeReply(reportedCode, suggestedCode,
-                mentionsSuggested ? suggestedCode : reportedCode);
-        if (question.Length <= 80 && AffirmativeReply().IsMatch(question.Trim()))
-            return new BotSuggestedCodeReply(reportedCode, suggestedCode, suggestedCode);
-        if (question.Length <= 80 && NegativeReply().IsMatch(question.Trim()))
-            return new BotSuggestedCodeReply(reportedCode, suggestedCode, null);
+            return pending with { SelectedCode = mentionsSuggested ? suggestedCode : reportedCode };
+        if (interpretedIntent == BotTurnIntent.Affirmation
+            || (interpretedIntent == BotTurnIntent.Unknown && question.Length <= 80 && AffirmativeReply().IsMatch(question.Trim())))
+            return pending with { SelectedCode = suggestedCode };
+        if (interpretedIntent == BotTurnIntent.Negation
+            || (interpretedIntent == BotTurnIntent.Unknown && question.Length <= 80 && NegativeReply().IsMatch(question.Trim())))
+            return pending;
         return null;
     }
+
+    public static BotSuggestedCodeReply? GetPendingSuggestedCode(string? history)
+    {
+        var turns = BotConversationHistory.Parse(history);
+        if (turns.LastOrDefault()?.Role != "Бот") return null;
+        var suggestion = SuggestedCode().Match(turns[^1].Text);
+        if (!suggestion.Success) return null;
+        var reportedCode = GetLastReportedCode(history);
+        var suggestedCode = suggestion.Groups[1].Value;
+        if (reportedCode == null || string.Equals(reportedCode, suggestedCode, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return new BotSuggestedCodeReply(reportedCode, suggestedCode, null);
+    }
+
+    public static string? GetLastReportedCode(string? history) =>
+        BotConversationHistory.Parse(history)
+            .Where(x => x.Role == "Клиент")
+            .Select(x => Extract(x.Text, null))
+            .LastOrDefault(x => x != null);
 
     public static int CountConsecutivePriorMentions(string code, string? history) =>
         BotConversationHistory.Parse(history)

@@ -321,6 +321,55 @@ public class BotConversationPlannerTests
         Assert.Null(BotTechnicalCode.ResolveSuggestedCodeReply("Нет, это другая ошибка", history)?.SelectedCode);
         var afterFailedConfirmation = history + "\nКлиент: Да эта ошибка\nБот: Вы снова указали PFG1. В документации найден похожий код PGF1: ошибка энкодера.";
         Assert.Equal("PGF1", BotTechnicalCode.ResolveSuggestedCodeReply("Да эта ошибка", afterFailedConfirmation)?.SelectedCode);
+        Assert.Equal("PGF1", BotTechnicalCode.ResolveSuggestedCodeReply("Ну, похоже, что она", history, BotTurnIntent.Affirmation)?.SelectedCode);
+        Assert.Null(BotTechnicalCode.ResolveSuggestedCodeReply("Это совсем не то", history, BotTurnIntent.Negation)?.SelectedCode);
+        Assert.Equal("PGF1", BotTechnicalCode.GetPendingSuggestedCode(history)?.SuggestedCode);
+        Assert.Equal("pfg1", BotTechnicalCode.GetLastReportedCode(history));
+        Assert.Equal("pfg1", BotTechnicalCode.GetLastReportedCode(history + "\nКлиент: Нет, это не она\nБот: Уточните код."));
+        Assert.Null(BotTechnicalCode.ResolveSuggestedCodeReply("Не уверен", history));
+    }
+
+    [Theory]
+    [InlineData("Да эта ошибка", BotTurnIntent.Affirmation)]
+    [InlineData("Ну да, именно", BotTurnIntent.Affirmation)]
+    [InlineData("Точно", BotTurnIntent.Affirmation)]
+    [InlineData("Нет, это другая ошибка", BotTurnIntent.Negation)]
+    [InlineData("Не похоже", BotTurnIntent.Negation)]
+    public void CommonRepliesAreClassifiedWithoutModel(string reply, BotTurnIntent intent)
+    {
+        Assert.Equal(intent, BotTurnClassifier.ClassifyCommonReply(reply)?.Intent);
+    }
+
+    [Fact]
+    public void ModelTurnClassificationRequiresKnownIntentAndConfidence()
+    {
+        var newQuestion = BotTurnClassifier.ParseModelReply("```json\n{\"intent\":\"new_question\",\"confidence\":0.93}\n```");
+        Assert.Equal(BotTurnIntent.NewQuestion, newQuestion?.Intent);
+        Assert.True(newQuestion?.IsReliable);
+        Assert.False(BotTurnClassifier.ParseModelReply("{\"intent\":\"affirmation\",\"confidence\":0.45}")?.IsReliable);
+        Assert.Null(BotTurnClassifier.ParseModelReply("{\"intent\":\"affirmation\",\"confidence\":2}"));
+        Assert.Null(BotTurnClassifier.ParseModelReply("not json"));
+    }
+
+    [Fact]
+    public void ClassifiedClarificationRetainsPriorTopicAndNewQuestionResetsIt()
+    {
+        const string history = "Клиент: Не работает привод размотки\nБот: Проверьте питание привода.";
+        Assert.True(BotConversationPlanner.Create("Что с валом?", history, true).IsFollowUp);
+        Assert.False(BotConversationPlanner.Create("Что с валом?", null).IsFollowUp);
+    }
+
+    [Fact]
+    public void ModelClassifiedConfirmationUsesConversationBranch()
+    {
+        const string history = "Клиент: Не работает привод размотки\n"
+            + "Бот: Проблема в датчике или в кабеле?";
+        var affirmative = BotConversationPlanner.Create("Похоже, первое", history, interpretedIntent: BotTurnIntent.Affirmation);
+        var negative = BotConversationPlanner.Create("Совсем не так", history, interpretedIntent: BotTurnIntent.Negation);
+        Assert.True(affirmative.IsFollowUp);
+        Assert.True(affirmative.NeedsChoiceClarification);
+        Assert.True(negative.IsFollowUp);
+        Assert.False(negative.NeedsChoiceClarification);
     }
 
     [Fact]
@@ -427,7 +476,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotChooseFaultCode", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

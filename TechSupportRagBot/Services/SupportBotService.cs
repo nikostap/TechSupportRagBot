@@ -77,8 +77,38 @@ public class SupportBotService
             return BotAnswerResult.Escalate(EscalationText(isEnglish));
         }
 
-        var conversationPlan = BotConversationPlanner.Create(question, conversationContext);
-        var suggestedCodeReply = BotTechnicalCode.ResolveSuggestedCodeReply(question, conversationContext);
+        var turn = await BotTurnClassifier.ClassifyAsync(question, conversationContext, _ollama, cancellationToken);
+        await _audit.WriteAsync("Bot.Turn.Classified", new
+        {
+            machineId,
+            intent = turn.Intent.ToString(),
+            turn.Confidence,
+            turn.Source
+        }, traceId, cancellationToken);
+        if (turn.IsReliable && turn.Intent == BotTurnIntent.NewQuestion)
+            conversationContext = null;
+        var explicitCode = BotTechnicalCode.Extract(question, conversationContext);
+        var pendingCode = BotTechnicalCode.GetPendingSuggestedCode(conversationContext);
+        var lastReportedCode = BotTechnicalCode.GetLastReportedCode(conversationContext);
+        if (explicitCode != null && lastReportedCode != null
+            && !explicitCode.Equals(lastReportedCode, StringComparison.OrdinalIgnoreCase)
+            && !explicitCode.Equals(pendingCode?.SuggestedCode, StringComparison.OrdinalIgnoreCase))
+            conversationContext = null;
+        var forceFollowUp = turn.IsReliable && turn.Intent == BotTurnIntent.Clarification ? true : (bool?)null;
+        var conversationPlan = BotConversationPlanner.Create(question, conversationContext, forceFollowUp,
+            turn.IsReliable ? turn.Intent : BotTurnIntent.Unknown);
+        var suggestedCodeReply = BotTechnicalCode.ResolveSuggestedCodeReply(question, conversationContext,
+            turn.IsReliable ? turn.Intent : BotTurnIntent.Unknown);
+        var currentCode = BotTechnicalCode.Extract(question, conversationContext);
+        if (suggestedCodeReply == null && (!turn.IsReliable || turn.Intent == BotTurnIntent.Other)
+            && currentCode == null
+            && BotTechnicalCode.GetPendingSuggestedCode(conversationContext) is { } pendingSuggestion)
+        {
+            var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseFaultCode");
+            return new BotAnswerResult(string.Format(template,
+                pendingSuggestion.SuggestedCode.ToUpperInvariant(),
+                pendingSuggestion.ReportedCode.ToUpperInvariant()), false, []);
+        }
         if (suggestedCodeReply is { SelectedCode: null })
         {
             var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotSuggestedFaultRejected");
@@ -87,11 +117,11 @@ public class SupportBotService
         }
         var technicalCode = suggestedCodeReply?.SelectedCode
             ?? BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
-        if (conversationPlan.NeedsChoiceClarification)
+        if (suggestedCodeReply == null && conversationPlan.NeedsChoiceClarification)
         {
             return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []);
         }
-        if (conversationPlan.NeedsDetailClarification)
+        if (suggestedCodeReply == null && conversationPlan.NeedsDetailClarification)
         {
             return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotDescribeFollowUp"), false, []);
         }
