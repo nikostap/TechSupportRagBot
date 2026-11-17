@@ -742,6 +742,13 @@ public class RagSearchService : IRagSearchService
                 reasons.Add("error metadata +0.18");
             }
 
+            if (queryIntent == QueryIntent.ErrorDiagnostic && !string.IsNullOrWhiteSpace(candidate.ErrorCode)
+                && ExtractEntityTerms(question).Any(term => string.Equals(term, candidate.ErrorCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 0.80;
+                reasons.Add("exact fault code +0.80");
+            }
+
             if (!string.IsNullOrWhiteSpace(candidate.NodeName)
                 && question.Contains(candidate.NodeName, StringComparison.OrdinalIgnoreCase))
             {
@@ -1137,7 +1144,7 @@ public class RagSearchService : IRagSearchService
         return queryIntent switch
         {
             QueryIntent.Instruction or QueryIntent.Setup => new[] { "QA", "ChatLog", "Manual", "Instruction" },
-            QueryIntent.ErrorDiagnostic => new[] { "QA", "ChatLog", "ErrorTable", "ServiceReport" },
+            QueryIntent.ErrorDiagnostic => new[] { "QA", "ChatLog", "ErrorTable", "ServiceReport", "Manual" },
             QueryIntent.Maintenance => new[] { "QA", "ChatLog", "Manual", "Instruction", "ServiceReport" },
             _ => new[] { "QA", "ChatLog" }
         };

@@ -78,6 +78,7 @@ public class SupportBotService
         }
 
         var conversationPlan = BotConversationPlanner.Create(question, conversationContext);
+        var technicalCode = BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
         if (conversationPlan.NeedsChoiceClarification)
         {
             return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []);
@@ -94,24 +95,47 @@ public class SupportBotService
             MachineId = machineId,
             FinalTopK = 5
         }, cancellationToken);
+        string? supplementalRetrievalQuestion = null;
+
+        if (technicalCode != null)
+        {
+            // A short reply can supply the fault code requested by the bot. Search that
+            // identifier directly; broad dialogue queries can bury its manual entry.
+            var exact = ragResult.Chunks.Where(x => BotTechnicalCode.Matches(x, technicalCode)).ToList();
+            if (exact.Count == 0)
+            {
+                supplementalRetrievalQuestion = $"ошибка {technicalCode}";
+                var codeResult = await _ragSearch.SearchAsync(new RagSearchRequest
+                {
+                    TraceId = traceId,
+                    Question = supplementalRetrievalQuestion,
+                    MachineId = machineId,
+                    FinalTopK = 8
+                }, cancellationToken);
+                exact = codeResult.Chunks.Where(x => BotTechnicalCode.Matches(x, technicalCode)).ToList();
+                if (exact.Count > 0) ragResult.Confidence = Math.Max(ragResult.Confidence, codeResult.Confidence);
+            }
+
+            ragResult.Chunks = exact;
+            ragResult.ShouldCallOperator = exact.Count == 0;
+        }
 
         var referenceCode = conversationPlan.IsFollowUp
             ? Regex.Match(question, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value
             : string.Empty;
         if (conversationPlan.IsFollowUp && string.IsNullOrEmpty(referenceCode))
             referenceCode = Regex.Match(conversationPlan.SearchQuestion, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value;
-        FilterByReferenceCode(ragResult, referenceCode);
+        if (technicalCode == null) FilterByReferenceCode(ragResult, referenceCode);
         FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
 
         var evidenceText = conversationPlan.ResolvedReference ?? question;
         var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
             ? await _translation.TranslateToRussianForSearchAsync(evidenceText, language, cancellationToken)
             : evidenceText;
-        var missingTerms = conversationPlan.IsFollowUp
+        var missingTerms = conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AnswersBotQuestion
             ? BotEvidenceGate.MissingTerms(evidenceQuestion, ragResult.Chunks)
             : [];
-        string? supplementalRetrievalQuestion = null;
-        if (conversationPlan.IsFollowUp && (ragResult.ShouldCallOperator || missingTerms.Count > 0))
+        if (conversationPlan.IsFollowUp && technicalCode == null && (ragResult.ShouldCallOperator || missingTerms.Count > 0))
         {
             supplementalRetrievalQuestion = await BuildRussianRetrievalQuestionAsync(
                 conversationPlan.FocusedSearchQuestion, language, traceId, cancellationToken);
@@ -130,7 +154,7 @@ public class SupportBotService
             ragResult.ShouldCallOperator = merged.Count == 0
                 || (ragResult.ShouldCallOperator && focusedResult.ShouldCallOperator);
             ragResult.Confidence = Math.Max(ragResult.Confidence, focusedResult.Confidence);
-            missingTerms = BotEvidenceGate.MissingTerms(evidenceQuestion, merged);
+            missingTerms = conversationPlan.AnswersBotQuestion ? [] : BotEvidenceGate.MissingTerms(evidenceQuestion, merged);
         }
 
         _logger.LogInformation(
@@ -177,6 +201,23 @@ public class SupportBotService
             context
         }, traceId, cancellationToken);
 
+        // Prepared manuals carry one verified, self-contained entry per fault code.
+        // When exactly one applicable entry matches, return it directly so a previous
+        // "not found" answer cannot override newly available evidence.
+        if (technicalCode != null && ragResult.Chunks.Count == 1
+            && string.Equals(ragResult.Chunks[0].ErrorCode, technicalCode, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(ragResult.Chunks[0].Text))
+        {
+            var documented = ragResult.Chunks[0].Text.Trim();
+            if (isEnglish)
+            {
+                var translated = await _translation.TranslateAsync(documented, "Russian", language, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(translated)) documented = translated;
+            }
+            return new BotAnswerResult(documented, false, answerMedia)
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+        }
+
         if (conversationPlan.IsFollowUp && ragResult.Chunks.Count == 1)
         {
             var exactQa = ragResult.Chunks[0];
@@ -189,7 +230,8 @@ public class SupportBotService
                     : exactQa.Solution;
                 if (!string.IsNullOrWhiteSpace(directAnswer))
                 {
-                    directAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(directAnswer.Trim(), conversationPlan.PreviousBotAnswer);
+                    if (technicalCode == null)
+                        directAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(directAnswer.Trim(), conversationPlan.PreviousBotAnswer);
                     if (string.IsNullOrWhiteSpace(directAnswer))
                         directAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
                     if (!string.IsNullOrWhiteSpace(conversationPlan.ResolvedReference)
@@ -298,7 +340,7 @@ public class SupportBotService
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
-        if (conversationPlan.IsFollowUp)
+        if (conversationPlan.IsFollowUp && technicalCode == null)
         {
             cleanAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
             if (string.IsNullOrWhiteSpace(cleanAnswer))

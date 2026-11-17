@@ -70,7 +70,7 @@ public static class BotConversationPlanner
         if (resolvedReference is not null) detailText = $"{detailText}; {resolvedReference}";
         var searchQuestion = $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
         var focusedSearchQuestion = $"{detailText}. {Truncate(originalProblem, 160)}";
-        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail, resolvedReference);
+        return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousAnswers, 1400), needsChoice, needsDetail, resolvedReference, answersBotQuestion);
     }
 
     private static bool LooksLikeIndependentQuestion(string value)
@@ -111,4 +111,4 @@ public static class BotConversationPlanner
     }
 }
 
-public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null);
+public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null, bool AnswersBotQuestion = false);

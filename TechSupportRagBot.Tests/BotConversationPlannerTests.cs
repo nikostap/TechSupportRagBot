@@ -243,6 +243,39 @@ public class BotConversationPlannerTests
         Assert.Equal("ALF показывает ошибку E34", plan.SearchQuestion);
     }
 
+    [Theory]
+    [InlineData("ocn", "Клиент: У меня ошибка на инверторе\nБот: Уточните код ошибки?", "ocn")]
+    [InlineData("A003", "Клиент: Ошибка сервопривода\nБот: Какой код ошибки?", "A003")]
+    [InlineData("S04", "Клиент: Не работает датчик\nБот: Какой датчик?", null)]
+    [InlineData("муфта", "Клиент: Не работает тормозная\nБот: Какой узел?", null)]
+    public void ShortAnswersAreClassifiedFromTheBotQuestion(string reply, string history, string? code)
+    {
+        var plan = BotConversationPlanner.Create(reply, history);
+        Assert.True(plan.AnswersBotQuestion);
+        Assert.Equal(code, BotTechnicalCode.ExtractForFollowUp(reply, history, plan.IsFollowUp));
+    }
+
+    [Fact]
+    public void ShortLocationAnswerRetainsThePreviouslySuppliedFaultCode()
+    {
+        const string history = "Клиент: У меня ошибка на инверторе\nБот: Уточните код ошибки?\n"
+            + "Клиент: ocn\nБот: На каком узле станка возникла ошибка?";
+        var plan = BotConversationPlanner.Create("Узел размотки", history);
+
+        Assert.True(plan.AnswersBotQuestion);
+        Assert.Equal("ocn", BotTechnicalCode.ExtractForFollowUp("Узел размотки", history, plan.IsFollowUp));
+        Assert.Contains("размотки", plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void FaultCodeMatchesWholeIdentifierInEvidence()
+    {
+        var exact = new RagChunkCandidate { ErrorCode = "ocn", Text = "Авария ocn: перегрузка по току." };
+        var neighbor = new RagChunkCandidate { ErrorCode = "oc2", Text = "Авария oc2." };
+        Assert.True(BotTechnicalCode.Matches(exact, "OCN"));
+        Assert.False(BotTechnicalCode.Matches(neighbor, "ocn"));
+    }
+
     [Fact]
     public void NormalRussianHistoryIsNotMistakenForMojibake()
     {
