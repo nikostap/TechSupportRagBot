@@ -268,6 +268,21 @@ public class BotConversationPlannerTests
     }
 
     [Fact]
+    public void NewFaultCodeInNaturalPhraseOverridesEarlierFault()
+    {
+        const string history = "Клиент: ocn ошибка\nБот: Проверьте двигатель.\n"
+            + "Клиент: У меня двигатель не вращается по старту\nБот: Проверьте кабель двигателя.";
+        const string question = "Ошибка выскочила новая pgf1";
+
+        var plan = BotConversationPlanner.Create(question, history);
+
+        Assert.True(plan.IsFollowUp);
+        Assert.Equal("pgf1", BotTechnicalCode.ExtractForFollowUp(question, history, plan.IsFollowUp));
+        Assert.Equal("pfg1", BotTechnicalCode.ExtractForFollowUp("Ошибка выскочила новая pfg1", history, plan.IsFollowUp));
+        Assert.Null(BotTechnicalCode.Extract("Датчик S04", history));
+    }
+
+    [Fact]
     public void MultilineAnswerIsPreservedAndWireQuestionStaysOnOriginalIssue()
     {
         const string history = "Клиент: Ошибка нити отрезки что делать?\n"
@@ -371,7 +386,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

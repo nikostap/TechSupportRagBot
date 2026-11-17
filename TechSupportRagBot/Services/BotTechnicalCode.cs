@@ -10,6 +10,14 @@ public static partial class BotTechnicalCode
         var explicitCode = LabeledCode().Match(question);
         if (explicitCode.Success) return explicitCode.Groups[1].Value;
 
+        // Fault reports often put ordinary words between "ошибка" and a code
+        // ("Ошибка выскочила новая pgf1"). Only accept an unambiguous token.
+        if (FaultContext().IsMatch(question))
+        {
+            var codes = NumericCodeToken().Matches(question).Select(x => x.Value).ToList();
+            if (codes.Count == 1) return codes[0];
+        }
+
         var token = question.Trim().Trim('.', ',', ':', ';', '!', '?');
         if (!CodeToken().IsMatch(token)) return null;
 
@@ -46,6 +54,9 @@ public static partial class BotTechnicalCode
 
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9._-]{1,9}$")]
     private static partial Regex CodeToken();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])[A-Za-z]{1,5}\d{1,4}(?![\p{L}\p{N}])", RegexOptions.IgnoreCase)]
+    private static partial Regex NumericCodeToken();
 
     [GeneratedRegex(@"ошибк|авари|код ошиб|инвертор|преобразовател|сервопривод|fault|error|alarm|inverter|drive", RegexOptions.IgnoreCase)]
     private static partial Regex FaultContext();

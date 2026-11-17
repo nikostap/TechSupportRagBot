@@ -203,6 +203,13 @@ public class SupportBotService
                 chunksCount = ragResult.Chunks.Count
             }, traceId, cancellationToken);
 
+            if (technicalCode != null && ragResult.Chunks.Count == 0)
+            {
+                var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFaultCodeNotFound");
+                return new BotAnswerResult(string.Format(template, technicalCode.ToUpperInvariant()), false, [])
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult };
+            }
+
             return new BotAnswerResult(
                 await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken),
                 false,
