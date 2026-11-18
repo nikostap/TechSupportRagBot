@@ -81,6 +81,10 @@
 }
 else if (Model.Tab == "positions")
 {
+    <datalist id="position-component-types">
+        @foreach (var item in Model.Positions.Where(x => !x.IsArchived && !string.IsNullOrWhiteSpace(x.ComponentType)))
+        { <option value="@item.ComponentType" data-machine-model="@item.MachineModel"></option> }
+    </datalist>
     <section class="panel component-template-panel"><h2>@T("PositionTemplates")</h2>
         <form method="post" asp-page-handler="AddTemplate" class="component-template-form">
             <label data-help="@T("PositionNameHelp")">@T("PositionName")<input asp-for="Template.Name" required maxlength="200" /></label>
@@ -113,7 +117,7 @@ else if (Model.Tab == "positions")
     <div class="component-layout">
         <section class="panel"><h2>@T("AddMachinePosition")</h2>
             <form method="post" asp-page-handler="AddPosition" class="component-form">
-                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select asp-for="Position.MachineModel" required><option value="">@T("SelectMachineModel")</option>
+                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select asp-for="Position.MachineModel" data-position-machine-model required><option value="">@T("SelectMachineModel")</option>
                     @foreach (var name in Model.MachineModels) { <option value="@name">@name</option> }
                 </select></label>
                 <label data-help="@T("PositionTemplateHelp")">@T("PositionTemplate")<select asp-for="Position.PositionTemplateId"><option value="">@T("NoTemplate")</option>
@@ -121,7 +125,7 @@ else if (Model.Tab == "positions")
                 </select></label>
                 <label data-help="@T("PositionKeyHelp")">@T("PositionKey")<input asp-for="Position.Key" required maxlength="120" /></label>
                 <label data-help="@T("PositionNameHelp")">@T("PositionName")<input asp-for="Position.Name" maxlength="200" /></label>
-                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input asp-for="Position.ComponentType" maxlength="80" /></label>
+                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input asp-for="Position.ComponentType" maxlength="80" list="position-component-types" data-position-type-input /></label>
                 <label data-help="@T("HmiLabelHelp")">@T("HmiLabel")<input asp-for="Position.HmiLabel" /></label>
                 <label data-help="@T("SchemeLabelHelp")">@T("SchemeLabel")<input asp-for="Position.SchemeLabel" /></label>
                 <button class="btn-main" type="submit">@T("Add")</button>
@@ -144,12 +148,12 @@ else if (Model.Tab == "positions")
                         @if (item.IsArchived) { <small>@T("ArchivedCatalogEntry")</small> }
                         <details><summary>@T("EditCatalogEntry")</summary>
                             <form method="post" asp-page-handler="UpdatePosition" asp-route-id="@item.Id" class="component-form">
-                                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select name="EditPosition.MachineModel" required>
+                                <label data-help="@T("MachineModelHelp")">@T("MachineModel")<select name="EditPosition.MachineModel" data-position-machine-model required>
                                     @foreach (var name in Model.MachineModels) { <option value="@name" selected="@(name == item.MachineModel)">@name</option> }
                                 </select></label>
                                 <label data-help="@T("PositionKeyHelp")">@T("PositionKey")<input name="EditPosition.Key" value="@item.Key" required maxlength="120" /></label>
                                 <label data-help="@T("PositionNameHelp")">@T("PositionName")<input name="EditPosition.Name" value="@item.Name" required maxlength="200" /></label>
-                                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input name="EditPosition.ComponentType" value="@item.ComponentType" maxlength="80" /></label>
+                                <label data-help="@T("ComponentTypeHelp")">@T("ComponentType")<input name="EditPosition.ComponentType" value="@item.ComponentType" maxlength="80" list="position-component-types" data-position-type-input /></label>
                                 <label data-help="@T("HmiLabelHelp")">@T("HmiLabel")<input name="EditPosition.HmiLabel" value="@item.HmiLabel" /></label>
                                 <label data-help="@T("SchemeLabelHelp")">@T("SchemeLabel")<input name="EditPosition.SchemeLabel" value="@item.SchemeLabel" /></label>
                                 <button class="btn-main" type="submit">@T("Save")</button>
@@ -254,6 +258,34 @@ else
             if (input) input.value = value || '';
         }
     });
+    const positionTypes = document.getElementById('position-component-types');
+    if (positionTypes) {
+        const savedTypes = Array.from(positionTypes.options, option => ({
+            machineModel: option.dataset.machineModel,
+            value: option.value
+        }));
+        const syncPositionTypes = form => {
+            const machineModel = form.querySelector('[data-position-machine-model]')?.value;
+            const seen = new Set();
+            positionTypes.replaceChildren(...savedTypes
+                .filter(item => item.machineModel === machineModel)
+                .filter(item => {
+                    const key = item.value.trim().toLocaleLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                })
+                .sort((left, right) => left.value.localeCompare(right.value))
+                .map(item => new Option(item.value, item.value)));
+        };
+        document.querySelectorAll('[data-position-type-input]').forEach(input => {
+            input.addEventListener('focus', () => syncPositionTypes(input.form));
+            input.form.querySelector('[data-position-machine-model]')
+                ?.addEventListener('change', () => syncPositionTypes(input.form));
+        });
+        const addPosition = document.getElementById('Position_ComponentType');
+        if (addPosition) syncPositionTypes(addPosition.form);
+    }
     const model = document.getElementById('Assignment_MachineModel');
     const position = document.getElementById('Assignment_MachinePositionId');
     if (!model || !position) return;
