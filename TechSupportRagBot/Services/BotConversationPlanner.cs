@@ -13,6 +13,8 @@ public static class BotConversationPlanner
         BotTurnIntent interpretedIntent = BotTurnIntent.Unknown)
     {
         question = question.Trim();
+        if (BotIssueBoundary.StartsDifferentFault(question, history))
+            return new BotConversationPlan(question, question, false, string.Empty, false, false);
         var turns = BotConversationHistory.Parse(history);
         var clientTurns = turns.Where(x => x.Role == "Клиент").Select(x => x.Text).ToList();
         var previousClient = clientTurns.LastOrDefault();

@@ -288,7 +288,7 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) };
         }
 
-        var answerMedia = await LoadAnswerMediaAsync(ragResult, cancellationToken);
+        var answerMedia = await LoadAnswerMediaAsync(question, ragResult, cancellationToken);
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new
         {
@@ -435,7 +435,7 @@ public class SupportBotService
             var fallback = isEnglish
                 ? "I found context, but could not form a reliable answer. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
                 : "Контекст найден, но я не смог сформировать надежный ответ. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
-            return new BotAnswerResult(fallback, false, answerMedia)
+            return new BotAnswerResult(fallback, false, [])
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
         }
 
@@ -451,6 +451,7 @@ public class SupportBotService
         if (LooksLikeSourceOnlyAnswer(cleanAnswer))
         {
             cleanAnswer = await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken);
+            answerMedia = [];
         }
 
         var mustEscalate = ShouldEscalateFromAnswer(cleanAnswer);
@@ -531,26 +532,18 @@ public class SupportBotService
         return OperatorTriggers.Any(trigger => text.Contains(trigger, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task<IReadOnlyList<BotAnswerMedia>> LoadAnswerMediaAsync(RagSearchResult ragResult, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<BotAnswerMedia>> LoadAnswerMediaAsync(
+        string question, RagSearchResult ragResult, CancellationToken cancellationToken)
     {
-        var qaIds = ragResult.Chunks
-            .Where(x => string.Equals(x.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(x.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
-                && x.QAEntryId.HasValue)
-            .OrderByDescending(x => x.RerankScore)
-            .Select(x => x.QAEntryId!.Value)
-            .Distinct()
-            .Take(2)
-            .ToArray();
-
-        if (qaIds.Length == 0)
+        var qaId = BotAnswerMediaSelector.SelectQaEntryId(question, ragResult.Chunks);
+        if (qaId == null)
         {
             return [];
         }
 
         return await _db.QAAttachments
             .AsNoTracking()
-            .Where(x => qaIds.Contains(x.QAEntryId)
+            .Where(x => x.QAEntryId == qaId.Value
                 && x.QAEntry != null
                 && x.QAEntry.Status == QAEntryStatuses.Verified)
             .OrderBy(x => x.Id)

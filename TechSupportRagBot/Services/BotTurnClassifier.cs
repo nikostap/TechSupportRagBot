@@ -24,6 +24,8 @@ public static partial class BotTurnClassifier
 
         var certain = ClassifyCommonReply(question);
         if (certain != null) return certain;
+        if (BotIssueBoundary.StartsDifferentFault(question, history))
+            return new(BotTurnIntent.NewQuestion, 1, "distinct-fault");
         if (question.Length > 180 || BotTechnicalCode.Extract(question, history) != null)
             return new(BotTurnIntent.Unknown, 0, "existing-planner");
 
