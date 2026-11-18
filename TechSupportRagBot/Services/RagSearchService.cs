@@ -42,6 +42,11 @@ public class RagSearchService : IRagSearchService
         request.Question = NormalizeQuestion(request.Question);
         var queryIntent = DetectQueryIntent(request.Question);
         await CompleteMachineDataAsync(request, cancellationToken);
+        var positionMatches = await ResolvePositionMatchesAsync(request, cancellationToken);
+        var positionContext = positionMatches.Select(item => new ResolvedPositionMatch(
+            item.Position.Key, item.Position.Name,
+            string.Join(" ", new[] { item.Component.Manufacturer, item.Component.Series, item.Component.PartNumber }
+                .Where(value => !string.IsNullOrWhiteSpace(value))))).ToList();
 
         await _audit.WriteAsync("Rag.Search.Started", new
         {
@@ -57,49 +62,62 @@ public class RagSearchService : IRagSearchService
             normalizedQuestion = request.Question
         }, request.TraceId, cancellationToken);
 
-        var vector = await _ollama.EmbedAsync(request.Question, cancellationToken, ApiUsageCategories.RagSearch);
-        if (vector == null)
+        IReadOnlyList<QdrantDenseSearchHit> vectorHits = Array.Empty<QdrantDenseSearchHit>();
+        IReadOnlyList<SearchHit> keywordHits = Array.Empty<SearchHit>();
+        IReadOnlyList<SearchHit> positionHits = Array.Empty<SearchHit>();
+        if (positionMatches.Count > 0)
         {
-            await _audit.WriteAsync("Rag.Embedding.Failed", new
+            positionHits = await PositionDocumentHitsAsync(positionMatches, request, cancellationToken);
+        }
+        else
+        {
+            var vector = await _ollama.EmbedAsync(request.Question, cancellationToken, ApiUsageCategories.RagSearch);
+            if (vector == null)
+            {
+                await _audit.WriteAsync("Rag.Embedding.Failed", new
+                {
+                    request.MachineId,
+                    request.Question
+                }, request.TraceId, cancellationToken);
+
+                return new RagSearchResult
+                {
+                    TraceId = request.TraceId,
+                    Chunks = Array.Empty<RagChunkCandidate>(),
+                    ShouldCallOperator = true,
+                    Confidence = 0,
+                    Warning = "Не удалось получить embedding для вопроса.",
+                    MatchedPositions = positionContext,
+                    Debug = CreateDebugInfo(originalQuestion, request.Question, queryIntent)
+                };
+            }
+
+            await _audit.WriteAsync("Rag.Embedding.Created", new
             {
                 request.MachineId,
+                vectorSize = vector.Length,
                 request.Question
             }, request.TraceId, cancellationToken);
 
-            return new RagSearchResult
+            var denseRequest = new RagSearchRequest
             {
                 TraceId = request.TraceId,
-                Chunks = Array.Empty<RagChunkCandidate>(),
-                ShouldCallOperator = true,
-                Confidence = 0,
-                Warning = "Не удалось получить embedding для вопроса.",
-                Debug = CreateDebugInfo(originalQuestion, request.Question, queryIntent)
+                Question = request.Question,
+                MachineId = request.MachineId,
+                MachineModel = request.MachineModel,
+                SerialNumber = request.SerialNumber,
+                Category = request.Category,
+                DenseTopK = Math.Max(50, request.DenseTopK),
+                KeywordTopK = Math.Max(50, request.KeywordTopK),
+                FinalTopK = request.FinalTopK
             };
+            vectorHits = await _qdrant.DenseSearchAsync(vector, denseRequest, cancellationToken);
+            keywordHits = await KeywordSearchAsync(request, cancellationToken);
         }
 
-        await _audit.WriteAsync("Rag.Embedding.Created", new
-        {
-            request.MachineId,
-            vectorSize = vector.Length,
-            request.Question
-        }, request.TraceId, cancellationToken);
-
-        var denseRequest = new RagSearchRequest
-        {
-            TraceId = request.TraceId,
-            Question = request.Question,
-            MachineId = request.MachineId,
-            MachineModel = request.MachineModel,
-            SerialNumber = request.SerialNumber,
-            Category = request.Category,
-            DenseTopK = Math.Max(50, request.DenseTopK),
-            KeywordTopK = Math.Max(50, request.KeywordTopK),
-            FinalTopK = request.FinalTopK
-        };
-
-        var vectorHits = await _qdrant.DenseSearchAsync(vector, denseRequest, cancellationToken);
-        var keywordHits = await KeywordSearchAsync(request, cancellationToken);
-        var mergedHits = ReciprocalRankFusion(vectorHits, keywordHits)
+        var mergedHits = (positionMatches.Count > 0
+                ? positionHits
+                : ReciprocalRankFusion(vectorHits, keywordHits))
             .Take(50)
             .ToList();
 
@@ -120,6 +138,7 @@ public class RagSearchService : IRagSearchService
                 ShouldCallOperator = true,
                 Confidence = 0,
                 Warning = "Контекст не найден в Qdrant и BM25.",
+                MatchedPositions = positionContext,
                 Debug = CreateDebugInfo(originalQuestion, request.Question, queryIntent, vectorHits, keywordHits, mergedHits)
             };
         }
@@ -253,6 +272,7 @@ public class RagSearchService : IRagSearchService
             Confidence = confidence,
             ShouldCallOperator = shouldCallOperator,
             Warning = shouldCallOperator ? "Контекст найден, но уверенность поиска низкая." : null,
+            MatchedPositions = positionContext,
             Debug = CreateDebugInfo(originalQuestion, request.Question, queryIntent, vectorHits, keywordHits, mergedHits, reranked)
         };
     }
@@ -265,6 +285,8 @@ public class RagSearchService : IRagSearchService
         }
 
         var builder = new StringBuilder();
+        foreach (var position in result.MatchedPositions)
+            builder.AppendLine($"Позиция станка {position.Key}: {position.Name}. Установленная модель: {position.ComponentModel}.");
         foreach (var chunk in result.Chunks)
         {
             builder.AppendLine($"[ChunkId: {chunk.ChunkId}; Score: {chunk.RerankScore:F4}; Source: {chunk.SourceType}]");
@@ -473,6 +495,60 @@ public class RagSearchService : IRagSearchService
             var keywordScore = isPostgres ? Math.Max(0, rawScore) : Math.Max(0, -rawScore);
             result.Add(new SearchHit(reader.GetInt32(0), 0, keywordScore, 0, 0));
         }
+    }
+
+    private async Task<IReadOnlyList<ResolvedComponent>> ResolvePositionMatchesAsync(
+        RagSearchRequest request, CancellationToken cancellationToken)
+    {
+        if (request.MachineId is not int machineId) return Array.Empty<ResolvedComponent>();
+        var machine = await _db.Machines.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == machineId, cancellationToken);
+        if (machine == null) return Array.Empty<ResolvedComponent>();
+        var installed = await _components.ResolveAsync(machine, cancellationToken);
+        return PositionKeySearch.Match(request.Question, installed);
+    }
+
+    private async Task<IReadOnlyList<SearchHit>> PositionDocumentHitsAsync(
+        IReadOnlyList<ResolvedComponent> matches, RagSearchRequest request, CancellationToken cancellationToken)
+    {
+        if (matches.Count == 0) return Array.Empty<SearchHit>();
+        var componentIds = matches.Select(item => item.Component.Id).Distinct().ToList();
+        var chunks = await _db.KnowledgeChunks.AsNoTracking()
+            .Where(chunk => chunk.KnowledgeDocument != null
+                && chunk.KnowledgeDocument.ComponentModelId.HasValue
+                && componentIds.Contains(chunk.KnowledgeDocument.ComponentModelId.Value)
+                && chunk.KnowledgeDocument.Status == "Published"
+                && chunk.KnowledgeDocument.ClientDownloadAllowed
+                && (chunk.KnowledgeDocument.SerialNumber == null
+                    || chunk.KnowledgeDocument.SerialNumber == request.SerialNumber)
+                && (chunk.KnowledgeDocument.Targets.Any(target => target.MachineId == request.MachineId
+                    || target.MachineModel == request.MachineModel)
+                    || !chunk.KnowledgeDocument.Targets.Any()
+                        && (chunk.KnowledgeDocument.MachineId == null
+                            || chunk.KnowledgeDocument.MachineId == request.MachineId)
+                        && (chunk.KnowledgeDocument.MachineModel == null
+                            || chunk.KnowledgeDocument.MachineModel == request.MachineModel)))
+            .Select(chunk => new
+            {
+                chunk.Id, chunk.Text, chunk.Title, chunk.SectionTitle,
+                ComponentModelId = chunk.KnowledgeDocument!.ComponentModelId!.Value
+            })
+            .Take(200)
+            .ToListAsync(cancellationToken);
+        var terms = ExtractTerms(request.Question).ToList();
+        return chunks
+            .Select(chunk => new
+            {
+                chunk.Id, chunk.ComponentModelId,
+                Score = terms.Count(term => (chunk.Text + " " + chunk.Title + " " + chunk.SectionTitle)
+                    .Contains(term, StringComparison.OrdinalIgnoreCase))
+            })
+            .GroupBy(chunk => chunk.ComponentModelId)
+            .SelectMany(group => group.OrderByDescending(chunk => chunk.Score).Take(6))
+            .OrderByDescending(chunk => chunk.Score)
+            .Take(50)
+            .Select((chunk, rank) => new SearchHit(chunk.Id, 0, 0, 0.5 - rank * 0.001, 0))
+            .ToList();
     }
 
     private async Task CompleteMachineDataAsync(RagSearchRequest request, CancellationToken cancellationToken)

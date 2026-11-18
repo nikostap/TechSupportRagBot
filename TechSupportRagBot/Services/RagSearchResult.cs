@@ -15,8 +15,12 @@ public class RagSearchResult
 
     public string? Warning { get; set; }
 
+    public IReadOnlyList<ResolvedPositionMatch> MatchedPositions { get; set; } = Array.Empty<ResolvedPositionMatch>();
+
     public RagSearchDebugInfo Debug { get; set; } = new();
 }
+
+public sealed record ResolvedPositionMatch(string Key, string Name, string ComponentModel);
 
 public class RagSearchDebugInfo
 {
