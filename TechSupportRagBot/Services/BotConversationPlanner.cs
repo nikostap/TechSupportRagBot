@@ -64,8 +64,14 @@ public static class BotConversationPlanner
 
         // Keep every recent client clarification belonging to this issue. Bot answers can ask
         // for details, but must never become search facts. The prompt budget stays bounded.
-        var issueStart = clientTurns.FindLastIndex(LooksLikeIndependentQuestion);
-        if (issueStart < 0) issueStart = 0;
+        var issueStart = 0;
+        for (var i = 1; i < clientTurns.Count; i++)
+        {
+            var earlier = string.Join("\n", clientTurns.Take(i).Select(x => $"Клиент: {x}"));
+            if (LooksLikeIndependentQuestion(clientTurns[i])
+                || BotIssueBoundary.StartsDifferentFault(clientTurns[i], earlier))
+                issueStart = i;
+        }
         var originalProblem = clientTurns[issueStart];
         var resolvedReference = BotOrdinalReference.Resolve(question, previousBot);
         var details = clientTurns.Skip(issueStart + 1).Append(question)

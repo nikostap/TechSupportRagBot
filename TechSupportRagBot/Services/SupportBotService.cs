@@ -342,6 +342,19 @@ public class SupportBotService
             }
         }
 
+        if (!conversationPlan.IsFollowUp && BotExactQaSelector.Select(question, ragResult.Chunks) is { } matchingQa)
+        {
+            var directAnswer = matchingQa.Solution!.Trim();
+            if (isEnglish)
+            {
+                var translated = await _translation.TranslateAsync(directAnswer, "Russian", language, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(translated)) directAnswer = translated;
+            }
+            return new BotAnswerResult(directAnswer, false, answerMedia)
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
+                SearchResult = ragResult, ContextForLlm = context };
+        }
+
         var promptHistory = conversationPlan.IsFollowUp
             ? BuildPromptHistory(conversationContext)
             : "История не используется: новый вопрос.";

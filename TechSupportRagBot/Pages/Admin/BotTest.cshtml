@@ -14,7 +14,9 @@
 <section class="panel">
     <form id="botTestForm" method="post" asp-page-handler="Ask" class="form-grid bot-test-form" data-ajax-bot-test="true"
           data-you-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "You")"
-          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping")">
+          data-bot-typing="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTyping")"
+          data-request-failed="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestRequestFailed")"
+          data-request-timeout="@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTestRequestTimeout")">
         <input asp-for="Input.HistoryJson" type="hidden" />
         <div>
             <label asp-for="Input.MachineId">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</label>
@@ -327,12 +329,15 @@
             questionField.value = "";
             window.jQuery?.(botTestForm).data("validator")?.resetForm();
 
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 120000);
             try {
                 const response = await fetch(botTestForm.action, {
                     method: "POST",
                     body: formData,
                     headers: { "Accept": "text/html" },
-                    credentials: "same-origin"
+                    credentials: "same-origin",
+                    signal: controller.signal
                 });
                 if (!response.ok) throw new Error("request-failed");
                 const page = new DOMParser().parseFromString(await response.text(), "text/html");
@@ -347,7 +352,7 @@
                 diagnostics.innerHTML = nextDiagnostics.innerHTML;
                 syncBotTestMode();
                 transcript.scrollTop = transcript.scrollHeight;
-            } catch {
+            } catch (error) {
                 if (!questionField.value) questionField.value = question;
                 if (inChat) {
                     target.querySelectorAll(".message").forEach((node) => {
@@ -356,8 +361,12 @@
                 } else {
                     results.replaceChildren();
                 }
+                requestError.textContent = error?.name === "AbortError"
+                    ? botTestForm.dataset.requestTimeout
+                    : botTestForm.dataset.requestFailed;
                 requestError.hidden = false;
             } finally {
+                clearTimeout(timeout);
                 requestInFlight = false;
             }
         });

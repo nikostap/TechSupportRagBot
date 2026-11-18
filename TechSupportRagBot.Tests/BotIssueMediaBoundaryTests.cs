@@ -31,6 +31,36 @@ public sealed class BotIssueMediaBoundaryTests
     }
 
     [Fact]
+    public async Task NewMachineClarificationUsesLatestFaultInsteadOfEarlierPressureFault()
+    {
+        const string history = "Клиент: ошибка низкого давления\nБот: Проверьте датчик 91.\n"
+            + "Клиент: а теперь у меня ошибка нет шпули\nБот: Проверьте датчик 87.";
+        const string pressureHistory = "Клиент: ошибка низкого давления\nБот: Проверьте датчик 91.";
+        Assert.True(BotIssueBoundary.StartsDifferentFault("а теперь у меня ошибка нет шпули", pressureHistory));
+        Assert.Equal(BotTurnIntent.NewQuestion,
+            (await BotTurnClassifier.ClassifyAsync("а теперь у меня ошибка нет шпули", pressureHistory,
+                null!, CancellationToken.None)).Intent);
+        var plan = BotConversationPlanner.Create("у меня новый станок", history, true,
+            BotTurnIntent.Clarification);
+        Assert.True(plan.IsFollowUp);
+        Assert.Equal("а теперь у меня ошибка нет шпули", plan.OriginalProblem);
+        Assert.Contains("ошибка нет шпули", plan.SearchQuestion);
+        Assert.DoesNotContain("низкого давления", plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void ExactSpoolQaCanBeReturnedWithoutMixingOtherChunks()
+    {
+        var spool = Qa(87, "Ошибка нет шпули в бункере?", 1.72);
+        spool.Solution = "Проверьте датчик 87.";
+        var pressure = Qa(91, "Ошибка - низкое давление пневмосистемы?", 0.82);
+        pressure.Solution = "Проверьте датчик 91.";
+        Assert.Same(spool, BotExactQaSelector.Select("ошибка нет шпули", [spool, pressure]));
+        Assert.Same(spool, BotExactQaSelector.Select("а теперь у меня ошибка нет шпули", [spool, pressure]));
+        Assert.Null(BotExactQaSelector.Select("ошибка датчика", [spool, pressure]));
+    }
+
+    [Fact]
     public void MediaComesOnlyFromQaMatchingCurrentQuestion()
     {
         var chunks = new[]

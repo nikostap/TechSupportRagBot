@@ -5,7 +5,7 @@ namespace TechSupportRagBot.Services;
 public static class BotIssueBoundary
 {
     private static readonly Regex FaultReport = new(
-        @"^\s*(?:ошибка|авария|fault|alarm)\s+(.+?)\s*[.!?]*\s*$",
+        @"(?:^|(?<![\p{L}\p{N}]))(?:ошибка|авария|fault|alarm)\s+(.+?)\s*[.!?]*\s*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex Number = new(@"(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])", RegexOptions.Compiled);
     private static readonly Regex Word = new(@"[\p{L}]{4,}", RegexOptions.Compiled);
