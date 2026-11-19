@@ -298,8 +298,12 @@ public class SupportBotService
 
         if (conversationPlan.AsksAboutPriorAnswer && technicalCode == null)
         {
+            var focusProblem = isEnglish
+                ? await BuildRussianRetrievalQuestionAsync(conversationPlan.OriginalProblem ?? question,
+                    language, traceId, cancellationToken)
+                : conversationPlan.OriginalProblem;
             var related = BotFollowUpFocus.Select(ragResult.Chunks,
-                conversationPlan.OriginalProblem, conversationPlan.LastBotAnswer);
+                focusProblem, conversationPlan.LastBotAnswer);
             if (related.Count == 0)
             {
                 supplementalRetrievalQuestion = await BuildRussianRetrievalQuestionAsync(
@@ -312,7 +316,7 @@ public class SupportBotService
                     FinalTopK = 8
                 }, cancellationToken);
                 related = BotFollowUpFocus.Select(focusedResult.Chunks,
-                    conversationPlan.OriginalProblem, conversationPlan.LastBotAnswer);
+                    focusProblem, conversationPlan.LastBotAnswer);
                 ragResult.Confidence = Math.Max(ragResult.Confidence, focusedResult.Confidence);
                 ragResult.ShouldCallOperator = focusedResult.ShouldCallOperator;
             }
