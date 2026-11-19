@@ -415,6 +415,35 @@ public class BotConversationPlannerTests
         Assert.Contains("Каких проводов?", plan.SearchQuestion);
     }
 
+    [Theory]
+    [InlineData("Не понял поясни")]
+    [InlineData("Объясни подробнее")]
+    [InlineData("Можно попроще?")]
+    [InlineData("I don't understand")]
+    public void ExplanationRequestSearchesOriginalIssueWithoutTreatingWordsAsSymptoms(string request)
+    {
+        const string history = "Клиент: Еще у меня пишет ошибку нет шпули\n"
+            + "Бот: В меню ВХОДЫ / ВЫХОДЫ найдите индикатор 87. "
+            + "При наличии шпули он оранжевый, при отсутствии серый.";
+
+        Assert.True(BotExplanationRequest.IsPureRequest(request));
+        var plan = BotConversationPlanner.Create(request, history,
+            forceFollowUp: false, interpretedIntent: BotTurnIntent.NewQuestion);
+        Assert.True(plan.IsFollowUp);
+        Assert.True(plan.AsksAboutPriorAnswer);
+        Assert.Equal("Еще у меня пишет ошибку нет шпули", plan.SearchQuestion);
+        Assert.Equal(plan.SearchQuestion, plan.FocusedSearchQuestion);
+    }
+
+    [Theory]
+    [InlineData("Не понял, датчик 87 не светится")]
+    [InlineData("Объясни, где именно датчик 87")]
+    [InlineData("А теперь ошибка низкое давление")]
+    public void TechnicalDetailIsNotDiscardedAsExplanationRequest(string request)
+    {
+        Assert.False(BotExplanationRequest.IsPureRequest(request));
+    }
+
     [Fact]
     public void FollowUpFocusExcludesOtherWiringAndUnmentionedNeighborProcedure()
     {
@@ -498,7 +527,7 @@ public class BotConversationPlannerTests
     [InlineData("en")]
     public void TestChatUiHasBothLocales(string language)
     {
-        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "BotTestRequestFailed", "BotTestCloseImage", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotChooseFaultCode", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
+        foreach (var key in new[] { "BotTestMode", "BotChatMode", "BotSingleMode", "BotChatModeHint", "BotChatEmpty", "BotChatHistory", "ClearBotChat", "BotTestRequestFailed", "BotTestCloseImage", "SupplementalRetrievalQuestion", "BotFollowUpEvidenceMissing", "BotTraceExplainPreviousAnswer", "BotFaultCodeNotFound", "BotFaultCodeNearMatch", "BotFaultCodeNearMatchRepeated", "BotFaultCodeStillNotFound", "BotSuggestedFaultRejected", "BotChooseFaultCode", "BotNoChunksSelected", "BotUnmatchedCodeCandidates", "BotLlmNotCalled", "BotContextPreparedNotSent", "BotNoContextPrepared" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

@@ -20,6 +20,7 @@ public static class BotConversationPlanner
         var previousClient = clientTurns.LastOrDefault();
         var previousBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
         var hasExchange = !string.IsNullOrWhiteSpace(previousClient) && !string.IsNullOrWhiteSpace(previousBot);
+        var asksForExplanation = hasExchange && BotExplanationRequest.IsPureRequest(question);
         var normalized = question.ToLowerInvariant();
         var isConfirmation = BotTurnClassifier.ClassifyCommonReply(question) is not null
             || (question.Length <= 24 && interpretedIntent is BotTurnIntent.Affirmation or BotTurnIntent.Negation);
@@ -29,15 +30,15 @@ public static class BotConversationPlanner
         var newQuestion = normalized.TrimStart('а', ' ', ',');
         var startsNewQuestion = new[] { "как ", "почему ", "можно ", "что делать", "где ", "какой ", "какое ", "какая ", "какие ", "какую ", "каких ", "каким ", "сколько ", "how ", "why ", "where ", "what ", "which " }
             .Any(x => newQuestion.StartsWith(x, StringComparison.Ordinal));
-        var asksAboutPriorAnswer = hasExchange && question.Length <= 120 && question.Contains('?')
-            && SharesAnswerTopic(previousBot!, question);
+        var asksAboutPriorAnswer = asksForExplanation || (hasExchange && question.Length <= 120 && question.Contains('?')
+            && SharesAnswerTopic(previousBot!, question));
         var answersBotQuestion = (previousBot?.Contains('?') == true
                 || previousBot?.Contains("уточните", StringComparison.OrdinalIgnoreCase) == true
                 || previousBot?.Contains("please specify", StringComparison.OrdinalIgnoreCase) == true)
             && question.Length <= 100 && !startsNewQuestion;
         var isShortDetail = question.Length <= 100 && !startsNewQuestion && !question.Contains('?');
-        var isFollowUp = hasExchange && (forceFollowUp ?? (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
-            || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question))));
+        var isFollowUp = hasExchange && (asksForExplanation || (forceFollowUp ?? (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
+            || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question)))));
         var lastBotQuestion = LastQuestion(previousBot);
         var needsChoice = isConfirmation && !isNegative
             && !BotTurnClassifier.AnswersLastQuestion(question, previousBot ?? string.Empty)
@@ -89,14 +90,16 @@ public static class BotConversationPlanner
         var originalProblem = PositiveCorrection(clientTurns[issueStart]) ?? clientTurns[issueStart];
         var resolvedReference = BotOrdinalReference.Resolve(question, previousBot);
         var details = clientTurns.Skip(issueStart + 1).Append(question)
-            .Where(x => !IsBareConfirmation(x))
+            .Where(x => !IsBareConfirmation(x) && !BotExplanationRequest.IsPureRequest(x))
             .TakeLast(4)
             .Select(x => Truncate(x.Trim(), 90))
             .ToArray();
         var detailText = Truncate(string.Join("; ", details), 190);
         if (resolvedReference is not null) detailText = $"{detailText}; {resolvedReference}";
-        var searchQuestion = $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
-        var focusedSearchQuestion = $"{detailText}. {Truncate(originalProblem, 160)}";
+        var searchQuestion = detailText.Length == 0 ? originalProblem
+            : $"{Truncate(originalProblem, 190)}. Уточнения клиента: {detailText}";
+        var focusedSearchQuestion = detailText.Length == 0 ? originalProblem
+            : $"{detailText}. {Truncate(originalProblem, 160)}";
         return new BotConversationPlan(searchQuestion, focusedSearchQuestion, true, Truncate(previousBot ?? string.Empty, 4000), needsChoice, needsDetail, resolvedReference, answersBotQuestion, originalProblem, asksAboutPriorAnswer, previousBot);
     }
 

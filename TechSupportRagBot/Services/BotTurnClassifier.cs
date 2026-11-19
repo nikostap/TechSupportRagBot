@@ -25,6 +25,8 @@ public static partial class BotTurnClassifier
 
         var certain = ClassifyCommonReply(question);
         if (certain != null) return certain;
+        if (BotExplanationRequest.IsPureRequest(question))
+            return new(BotTurnIntent.Clarification, 1, "explanation-request");
         if (BotIssueBoundary.StartsDifferentFault(question, history))
             return new(BotTurnIntent.NewQuestion, 1, "distinct-fault");
         if (AnswersLastQuestion(question, lastBot))
