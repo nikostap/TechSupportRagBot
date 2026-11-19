@@ -43,7 +43,7 @@ public static class BotConversationPlanner
             && !BotTurnClassifier.AnswersLastQuestion(question, previousBot ?? string.Empty)
             && (lastBotQuestion.Contains(" или ", StringComparison.OrdinalIgnoreCase)
                 || (lastBotQuestion.Contains('(') && lastBotQuestion.Contains(", ", StringComparison.OrdinalIgnoreCase)));
-        var needsDetail = isConfirmation && !isNegative
+        var needsDetail = isConfirmation
             && !BotTurnClassifier.AnswersLastQuestion(question, previousBot ?? string.Empty)
             && (lastBotQuestion.Length == 0
                 || lastBotQuestion.Contains("чем могу помочь", StringComparison.OrdinalIgnoreCase)

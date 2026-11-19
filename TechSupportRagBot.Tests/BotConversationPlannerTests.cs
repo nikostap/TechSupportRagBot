@@ -255,6 +255,16 @@ public class BotConversationPlannerTests
         Assert.Equal("ALF показывает ошибку E34", plan.SearchQuestion);
     }
 
+    [Fact]
+    public void BareNoAfterGenericHelpQuestionAsksForDetailInsteadOfRepeatingSearch()
+    {
+        const string history = "Клиент: Как подключить датчик D-A93Z?\n"
+            + "Бот: В документации точной информации нет. Чем могу помочь ещё?";
+        var plan = BotConversationPlanner.Create("Нет", history);
+        Assert.True(plan.IsFollowUp);
+        Assert.True(plan.NeedsDetailClarification);
+    }
+
     [Theory]
     [InlineData("ocn", "Клиент: У меня ошибка на инверторе\nБот: Уточните код ошибки?", "ocn")]
     [InlineData("A003", "Клиент: Ошибка сервопривода\nБот: Какой код ошибки?", "A003")]
