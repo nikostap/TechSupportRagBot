@@ -44,6 +44,12 @@ public static partial class BotResponseDeduplicator
             retained.Add(line);
         }
         if (retained.Count == lines.Length) return answer;
+        // Keep a coherent instruction when every numbered action was removed
+        // but its introductory heading remains. A trailing question alone
+        // does not make an empty instruction useful.
+        if (lines.Any(IsStep) && !retained.Any(IsStep)
+            && retained.Any(line => line.TrimEnd().EndsWith(':')))
+            return answer;
         // A complete repeated list is still more useful than an empty heading
         // followed by references to steps that are no longer present.
         if (lines.Any(IsStep) && !retained.Any(IsStep)

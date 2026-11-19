@@ -235,6 +235,18 @@ public class BotConversationPlannerTests
     }
 
     [Fact]
+    public void RepeatedStepsDoNotLeaveAnEmptyHeadingBeforeAQuestion()
+    {
+        const string previous = "1. Проверьте разъёмы под кожухом. 2. Проверьте контактные группы кнопок.";
+        const string answer = "Если сообщение не пропадает, выполните следующие шаги:\n"
+            + "1. Проверьте разъёмы под кожухом.\n"
+            + "2. Проверьте контактные группы кнопок.\n"
+            + "Если проблема сохраняется, уточните:\n- Есть ли доступ к разъёмам?";
+
+        Assert.Equal(answer, BotResponseDeduplicator.RemoveRepeatedSteps(answer, previous));
+    }
+
+    [Fact]
     public void EmptyHistoryUsesOnlyCurrentQuestion()
     {
         var plan = BotConversationPlanner.Create("ALF показывает ошибку E34", null);
