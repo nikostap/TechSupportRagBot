@@ -21,7 +21,7 @@ public static partial class BotAnswerGroundingGuard
             var terms = Terms(line);
             if (terms.Count < 5) continue;
             var supported = terms.Count(evidenceTerms.Contains);
-            if (supported < 3 && (double)supported / terms.Count < 0.35) return true;
+            if ((double)supported / terms.Count < 0.55) return true;
         }
         return false;
     }
@@ -35,7 +35,7 @@ public static partial class BotAnswerGroundingGuard
     [GeneratedRegex(@"(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:в|v|вольт|бар|атм|кг|г|мм|см|мкм|°c|%|hz|гц)(?![\p{L}])", RegexOptions.IgnoreCase)]
     private static partial Regex NumberWithUnit();
 
-    [GeneratedRegex(@"\b(?:проверь\w*|убед\w*|настро\w*|замен\w*|измер\w*|подключ\w*|отключ\w*|сним\w*|нажм\w*|check\w*|replac\w*|measur\w*|adjust\w*)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:проверь\w*|убед\w*|настро\w*|замен\w*|измер\w*|подключ\w*|отключ\w*|сним\w*|нажм\w*|осмотр\w*|требу\w*|check\w*|replac\w*|measur\w*|adjust\w*|inspect\w*)\b", RegexOptions.IgnoreCase)]
     private static partial Regex ProcedureVerb();
 
     [GeneratedRegex(@"[\p{L}]{5,}")]

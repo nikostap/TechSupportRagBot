@@ -22,6 +22,14 @@ public class BotAnswerGroundingGuardTests
     }
 
     [Fact]
+    public void RejectsPartlyOverlappingButUnsupportedElectricalChecks()
+    {
+        Assert.True(BotAnswerGroundingGuard.HasUnsupportedClaims(
+            "Осмотрите разъём и кабель датчика на предмет повреждений. Если индикации нет, потребуется замена датчика.",
+            Evidence));
+    }
+
+    [Fact]
     public void AllowsDocumentedProcedureAndMeasurement()
     {
         const string source = "Настройте реле давления на 2,5 бар. Проверьте контакты реле давления.";
