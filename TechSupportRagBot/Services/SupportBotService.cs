@@ -386,7 +386,8 @@ public class SupportBotService
         // the issue that was actually searched, so rejected causes cannot win.
         var mediaQuestion = conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
         mediaQuestion = BotMachineMention.Remove(mediaQuestion, machine);
-        var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult, cancellationToken);
+        var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult,
+            conversationPlan.IsFollowUp ? 2 : 1, cancellationToken);
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new
         {
@@ -416,7 +417,7 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context });
         }
 
-        if (conversationPlan.IsFollowUp && !conversationPlan.AsksAboutPriorAnswer && ragResult.Chunks.Count == 1)
+        if (conversationPlan.IsCorrection && ragResult.Chunks.Count == 1)
         {
             var exactQa = ragResult.Chunks[0];
             if (string.Equals(exactQa.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
@@ -654,9 +655,9 @@ public class SupportBotService
     }
 
     private async Task<IReadOnlyList<BotAnswerMedia>> LoadAnswerMediaAsync(
-        string question, RagSearchResult ragResult, CancellationToken cancellationToken)
+        string question, RagSearchResult ragResult, int minimumScore, CancellationToken cancellationToken)
     {
-        var qaIds = BotAnswerMediaSelector.SelectQaEntryIds(question, ragResult.Chunks);
+        var qaIds = BotAnswerMediaSelector.SelectQaEntryIds(question, ragResult.Chunks, minimumScore);
         if (qaIds.Count == 0)
         {
             return [];

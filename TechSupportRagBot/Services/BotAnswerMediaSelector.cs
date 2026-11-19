@@ -46,17 +46,18 @@ public static class BotAnswerMediaSelector
             .FirstOrDefault();
     }
 
-    public static IReadOnlyList<int> SelectQaEntryIds(string question, IReadOnlyList<RagChunkCandidate> chunks)
+    public static IReadOnlyList<int> SelectQaEntryIds(string question, IReadOnlyList<RagChunkCandidate> chunks,
+        int minimumScore = 1)
     {
         var segments = Regex.Split(question, @"\s+и\s+|\s+and\s+", RegexOptions.IgnoreCase);
         if (segments.Length is < 2 or > 3)
-            return SelectQaEntryId(question, chunks) is int one ? [one] : [];
+            return SelectQaEntryId(question, chunks, minimumScore) is int one ? [one] : [];
         if (segments.Any(segment => !Tokens(segment)
             .Any(term => !term.All(char.IsDigit) && !GenericTerms.Contains(term))))
-            return SelectQaEntryId(question, chunks) is int fallback ? [fallback] : [];
+            return SelectQaEntryId(question, chunks, minimumScore) is int fallback ? [fallback] : [];
         var ids = segments.Select(segment => SelectQaEntryId(segment, chunks, minimumScore: 2))
             .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
-        return ids.Count >= 2 ? ids : SelectQaEntryId(question, chunks) is int single ? [single] : [];
+        return ids.Count >= 2 ? ids : SelectQaEntryId(question, chunks, minimumScore) is int single ? [single] : [];
     }
 
     private static string Normalize(string value) =>
