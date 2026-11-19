@@ -212,13 +212,10 @@ public sealed class BotDialogueSystemTests
     [Fact]
     public void RewrittenCorrectionUsesOnlyClientFacts()
     {
-        var prior = new[] { "Пропала шпуля и мало давления" };
-        const string correction = "Нет, с воздухом всё хорошо, но катушку не замечает";
-        Assert.Equal("Станок не видит шпулю", BotFollowUpQueryRewriter.Parse(
-            "{\"query\":\"Станок не видит шпулю\"}", correction, prior));
-        Assert.Null(BotFollowUpQueryRewriter.Parse(
-            "{\"query\":\"Ошибка датчика 87\"}", correction, prior));
-        Assert.Null(BotFollowUpQueryRewriter.Parse(
-            "{\"query\":\"Станок не работает\"}", correction, prior));
+        var prior = new[] { "Пропала шпуля", "мало давления" };
+        Assert.Equal("Пропала шпуля", BotFollowUpQueryRewriter.Parse("{\"index\":0}", prior));
+        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"index\":-1}", prior));
+        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"index\":2}", prior));
+        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"query\":\"Ошибка датчика 87\"}", prior));
     }
 }
