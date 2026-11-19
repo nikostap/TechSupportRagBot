@@ -88,4 +88,18 @@ public class BotAnswerGroundingGuardTests
         Assert.Null(BotQaAmbiguity.GetChoices("На датчике 87 нет индикации", chunks, false));
         Assert.Null(BotQaAmbiguity.GetChoices("Станок не замечает шпулю", chunks, true));
     }
+
+    [Fact]
+    public void NegationSelectsMissingSpoolQaOverNearbySpoolSensorQa()
+    {
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { DocumentType = "QA", QAStatus = "Verified", QAEntryId = 1,
+                Title = "При подаче шпули появляются ошибки датчиков 85 и 81?", RerankScore = 0.9 },
+            new() { DocumentType = "QA", QAStatus = "Verified", QAEntryId = 2,
+                Title = "Ошибка нет шпули в бункере?", RerankScore = 0.8 }
+        };
+
+        Assert.Equal(2, BotAnswerMediaSelector.SelectQaEntryId("нет шпули", chunks));
+    }
 }

@@ -4,7 +4,7 @@ namespace TechSupportRagBot.Services;
 
 public static class BotAnswerMediaSelector
 {
-    private static readonly Regex Token = new(@"[\p{L}]{4,}|(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])",
+    private static readonly Regex Token = new(@"[\p{L}]{4,}|\b(?:нет|no)\b|(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])",
         RegexOptions.Compiled);
     private static readonly HashSet<string> GenericTerms = new(StringComparer.OrdinalIgnoreCase)
     {
