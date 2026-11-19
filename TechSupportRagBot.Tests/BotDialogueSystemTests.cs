@@ -216,10 +216,13 @@ public sealed class BotDialogueSystemTests
     {
         Assert.Equal("Пропала шпуля", BotFollowUpQueryRewriter.Select(
             [("Пропала шпуля", 0.81), ("мало давления", 0.55)])?.Query);
+        Assert.Equal("Нет шпули", BotFollowUpQueryRewriter.Select(
+            [("Нет шпули", 0.46), ("низкое давление", 0.25)])?.Query);
         Assert.Null(BotFollowUpQueryRewriter.Select(
             [("Пропала шпуля", 0.67), ("мало давления", 0.64)]));
         Assert.Null(BotFollowUpQueryRewriter.Select(
             [("Пропала шпуля", 0.40), ("мало давления", 0.30)]));
+        Assert.Null(BotFollowUpQueryRewriter.Select([("Пропала шпуля", 0.42)]));
         Assert.Equal(1, BotFollowUpQueryRewriter.Cosine([1, 0], [1, 0]), 5);
         Assert.Equal(0, BotFollowUpQueryRewriter.Cosine([1, 0], [0, 1]), 5);
     }

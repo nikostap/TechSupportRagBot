@@ -35,7 +35,9 @@ public static class BotFollowUpQueryRewriter
         if (ranked.Count == 0) return null;
         var best = ranked[0];
         var margin = ranked.Count > 1 ? best.Score - ranked[1].Score : best.Score;
-        return best.Score >= 0.65 && margin >= 0.06 && best.Issue.Length is >= 5 and <= 160
+        var isConfident = ranked.Count == 1 ? best.Score >= 0.58
+            : best.Score >= 0.40 && margin >= 0.15;
+        return isConfident && best.Issue.Length is >= 5 and <= 160
             ? new BotIssueMatch(best.Issue, best.Score, margin) : null;
     }
 
