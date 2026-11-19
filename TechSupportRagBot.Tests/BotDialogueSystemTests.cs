@@ -176,4 +176,36 @@ public sealed class BotDialogueSystemTests
             "Пишет низкое давление и нет шпули", chunks));
         Assert.Equal(chunks, BotMultiIssueContextSelector.Select("Не видит шпулю", chunks));
     }
+
+    [Fact]
+    public void RussianWordComparisonAvoidsFalseFourLetterPrefix()
+    {
+        Assert.NotEqual(BotLexicalTerms.Stem("замечает"), BotLexicalTerms.Stem("замена"));
+        Assert.Equal(BotLexicalTerms.Stem("шпулю"), BotLexicalTerms.Stem("шпули"));
+        Assert.Equal(BotLexicalTerms.Stem("давление"), BotLexicalTerms.Stem("давления"));
+    }
+
+    [Fact]
+    public void ExplicitSensorNumberRemovesUnrelatedQa()
+    {
+        var spool = new RagChunkCandidate { Title = "Ошибка нет шпули", SearchQuestions = "где датчик 87" };
+        var pressure = new RagChunkCandidate { Title = "Низкое давление", SearchQuestions = "где датчик 91" };
+        Assert.Equal([spool], BotNumericReferenceFilter.Select("Где находится датчик 87?", [spool, pressure]));
+        Assert.Equal([spool, pressure], BotNumericReferenceFilter.Select("Ошибка на L-800", [spool, pressure]));
+    }
+
+    [Fact]
+    public void ConversationalTwoFaultReportKeepsBothSources()
+    {
+        var spool = new RagChunkCandidate { QAEntryId = 1, DocumentType = "QA", QAStatus = "Verified",
+            Title = "Ошибка нет шпули в бункере", RerankScore = 0.8 };
+        var pressure = new RagChunkCandidate { QAEntryId = 2, DocumentType = "QA", QAStatus = "Verified",
+            Title = "Низкое давление", RerankScore = 0.9 };
+        var other = new RagChunkCandidate { QAEntryId = 3, DocumentType = "QA", QAStatus = "Verified",
+            Title = "Неисправность датчиков подачи шпули", RerankScore = 0.7 };
+        Assert.Equal([1, 2], BotAnswerMediaSelector.SelectQaEntryIds(
+            "У меня одновременно пропала шпуля и пишет, что мало давления", [spool, pressure, other]));
+        Assert.Equal([spool, pressure], BotMultiIssueContextSelector.Select(
+            "У меня одновременно пропала шпуля и пишет, что мало давления", [spool, pressure, other]));
+    }
 }

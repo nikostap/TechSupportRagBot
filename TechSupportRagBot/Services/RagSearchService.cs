@@ -785,7 +785,7 @@ public class RagSearchService : IRagSearchService
             var exactMatches = terms.Count(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
             var titleAndAliases = string.Join(' ', candidate.Title, candidate.SearchQuestions,
                 candidate.ErrorName, candidate.ErrorCode, candidate.NodeName, candidate.SectionTitle);
-            var titleMatches = terms.Count(term => titleAndAliases.Contains(term[..Math.Min(4, term.Length)],
+            var titleMatches = terms.Count(term => titleAndAliases.Contains(BotLexicalTerms.Stem(term),
                 StringComparison.OrdinalIgnoreCase));
             var hasEntityMatch = titleMatches > 0;
             var isExactQaQuestion = false;

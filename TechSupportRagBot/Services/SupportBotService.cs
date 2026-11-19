@@ -225,6 +225,8 @@ public class SupportBotService
             referenceCode = Regex.Match(conversationPlan.SearchQuestion, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value;
         if (technicalCode == null) FilterByReferenceCode(ragResult, referenceCode);
         FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
+        if (technicalCode == null)
+            ragResult.Chunks = BotNumericReferenceFilter.Select(retrievalQuestion, ragResult.Chunks).ToList();
         if (technicalCode == null && !conversationPlan.IsFollowUp)
             ragResult.Chunks = BotMultiIssueContextSelector.Select(question, ragResult.Chunks).ToList();
 

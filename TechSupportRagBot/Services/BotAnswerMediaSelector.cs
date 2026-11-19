@@ -54,7 +54,7 @@ public static class BotAnswerMediaSelector
         if (segments.Any(segment => !Tokens(segment)
             .Any(term => !term.All(char.IsDigit) && !GenericTerms.Contains(term))))
             return SelectQaEntryId(question, chunks) is int fallback ? [fallback] : [];
-        var ids = segments.Select(segment => SelectQaEntryId(segment, chunks, minimumScore: 3))
+        var ids = segments.Select(segment => SelectQaEntryId(segment, chunks, minimumScore: 2))
             .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
         return ids.Count >= 2 ? ids : SelectQaEntryId(question, chunks) is int single ? [single] : [];
     }
@@ -63,5 +63,5 @@ public static class BotAnswerMediaSelector
         Regex.Replace(value.ToLowerInvariant(), @"[^\p{L}\p{N}]+", " ").Trim();
 
     private static IEnumerable<string> Tokens(string text) => Token.Matches(text.ToLowerInvariant())
-        .Select(match => match.Value.All(char.IsDigit) ? match.Value : match.Value[..4]);
+        .Select(match => match.Value.All(char.IsDigit) ? match.Value : BotLexicalTerms.Stem(match.Value));
 }

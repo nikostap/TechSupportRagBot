@@ -19,7 +19,7 @@ public static partial class BotEvidenceGate
         var terms = Words().Matches(followUp.ToLowerInvariant())
             .Select(x => x.Value)
             .Where(x => x.Length >= 5 && !CommonWords.Contains(x))
-            .Select(x => x[..4])
+            .Select(BotLexicalTerms.Stem)
             .Distinct()
             .ToList();
         if (terms.Count == 0) return [];
