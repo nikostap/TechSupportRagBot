@@ -61,7 +61,7 @@
                         <div class="message-meta">@TechSupportRagBot.Services.UiText.T(HttpContext, turn.IsBot ? "Bot" : "You")</div>
                         @if (turn.IsBot && turn.Trace is { Count: > 0 })
                         {
-                            <details class="bot-decision-trace" open>
+                            <details class="bot-decision-trace" open="open">
                                 <summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTraceTitle")</summary>
                                 <ol>
                                     @foreach (var step in turn.Trace)
@@ -125,7 +125,7 @@
         <div class="message bot">
             @if (Model.BotAnswer.DecisionSteps.Count > 0)
             {
-                <details class="bot-decision-trace" open>
+                <details class="bot-decision-trace" open="open">
                     <summary>@TechSupportRagBot.Services.UiText.T(HttpContext, "BotTraceTitle")</summary>
                     <ol>
                         @foreach (var step in Model.BotAnswer.DecisionSteps)
