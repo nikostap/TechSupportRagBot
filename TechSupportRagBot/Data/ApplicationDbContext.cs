@@ -46,6 +46,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     /// Таблица сообщений в обращениях.
     /// </summary>
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<BotTestSession> BotTestSessions => Set<BotTestSession>();
     public DbSet<ChatMessageOperatorRead> ChatMessageOperatorReads => Set<ChatMessageOperatorRead>();
 
     /// <summary>
@@ -119,6 +120,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Обязательно вызываем базовую настройку Identity.
         // Без этого таблицы пользователей и ролей будут созданы неправильно.
         base.OnModelCreating(builder);
+
+        builder.Entity<BotTestSession>().HasKey(x => x.UserId);
+        builder.Entity<BotTestSession>().Property(x => x.UserId).HasMaxLength(450);
+        builder.Entity<BotTestSession>().Property(x => x.Language).HasMaxLength(40);
 
         builder.Entity<ComponentModel>().HasIndex(x => new { x.Type, x.Manufacturer, x.Series, x.PartNumber, x.Rating })
             .IsUnique().HasDatabaseName("IX_ComponentModels_Identity");

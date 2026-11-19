@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using System.Text.Json;
 using TechSupportRagBot.Data;
+using TechSupportRagBot.Models;
 using TechSupportRagBot.Services;
 
 namespace TechSupportRagBot.Pages.Admin;
@@ -16,15 +18,18 @@ public class BotTestModel : PageModel
 {
     private readonly ApplicationDbContext _db;
     private readonly SupportBotService _bot;
+    private readonly BotTestProgressStore _progress;
     private readonly IDataProtector _historyProtector;
 
     public BotTestModel(
         ApplicationDbContext db,
         SupportBotService bot,
+        BotTestProgressStore progress,
         IDataProtectionProvider dataProtectionProvider)
     {
         _db = db;
         _bot = bot;
+        _progress = progress;
         _historyProtector = dataProtectionProvider.CreateProtector("Admin.BotTest.History.v1");
     }
 
@@ -58,6 +63,12 @@ public class BotTestModel : PageModel
     public async Task OnGetAsync()
     {
         await LoadAsync();
+        var session = await CurrentSessionAsync();
+        if (session is null) return;
+        Input.MachineId = session.MachineId;
+        Input.Language = session.Language;
+        Input.HistoryJson = session.HistoryJson;
+        History = ReadHistory(session.HistoryJson)?.Turns ?? [];
     }
 
     public async Task<IActionResult> OnPostAskAsync(CancellationToken cancellationToken)
@@ -80,7 +91,8 @@ public class BotTestModel : PageModel
         }
 
         var language = ChatTranslationService.NormalizeLanguage(Input.Language);
-        var saved = ReadHistory(Input.HistoryJson);
+        var session = await CurrentSessionAsync();
+        var saved = ReadHistory(session?.HistoryJson);
         var turns = Input.ChatMode && saved?.MachineId == Input.MachineId && saved.Language == language
             ? saved.Turns.TakeLast(12).ToList()
             : [];
@@ -88,7 +100,14 @@ public class BotTestModel : PageModel
             ? string.Join("\n", turns.Select(x => $"{(x.IsBot ? "Бот" : "Клиент")}: {NormalizeForContext(x.Text)}"))
             : null;
 
-        BotAnswer = await _bot.AnswerAsync(Input.Question, Input.MachineId.Value, language, context, cancellationToken);
+        Action<BotDecisionStep>? onStep = null;
+        if (Input.ProgressId is Guid progressId && User.FindFirstValue(ClaimTypes.NameIdentifier) is { } userId)
+        {
+            _progress.Start(progressId, userId);
+            onStep = step => _progress.Add(progressId, step);
+        }
+        BotAnswer = await _bot.AnswerAsync(Input.Question, Input.MachineId.Value, language, context,
+            cancellationToken, onStep);
         RetrievalQuestion = BotAnswer.RetrievalQuestion;
         SupplementalRetrievalQuestion = BotAnswer.SupplementalRetrievalQuestion;
         SearchResult = BotAnswer.SearchResult;
@@ -104,9 +123,21 @@ public class BotTestModel : PageModel
                         || x.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
                     .Take(12)
                     .Select(x => new BotTestMedia(x.PublicId, x.OriginalFileName, x.ContentType))
+                    .ToList(),
+                BotAnswer.DecisionSteps.Take(20)
+                    .Select(x => new BotDecisionStep(x.Key,
+                        x.Detail is { Length: > 1200 } ? x.Detail[..1200] : x.Detail))
                     .ToList()));
             History = turns.TakeLast(12).ToList();
             Input.HistoryJson = _historyProtector.Protect(JsonSerializer.Serialize(new BotTestHistory(Input.MachineId.Value, language, History)));
+            var sessionUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            session ??= new BotTestSession { UserId = sessionUserId };
+            if (_db.Entry(session).State == EntityState.Detached) _db.BotTestSessions.Add(session);
+            session.MachineId = Input.MachineId.Value;
+            session.Language = language;
+            session.HistoryJson = Input.HistoryJson;
+            session.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         Input.Question = string.Empty;
@@ -119,12 +150,32 @@ public class BotTestModel : PageModel
     public async Task<IActionResult> OnPostClearAsync()
     {
         await LoadAsync();
+        var session = await CurrentSessionAsync();
+        if (session is not null)
+        {
+            _db.BotTestSessions.Remove(session);
+            await _db.SaveChangesAsync();
+        }
         Input.Question = string.Empty;
         Input.HistoryJson = string.Empty;
         History = [];
         ModelState.Remove($"{nameof(Input)}.{nameof(Input.Question)}");
         ModelState.Remove($"{nameof(Input)}.{nameof(Input.HistoryJson)}");
         return Page();
+    }
+
+    public IActionResult OnGetProgress(Guid requestId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return Unauthorized();
+        return new JsonResult(new
+        {
+            steps = _progress.Read(requestId, userId).Select(step => new
+            {
+                label = UiText.T(HttpContext, step.Key),
+                detail = step.Detail
+            })
+        });
     }
 
     private BotTestHistory? ReadHistory(string? json)
@@ -136,6 +187,8 @@ public class BotTestModel : PageModel
             if (saved?.Turns is null || saved.Turns.Count > 12 || saved.Turns.Any(x =>
                 x.Text.Length > (x.IsBot ? 4000 : 1500)
                 || x.Media is { Count: > 12 }
+                || x.Trace is { Count: > 20 }
+                || (x.Trace?.Any(step => step.Key.Length > 80 || step.Detail?.Length > 1200) == true)
                 || (x.Media?.Any(media => media.OriginalFileName.Length > 255
                     || media.ContentType.Length > 100
                     || !(media.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
@@ -147,6 +200,14 @@ public class BotTestModel : PageModel
 
     private static string NormalizeForContext(string text) =>
         string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private Task<BotTestSession?> CurrentSessionAsync()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return userId is null
+            ? Task.FromResult<BotTestSession?>(null)
+            : _db.BotTestSessions.FirstOrDefaultAsync(x => x.UserId == userId);
+    }
 
     private async Task LoadAsync()
     {
@@ -177,9 +238,11 @@ public class BotTestModel : PageModel
         public bool ChatMode { get; set; } = true;
 
         public string? HistoryJson { get; set; }
+        public Guid? ProgressId { get; set; }
     }
 
-    public sealed record BotTestTurn(bool IsBot, string Text, IReadOnlyList<BotTestMedia>? Media = null);
+    public sealed record BotTestTurn(bool IsBot, string Text, IReadOnlyList<BotTestMedia>? Media = null,
+        IReadOnlyList<BotDecisionStep>? Trace = null);
     public sealed record BotTestMedia(Guid PublicId, string OriginalFileName, string ContentType);
     public sealed record BotTestHistory(int MachineId, string Language, IReadOnlyList<BotTestTurn> Turns);
 }

@@ -132,6 +132,7 @@ builder.Services.AddSingleton<DocumentTypeDetector>();
 builder.Services.AddScoped<KnowledgeIngestionService>();
 builder.Services.AddScoped<ComponentCatalogService>();
 builder.Services.AddScoped<SupportBotService>();
+builder.Services.AddSingleton<BotTestProgressStore>();
 builder.Services.AddScoped<TicketDeletionService>();
 builder.Services.AddScoped<AccountDeactivationService>();
 builder.Services.AddScoped<ChatMessageDeletionService>();

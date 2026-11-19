@@ -2564,6 +2564,34 @@ details[open] > .ticket-accordion-summary .accordion-chevron {
   white-space: pre-wrap;
 }
 
+.bot-decision-trace {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(100, 143, 156, .4);
+  border-radius: 5px;
+  background: rgba(100, 143, 156, .1);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.bot-decision-trace summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.bot-decision-trace ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.bot-decision-trace li + li {
+  margin-top: 5px;
+}
+
+.bot-decision-trace li span {
+  overflow-wrap: anywhere;
+}
+
 .bot-test-empty {
   align-self: center;
   margin: auto;

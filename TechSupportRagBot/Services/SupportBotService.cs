@@ -54,13 +54,32 @@ public class SupportBotService
         int machineId,
         string? userCountry = null,
         string? conversationContext = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<BotDecisionStep>? onDecisionStep = null)
     {
         question = TextEncodingRepairService.RepairIfNeeded(question).Trim();
         conversationContext = TextEncodingRepairService.RepairIfNeeded(conversationContext);
         var language = ChatTranslationService.NormalizeLanguage(userCountry);
         var isEnglish = language.Equals("English", StringComparison.OrdinalIgnoreCase);
         var traceId = Guid.NewGuid().ToString("N");
+        var decisionSteps = new List<BotDecisionStep>();
+        void Step(string key, string? detail = null)
+        {
+            var step = new BotDecisionStep(key, detail);
+            decisionSteps.Add(step);
+            onDecisionStep?.Invoke(step);
+        }
+        BotAnswerResult Complete(BotAnswerResult result)
+        {
+            var mediaQaId = result.SearchResult is null ? null
+                : BotAnswerMediaSelector.SelectQaEntryId(question, result.SearchResult.Chunks);
+            Step(result.Media.Count > 0 ? "BotTraceMediaAttached" : "BotTraceNoMedia",
+                result.Media.Count > 0
+                    ? string.Join(", ", new[] { mediaQaId is int id ? $"QA #{id}" : null }
+                        .Where(x => x is not null).Concat(result.Media.Select(x => x.OriginalFileName)))
+                    : null);
+            return result with { DecisionSteps = decisionSteps.ToList() };
+        }
 
         await _audit.WriteAsync("Bot.Request.Started", new
         {
@@ -73,11 +92,21 @@ public class SupportBotService
 
         if (ShouldCallOperator(question))
         {
+            Step("BotTraceOperatorRequested");
             await _audit.WriteAsync("Bot.Request.EscalatedByUserTrigger", new { machineId, question }, traceId, cancellationToken);
-            return BotAnswerResult.Escalate(EscalationText(isEnglish));
+            return Complete(BotAnswerResult.Escalate(EscalationText(isEnglish)));
         }
 
         var turn = await BotTurnClassifier.ClassifyAsync(question, conversationContext, _ollama, cancellationToken);
+        Step(turn.Intent switch
+        {
+            BotTurnIntent.NewQuestion => "BotTraceNewQuestion",
+            BotTurnIntent.Clarification => "BotTraceClarification",
+            BotTurnIntent.Affirmation => "BotTraceAffirmation",
+            BotTurnIntent.Negation => "BotTraceNegation",
+            _ => "BotTraceUncertainIntent"
+        });
+        Step(turn.Source == "model" ? "BotTraceIntentFromModel" : "BotTraceIntentFromRules");
         await _audit.WriteAsync("Bot.Turn.Classified", new
         {
             machineId,
@@ -97,6 +126,8 @@ public class SupportBotService
         var forceFollowUp = turn.IsReliable && turn.Intent == BotTurnIntent.Clarification ? true : (bool?)null;
         var conversationPlan = BotConversationPlanner.Create(question, conversationContext, forceFollowUp,
             turn.IsReliable ? turn.Intent : BotTurnIntent.Unknown);
+        Step(conversationPlan.IsFollowUp ? "BotTraceFollowUpPlan" : "BotTraceNewSearchPlan",
+            conversationPlan.SearchQuestion);
         var suggestedCodeReply = BotTechnicalCode.ResolveSuggestedCodeReply(question, conversationContext,
             turn.IsReliable ? turn.Intent : BotTurnIntent.Unknown);
         var currentCode = BotTechnicalCode.Extract(question, conversationContext);
@@ -104,28 +135,34 @@ public class SupportBotService
             && currentCode == null
             && BotTechnicalCode.GetPendingSuggestedCode(conversationContext) is { } pendingSuggestion)
         {
+            Step("BotTraceCodeChoiceNeeded");
             var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseFaultCode");
-            return new BotAnswerResult(string.Format(template,
+            return Complete(new BotAnswerResult(string.Format(template,
                 pendingSuggestion.SuggestedCode.ToUpperInvariant(),
-                pendingSuggestion.ReportedCode.ToUpperInvariant()), false, []);
+                pendingSuggestion.ReportedCode.ToUpperInvariant()), false, []));
         }
         if (suggestedCodeReply is { SelectedCode: null })
         {
+            Step("BotTraceCodeRejected");
             var template = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotSuggestedFaultRejected");
-            return new BotAnswerResult(string.Format(template,
-                suggestedCodeReply.SuggestedCode.ToUpperInvariant()), false, []);
+            return Complete(new BotAnswerResult(string.Format(template,
+                suggestedCodeReply.SuggestedCode.ToUpperInvariant()), false, []));
         }
         var technicalCode = suggestedCodeReply?.SelectedCode
             ?? BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
         if (suggestedCodeReply == null && conversationPlan.NeedsChoiceClarification)
         {
-            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []);
+            Step("BotTraceChoiceNeeded");
+            return Complete(new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotChooseClarification"), false, []));
         }
         if (suggestedCodeReply == null && conversationPlan.NeedsDetailClarification)
         {
-            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotDescribeFollowUp"), false, []);
+            Step("BotTraceDetailNeeded");
+            return Complete(new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotDescribeFollowUp"), false, []));
         }
         var retrievalQuestion = await BuildRussianRetrievalQuestionAsync(conversationPlan.SearchQuestion, language, traceId, cancellationToken);
+        Step(technicalCode == null ? "BotTraceHybridSearch" : "BotTraceExactCodeSearch",
+            technicalCode ?? retrievalQuestion);
         var ragResult = await _ragSearch.SearchAsync(new RagSearchRequest
         {
             TraceId = traceId,
@@ -241,6 +278,11 @@ public class SupportBotService
             ragResult.Confidence,
             ragResult.ShouldCallOperator,
             ragResult.Warning);
+        if (!string.IsNullOrWhiteSpace(supplementalRetrievalQuestion))
+            Step("BotTraceAdditionalSearch", supplementalRetrievalQuestion);
+        Step(ragResult.Chunks.Count == 0 ? "BotTraceNoSources" : "BotTraceSources",
+            ragResult.Chunks.Count == 0 ? null : string.Join("; ", ragResult.Chunks.Take(5).Select(x =>
+                $"{(x.SourceType == "ResolvedTicket" ? UiText.ForLanguage(isEnglish ? "en" : "ru", "BotTraceSourceChat") : x.DocumentType == "QA" ? "QA" : UiText.ForLanguage(isEnglish ? "en" : "ru", "BotTraceSourceDocument"))} #{x.ChunkId} {x.Title ?? x.DocumentName ?? x.SectionTitle ?? x.ErrorCode} ({x.RerankScore:F3})")));
 
         if (ragResult.ShouldCallOperator || ragResult.Chunks.Count == 0)
         {
@@ -271,21 +313,24 @@ public class SupportBotService
                 var reply = near != null
                     ? string.Format(template, technicalCode.ToUpperInvariant(), near.ErrorCode!.ToUpperInvariant(), nearDescription)
                     : string.Format(template, technicalCode.ToUpperInvariant());
-                return new BotAnswerResult(reply, false, [])
+                Step(near != null ? "BotTraceNearCode" : "BotTraceCodeNotFound", technicalCode);
+                return Complete(new BotAnswerResult(reply, false, [])
                 { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
-                    SearchResult = ragResult, UnmatchedCodeCandidates = unmatchedCodeCandidates };
+                    SearchResult = ragResult, UnmatchedCodeCandidates = unmatchedCodeCandidates });
             }
 
-            return new BotAnswerResult(
+            Step("BotTraceClarificationFromSearch");
+            return Complete(new BotAnswerResult(
                 await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken),
                 false,
-                []) { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult };
+                []) { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult });
         }
 
         if (conversationPlan.IsFollowUp && missingTerms.Count > 0)
         {
-            return new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFollowUpEvidenceMissing"), false, [])
-            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) };
+            Step("BotTraceEvidenceMissing", string.Join(", ", missingTerms));
+            return Complete(new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFollowUpEvidenceMissing"), false, [])
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
         var answerMedia = await LoadAnswerMediaAsync(question, ragResult, cancellationToken);
@@ -313,8 +358,9 @@ public class SupportBotService
                 var translated = await _translation.TranslateAsync(documented, "Russian", language, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(translated)) documented = translated;
             }
-            return new BotAnswerResult(documented, false, answerMedia)
-            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+            Step("BotTraceDirectManual", $"#{ragResult.Chunks[0].ChunkId}");
+            return Complete(new BotAnswerResult(documented, false, answerMedia)
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context });
         }
 
         if (conversationPlan.IsFollowUp && !conversationPlan.AsksAboutPriorAnswer && ragResult.Chunks.Count == 1)
@@ -336,8 +382,9 @@ public class SupportBotService
                     if (!string.IsNullOrWhiteSpace(conversationPlan.ResolvedReference)
                         && !directAnswer.Contains(conversationPlan.ResolvedReference, StringComparison.OrdinalIgnoreCase))
                         directAnswer = $"{conversationPlan.ResolvedReference}: {directAnswer}";
-                    return new BotAnswerResult(directAnswer, false, answerMedia)
-                    { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context };
+                    Step("BotTraceDirectQa", $"#{exactQa.ChunkId}");
+                    return Complete(new BotAnswerResult(directAnswer, false, answerMedia)
+                    { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context });
                 }
             }
         }
@@ -350,9 +397,10 @@ public class SupportBotService
                 var translated = await _translation.TranslateAsync(directAnswer, "Russian", language, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(translated)) directAnswer = translated;
             }
-            return new BotAnswerResult(directAnswer, false, answerMedia)
+            Step("BotTraceDirectQa", $"#{matchingQa.ChunkId}");
+            return Complete(new BotAnswerResult(directAnswer, false, answerMedia)
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
-                SearchResult = ragResult, ContextForLlm = context };
+                SearchResult = ragResult, ContextForLlm = context });
         }
 
         var promptHistory = conversationPlan.IsFollowUp
@@ -415,6 +463,7 @@ public class SupportBotService
             prompt
         }, traceId, cancellationToken);
 
+        Step("BotTraceModelAnswer", $"{ragResult.Chunks.Count}");
         var answer = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         if (string.IsNullOrWhiteSpace(answer))
         {
@@ -441,21 +490,25 @@ public class SupportBotService
                     source = "deterministic-context-fallback"
                 }, traceId, cancellationToken);
 
-                return new BotAnswerResult(deterministicAnswer, false, answerMedia)
-                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
+                Step("BotTraceModelFallbackQa");
+                return Complete(new BotAnswerResult(deterministicAnswer, false, answerMedia)
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true });
             }
 
             var fallback = isEnglish
                 ? "I found context, but could not form a reliable answer. Please clarify the machine unit, error text, sensor number, or what happens on the screen. How else can I help? If you need an operator, write \"operator\" in the chat."
                 : "Контекст найден, но я не смог сформировать надежный ответ. Уточните узел станка, текст ошибки, номер датчика или что именно происходит на экране. Чем могу помочь ещё? Если нужен оператор, напишите в чат: оператор.";
-            return new BotAnswerResult(fallback, false, [])
-            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
+            Step("BotTraceModelUnavailable");
+            return Complete(new BotAnswerResult(fallback, false, [])
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true });
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
         if (conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AsksAboutPriorAnswer)
         {
-            cleanAnswer = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
+            var withoutRepeats = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
+            if (withoutRepeats != cleanAnswer) Step("BotTraceRepeatedStepsRemoved");
+            cleanAnswer = withoutRepeats;
             if (string.IsNullOrWhiteSpace(cleanAnswer))
             {
                 cleanAnswer = UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
@@ -463,6 +516,7 @@ public class SupportBotService
         }
         if (LooksLikeSourceOnlyAnswer(cleanAnswer))
         {
+            Step("BotTraceSourceOnlyAnswer");
             cleanAnswer = await BuildClarificationAnswerAsync(ragResult, language, isEnglish, cancellationToken);
             answerMedia = [];
         }
@@ -490,8 +544,9 @@ public class SupportBotService
             shouldEscalate = mustEscalate
         }, traceId, cancellationToken);
 
-        return new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia)
-        { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true };
+        Step(mustEscalate ? "BotTraceOperatorHandoff" : "BotTraceAnswerReady");
+        return Complete(new BotAnswerResult(cleanAnswer, mustEscalate, answerMedia)
+        { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true });
     }
 
     private async Task<string?> BuildDeterministicAnswerFromContextAsync(
@@ -747,6 +802,7 @@ public class SupportBotService
 
 public sealed record BotAnswerResult(string Text, bool ShouldEscalate, IReadOnlyList<BotAnswerMedia> Media)
 {
+    public IReadOnlyList<BotDecisionStep> DecisionSteps { get; init; } = [];
     public string? RetrievalQuestion { get; init; }
     public string? SupplementalRetrievalQuestion { get; init; }
     public RagSearchResult? SearchResult { get; init; }
@@ -755,6 +811,8 @@ public sealed record BotAnswerResult(string Text, bool ShouldEscalate, IReadOnly
     public IReadOnlyList<RagChunkCandidate> UnmatchedCodeCandidates { get; init; } = [];
     public static BotAnswerResult Escalate(string text) => new(text, true, []);
 }
+
+public sealed record BotDecisionStep(string Key, string? Detail = null);
 
 public sealed record BotAnswerMedia(
     Guid PublicId,
