@@ -11,13 +11,16 @@ public static class BotExactQaSelector
         if (faultIndex > 0) normalizedQuestion = normalizedQuestion[faultIndex..];
         if (normalizedQuestion.Length < 12) return null;
 
-        return chunks
-            .Where(chunk => string.Equals(chunk.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(chunk.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(chunk.Solution)
-                && Normalize(chunk.Title ?? string.Empty).StartsWith(normalizedQuestion, StringComparison.Ordinal))
-            .OrderByDescending(chunk => chunk.RerankScore)
-            .FirstOrDefault();
+        var ordered = chunks.OrderByDescending(x => x.RerankScore).ToList();
+        if (ordered.Count == 0) return null;
+        var best = ordered[0];
+        if (!string.Equals(best.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(best.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(best.Solution)
+            || !Normalize(best.Title ?? string.Empty).StartsWith(normalizedQuestion, StringComparison.Ordinal)
+            || (ordered.Count > 1 && best.RerankScore - ordered[1].RerankScore < 0.35))
+            return null;
+        return best;
     }
 
     private static string Normalize(string value) =>

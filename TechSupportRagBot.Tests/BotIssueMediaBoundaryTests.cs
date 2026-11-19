@@ -57,25 +57,7 @@ public sealed class BotIssueMediaBoundaryTests
         pressure.Solution = "Проверьте датчик 91.";
         Assert.Same(spool, BotExactQaSelector.Select("ошибка нет шпули", [spool, pressure]));
         Assert.Same(spool, BotExactQaSelector.Select("а теперь у меня ошибка нет шпули", [spool, pressure]));
-        Assert.Same(spool, BotExactQaSelector.Select("а теперь у меня ошибка нет шпули", [pressure, spool]));
         Assert.Null(BotExactQaSelector.Select("ошибка датчика", [spool, pressure]));
-    }
-
-    [Fact]
-    public void SensorFollowUpKeepsItsQaAndAttachmentFromAlternativeQuestion()
-    {
-        var spool = Qa(87, "Ошибка нет шпули в бункере?", 1.16);
-        spool.SearchQuestions = "Где находится датчик 87?";
-        spool.Solution = "Датчик 87 в бункере.";
-        var pressure = Qa(91, "Ошибка низкого давления", 1.15);
-        pressure.Solution = "Проверьте датчик 91.";
-        var result = new RagSearchResult { Chunks = [spool, pressure] };
-
-        BotSensorFocus.Filter("где находится датчик 87?", result);
-
-        Assert.Single(result.Chunks);
-        Assert.Same(spool, result.Chunks[0]);
-        Assert.Equal(87, BotAnswerMediaSelector.SelectQaEntryId("где находится датчик 87?", result.Chunks));
     }
 
     [Fact]

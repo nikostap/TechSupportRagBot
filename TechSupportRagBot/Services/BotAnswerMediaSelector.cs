@@ -23,13 +23,13 @@ public static class BotAnswerMediaSelector
             .Select(chunk => new
             {
                 Chunk = chunk,
-                TopicTerms = Tokens(string.Join(' ', chunk.Title, chunk.SearchQuestions, chunk.Tags)).ToHashSet()
+                TitleTerms = Tokens(chunk.Title ?? string.Empty).ToHashSet()
             })
-            .Where(item => numbers.Length == 0 || numbers.All(number => item.TopicTerms.Contains(number)))
+            .Where(item => numbers.Length == 0 || numbers.All(number => item.TitleTerms.Contains(number)))
             .Select(item => new
             {
                 item.Chunk,
-                Score = terms.Count(item.TopicTerms.Contains)
+                Score = terms.Count(item.TitleTerms.Contains)
             })
             .Where(item => item.Score > 0)
             .OrderByDescending(item => item.Score)

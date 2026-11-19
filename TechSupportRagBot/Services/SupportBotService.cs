@@ -178,7 +178,6 @@ public class SupportBotService
             referenceCode = Regex.Match(conversationPlan.SearchQuestion, @"\b[A-Za-z]{1,3}\d{2,4}\b", RegexOptions.IgnoreCase).Value;
         if (technicalCode == null) FilterByReferenceCode(ragResult, referenceCode);
         FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
-        BotSensorFocus.Filter(question, ragResult);
 
         if (conversationPlan.AsksAboutPriorAnswer && technicalCode == null)
         {
@@ -226,7 +225,6 @@ public class SupportBotService
             }, cancellationToken);
             FilterByReferenceCode(focusedResult, referenceCode);
             FilterByResolvedReference(focusedResult, conversationPlan.ResolvedReference);
-            BotSensorFocus.Filter(question, focusedResult);
             var merged = focusedResult.Chunks.Concat(ragResult.Chunks)
                 .DistinctBy(x => x.ChunkId).Take(8).ToList();
             ragResult.Chunks = merged;
