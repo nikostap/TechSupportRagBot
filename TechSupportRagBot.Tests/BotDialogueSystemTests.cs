@@ -48,6 +48,18 @@ public sealed class BotDialogueSystemTests
     }
 
     [Fact]
+    public void DetailedObservationDoesNotBecomeBareAffirmation()
+    {
+        const string history = "Клиент: Горит аварийный стоп\n"
+            + "Бот: Проверьте все кнопки и индикатор 73. Чем могу помочь ещё?";
+        var plan = BotConversationPlanner.Create("Все кнопки отжаты, а сообщение осталось",
+            history, interpretedIntent: BotTurnIntent.Affirmation);
+        Assert.True(plan.IsFollowUp);
+        Assert.False(plan.NeedsDetailClarification);
+        Assert.Contains("сообщение осталось", plan.SearchQuestion);
+    }
+
+    [Fact]
     public void RejectedCauseDoesNotRemainInFocusedRetrievalQuestion()
     {
         const string history = "Клиент: Не видит шпулю и низкое давление\n"
@@ -95,6 +107,28 @@ public sealed class BotDialogueSystemTests
         Assert.Null(BotTechnicalCode.Extract("Ошибка низкого давления на L-800", null, machine));
         Assert.Equal("E34", BotTechnicalCode.Extract("Ошибка E34 на L-800", null, machine));
         Assert.Equal("OC", BotTechnicalCode.Extract("Пишет OC, мотор не крутится", null, machine));
+    }
+
+    [Fact]
+    public void SelectedMachineNumberDoesNotSuppressSensorImage()
+    {
+        var machine = new Machine { Model = "L", Name = "L", SerialNumber = "800" };
+        var question = BotMachineMention.Remove("На L-800 ошибка низкое давление", machine);
+        var qa = new RagChunkCandidate { QAEntryId = 91, QAStatus = "Verified", DocumentType = "QA",
+            Title = "Ошибка низкое давление" };
+        Assert.DoesNotContain("800", question);
+        Assert.Equal(91, BotAnswerMediaSelector.SelectQaEntryId(question, [qa]));
+    }
+
+    [Fact]
+    public void ExplicitPartNumberDoesNotUseAnotherDevicesQa()
+    {
+        var machine = new Machine { Model = "L", Name = "L", SerialNumber = "800" };
+        var wrong = new RagChunkCandidate { DocumentType = "QA", Title = "Датчик E3RA-DP21" };
+        var right = new RagChunkCandidate { DocumentType = "Manual", Title = "CSH-223", Text = "Геркон CSH-223" };
+        Assert.Empty(BotIdentifierEvidenceGate.Select("Как подключить CSH-223?", machine, [wrong]));
+        Assert.Equal([right], BotIdentifierEvidenceGate.Select("Как подключить CSH-223?", machine, [wrong, right]));
+        Assert.Equal([wrong], BotIdentifierEvidenceGate.Select("На L-800 низкое давление", machine, [wrong]));
     }
 
     [Fact]

@@ -21,11 +21,10 @@ public static class BotConversationPlanner
         var previousBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
         var hasExchange = !string.IsNullOrWhiteSpace(previousClient) && !string.IsNullOrWhiteSpace(previousBot);
         var normalized = question.ToLowerInvariant();
-        var isConfirmation = interpretedIntent is BotTurnIntent.Affirmation or BotTurnIntent.Negation
-            || normalized is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
-            or "не то" or "не это" or "yes" or "no" or "yeah" or "yep" or "correct";
-        var isNegative = interpretedIntent == BotTurnIntent.Negation
-            || normalized is "нет" or "no" or "не то" or "не это";
+        var isConfirmation = BotTurnClassifier.ClassifyCommonReply(question) is not null
+            || (question.Length <= 24 && interpretedIntent is BotTurnIntent.Affirmation or BotTurnIntent.Negation);
+        var isNegative = isConfirmation && (interpretedIntent == BotTurnIntent.Negation
+            || normalized is "нет" or "no" or "не то" or "не это");
         var hasReference = References.Any(x => ContainsWord(normalized, x));
         var newQuestion = normalized.TrimStart('а', ' ', ',');
         var startsNewQuestion = new[] { "как ", "почему ", "можно ", "что делать", "где ", "какой ", "какое ", "какая ", "какие ", "какую ", "каких ", "каким ", "сколько ", "how ", "why ", "where ", "what ", "which " }

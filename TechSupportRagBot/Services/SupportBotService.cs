@@ -255,6 +255,11 @@ public class SupportBotService
         FilterByResolvedReference(ragResult, conversationPlan.ResolvedReference);
         if (technicalCode == null)
             ragResult.Chunks = BotNumericReferenceFilter.Select(retrievalQuestion, ragResult.Chunks).ToList();
+        if (technicalCode == null)
+        {
+            ragResult.Chunks = BotIdentifierEvidenceGate.Select(retrievalQuestion, machine, ragResult.Chunks).ToList();
+            if (ragResult.Chunks.Count == 0) ragResult.ShouldCallOperator = true;
+        }
         if (technicalCode == null && !conversationPlan.IsFollowUp)
             ragResult.Chunks = BotMultiIssueContextSelector.Select(question, ragResult.Chunks).ToList();
 
@@ -307,6 +312,7 @@ public class SupportBotService
             FilterByResolvedReference(focusedResult, conversationPlan.ResolvedReference);
             var merged = focusedResult.Chunks.Concat(ragResult.Chunks)
                 .DistinctBy(x => x.ChunkId).Take(8).ToList();
+            merged = BotIdentifierEvidenceGate.Select(retrievalQuestion, machine, merged).ToList();
             ragResult.Chunks = merged;
             ragResult.ShouldCallOperator = merged.Count == 0
                 || (ragResult.ShouldCallOperator && focusedResult.ShouldCallOperator);
@@ -379,6 +385,7 @@ public class SupportBotService
         // A correction can reject part of the literal message. Match attachments to
         // the issue that was actually searched, so rejected causes cannot win.
         var mediaQuestion = conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
+        mediaQuestion = BotMachineMention.Remove(mediaQuestion, machine);
         var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult, cancellationToken);
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new
