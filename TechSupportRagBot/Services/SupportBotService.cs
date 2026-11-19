@@ -412,9 +412,16 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
-        if (BotQaAmbiguity.GetChoices(question, ragResult.Chunks, conversationPlan.IsFollowUp) is { } choices)
+        if (BotQaAmbiguity.GetChoices(retrievalQuestion, ragResult.Chunks, conversationPlan.IsFollowUp) is { } choices)
         {
             Step("BotTraceChoiceNeeded", $"{choices.First}; {choices.Second}");
+            if (isEnglish)
+            {
+                var first = await _translation.TranslateAsync(choices.First, "Russian", language, cancellationToken);
+                var second = await _translation.TranslateAsync(choices.Second, "Russian", language, cancellationToken);
+                choices = (string.IsNullOrWhiteSpace(first) ? choices.First : first,
+                    string.IsNullOrWhiteSpace(second) ? choices.Second : second);
+            }
             var reply = string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotQaAmbiguityQuestion"),
                 choices.First, choices.Second);
             return Complete(new BotAnswerResult(reply, false, [])
@@ -423,7 +430,8 @@ public class SupportBotService
 
         // A correction can reject part of the literal message. Match attachments to
         // the issue that was actually searched, so rejected causes cannot win.
-        var mediaQuestion = conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
+        var mediaQuestion = isEnglish ? retrievalQuestion
+            : conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
         mediaQuestion = BotMachineMention.Remove(mediaQuestion, machine);
         var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult,
             conversationPlan.IsFollowUp && !BotFollowUpMediaPolicy.RequestsVisual(question) ? 2 : 1,

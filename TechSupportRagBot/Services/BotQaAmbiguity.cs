@@ -24,7 +24,8 @@ public static partial class BotQaAmbiguity
     private static string NormalizeIssuePhrase(string text)
     {
         var words = Word().Matches(text.ToLowerInvariant()).Select(match => match.Value)
-            .Where(word => word is not ("пишет" or "показывает" or "ошибка" or "ошибки" or "сейчас" or "теперь" or "ещё" or "еще"));
+            .Where(word => word is not ("пишет" or "показывает" or "ошибка" or "ошибки" or "сейчас" or "теперь" or "ещё" or "еще"
+                or "станок" or "машина" or "что"));
         return string.Join(" ", words);
     }
 

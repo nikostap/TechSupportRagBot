@@ -106,6 +106,7 @@ public class BotAnswerGroundingGuardTests
             new() { DocumentType = "QA", QAStatus = "Verified", Title = "При подаче шпули ошибка датчиков 85 и 81?", RerankScore = 0.881 }
         };
         Assert.Null(BotQaAmbiguity.GetChoices("Пишет нет шпули", chunks, false));
+        Assert.Null(BotQaAmbiguity.GetChoices("станок пишет, что нет шпули", chunks, false));
     }
 
     [Fact]
