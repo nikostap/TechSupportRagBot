@@ -12,7 +12,7 @@ public static class BotConversationPlanner
     public static BotConversationPlan Create(string question, string? history, bool? forceFollowUp = null,
         BotTurnIntent interpretedIntent = BotTurnIntent.Unknown)
     {
-        question = question.Trim();
+        question = BotTurnClassifier.StripOpeningCourtesy(question.Trim());
         if (BotIssueBoundary.StartsDifferentFault(question, history))
             return new BotConversationPlan(question, question, false, string.Empty, false, false);
         var turns = BotConversationHistory.Parse(history);

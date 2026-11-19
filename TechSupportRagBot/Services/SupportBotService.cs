@@ -107,6 +107,7 @@ public class SupportBotService
             BotTurnIntent.Clarification => "BotTraceClarification",
             BotTurnIntent.Affirmation => "BotTraceAffirmation",
             BotTurnIntent.Negation => "BotTraceNegation",
+            BotTurnIntent.Courtesy => "BotTraceCourtesy",
             _ => "BotTraceUncertainIntent"
         });
         Step(turn.Source == "model" ? "BotTraceIntentFromModel" : "BotTraceIntentFromRules");
@@ -117,6 +118,10 @@ public class SupportBotService
             turn.Confidence,
             turn.Source
         }, traceId, cancellationToken);
+        if (turn.Intent == BotTurnIntent.Courtesy)
+            return Complete(new BotAnswerResult(
+                UiText.ForLanguage(isEnglish ? "en" : "ru", "BotCourtesyReply"), false, []));
+        question = BotTurnClassifier.StripOpeningCourtesy(question);
         if (turn.IsReliable && turn.Intent == BotTurnIntent.NewQuestion)
             conversationContext = null;
         var explicitCode = BotTechnicalCode.Extract(question, conversationContext, machine);

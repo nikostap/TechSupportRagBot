@@ -6,6 +6,61 @@ namespace TechSupportRagBot.Tests;
 public sealed class BotDialogueSystemTests
 {
     [Theory]
+    [InlineData("Спасибо")]
+    [InlineData("Большое спасибо!")]
+    [InlineData("Ок, спасибо, всё понятно")]
+    [InlineData("Благодарю вас")]
+    [InlineData("Thanks, that helps")]
+    [InlineData("До свидания")]
+    public async Task CourtesyClosesTurnWithoutModelOrRetrieval(string reply)
+    {
+        const string history = "Клиент: Ошибка нет шпули\nБот: Проверьте индикатор 87.";
+        var result = await BotTurnClassifier.ClassifyAsync(reply, history, null!, CancellationToken.None);
+        Assert.Equal(BotTurnIntent.Courtesy, result.Intent);
+        Assert.True(result.IsReliable);
+        Assert.Null(BotTurnClassifier.ClassifyCommonReply(reply));
+    }
+
+    [Theory]
+    [InlineData("Спасибо, но датчик не светится")]
+    [InlineData("Спасибо, а теперь ошибка давления")]
+    [InlineData("Пока датчик не горит")]
+    public void CourtesyWithNewTechnicalInformationStillNeedsRouting(string reply)
+    {
+        Assert.Null(BotTurnClassifier.ClassifyCourtesyReply(reply));
+    }
+
+    [Theory]
+    [InlineData("Спасибо, а теперь ошибка низкое давление")]
+    [InlineData("Спасибо а теперь ошибка низкое давление")]
+    [InlineData("Thanks, now low pressure error")]
+    public async Task NewFaultAfterThanksStartsSeparateSearch(string reply)
+    {
+        const string history = "Клиент: Нет шпули\nБот: Проверьте датчик 87.\n"
+            + "Клиент: Спасибо\nБот: Пожалуйста.";
+        var technical = BotTurnClassifier.StripOpeningCourtesy(reply);
+        Assert.DoesNotContain("Спасибо", technical, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("thanks", technical, StringComparison.OrdinalIgnoreCase);
+        Assert.True(BotIssueBoundary.StartsDifferentFault(technical, history));
+        var intent = await BotTurnClassifier.ClassifyAsync(reply, history, null!, CancellationToken.None);
+        Assert.Equal(BotTurnIntent.NewQuestion, intent.Intent);
+        var plan = BotConversationPlanner.Create(reply, history, interpretedIntent: intent.Intent);
+        Assert.False(plan.IsFollowUp);
+        Assert.Equal(technical, plan.SearchQuestion);
+    }
+
+    [Fact]
+    public void TechnicalDetailAfterThanksIsRetainedWithoutCourtesyTerm()
+    {
+        const string history = "Клиент: Нет шпули\nБот: Проверьте индикатор 87.";
+        var plan = BotConversationPlanner.Create("Спасибо, но датчик не светится", history,
+            forceFollowUp: true);
+        Assert.True(plan.IsFollowUp);
+        Assert.Contains("датчик не светится", plan.SearchQuestion);
+        Assert.DoesNotContain("Спасибо", plan.SearchQuestion);
+    }
+
+    [Theory]
     [InlineData("А еще пишет низкое давление")]
     [InlineData("А теперь аварийный стоп горит")]
     [InlineData("Теперь ошибка правого кожуха")]

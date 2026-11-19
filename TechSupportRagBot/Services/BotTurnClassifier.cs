@@ -4,7 +4,7 @@ using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
-public enum BotTurnIntent { Unknown, Affirmation, Negation, Clarification, NewQuestion, Other }
+public enum BotTurnIntent { Unknown, Affirmation, Negation, Clarification, NewQuestion, Other, Courtesy }
 
 public sealed record BotTurnClassification(BotTurnIntent Intent, double Confidence, string Source)
 {
@@ -18,6 +18,9 @@ public static partial class BotTurnClassifier
         string question, string? history, OllamaClient model, CancellationToken cancellationToken,
         Machine? machine = null)
     {
+        var courtesy = ClassifyCourtesyReply(question);
+        if (courtesy != null) return courtesy;
+        question = StripOpeningCourtesy(question);
         var lastTurn = BotConversationHistory.Parse(history).LastOrDefault();
         var lastBot = lastTurn?.Role == "Бот" ? lastTurn.Text : null;
         if (string.IsNullOrWhiteSpace(lastBot))
@@ -57,6 +60,16 @@ public static partial class BotTurnClassifier
         if (Negation().IsMatch(reply)) return new(BotTurnIntent.Negation, 1, "phrase");
         return null;
     }
+
+    public static BotTurnClassification? ClassifyCourtesyReply(string question)
+    {
+        var reply = Regex.Replace(question.Trim().TrimEnd('.', '!', '?'), @"[\s,]+", " ").Trim();
+        return Courtesy().IsMatch(reply)
+            ? new(BotTurnIntent.Courtesy, 1, "courtesy-phrase") : null;
+    }
+
+    public static string StripOpeningCourtesy(string question) =>
+        OpeningCourtesy().Replace(question.TrimStart(), string.Empty).TrimStart();
 
     public static bool AnswersLastQuestion(string answer, string lastBot)
     {
@@ -106,4 +119,10 @@ public static partial class BotTurnClassifier
 
     [GeneratedRegex(@"^(?:нет|не она|не оно|не то|не эта|неверно|не похоже|ошиблись|нет другая ошибка|нет это другая ошибка|no|nope|wrong|not this one|that's not it)$", RegexOptions.IgnoreCase)]
     private static partial Regex Negation();
+
+    [GeneratedRegex(@"^(?:(?:ну|ок(?:ей)?|ладно|хорошо|всё|все|понял(?:а)?|ясно|большое|got\s+it|okay|ok)\s+)?(?:спасибо(?:\s+(?:большое|вам|за\s+помощь))?|благодарю(?:\s+вас)?|thank\s+you(?:\s+(?:very\s+much|for\s+(?:the\s+)?help))?|thanks(?:\s+(?:a\s+lot|for\s+(?:the\s+)?help))?)(?:\s+(?:всё|все)\s+(?:понятно|ясно)|\s+(?:понятно|ясно|помогло|that\s+helps|understood))?$|^(?:до\s+свидания|пока|bye|goodbye)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex Courtesy();
+
+    [GeneratedRegex(@"^(?:(?:ну|ок(?:ей)?|ладно|хорошо|большое)\s+)?(?:спасибо(?:\s+(?:большое|вам|за\s+помощь))?|благодарю(?:\s+вас)?|thank\s+you|thanks)(?:\s*[,!.:]\s*|\s+)(?=\S)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex OpeningCourtesy();
 }

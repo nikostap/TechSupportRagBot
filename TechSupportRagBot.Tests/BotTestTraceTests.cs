@@ -53,7 +53,7 @@ public sealed class BotTestTraceTests
         var keys = new[]
         {
             "BotTraceTitle", "BotTraceNewQuestion", "BotTraceClarification",
-            "BotTraceAffirmation", "BotTraceNegation", "BotTraceUncertainIntent",
+            "BotTraceAffirmation", "BotTraceNegation", "BotTraceCourtesy", "BotTraceUncertainIntent",
             "BotTraceIntentFromModel", "BotTraceIntentFromRules", "BotTraceFollowUpPlan",
             "BotTraceNewSearchPlan", "BotTraceOperatorRequested", "BotTraceCodeChoiceNeeded",
             "BotTraceCodeRejected", "BotTraceChoiceNeeded", "BotTraceDetailNeeded",
@@ -68,5 +68,6 @@ public sealed class BotTestTraceTests
         };
         foreach (var key in keys)
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
+        Assert.NotEqual("BotCourtesyReply", UiText.ForLanguage(language, "BotCourtesyReply"));
     }
 }
