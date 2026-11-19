@@ -36,7 +36,11 @@ public static partial class BotEvidenceExcerptSelector
             .OrderBy(item => item.Index)
             .Select(item => item.Text)
             .ToArray();
-        return sentences.Length == 0 ? null : string.Join(" ", sentences);
+        if (sentences.Length == 0) return null;
+        var excerpt = sentences[0];
+        if (Negation().IsMatch(question) && PositiveCheck().IsMatch(excerpt)
+            && !Negation().IsMatch(excerpt)) return null;
+        return excerpt;
     }
 
     private static HashSet<string> Terms(string text) => Word().Matches(text.ToLowerInvariant())
@@ -49,4 +53,10 @@ public static partial class BotEvidenceExcerptSelector
 
     [GeneratedRegex(@"[\p{L}]{5,}")]
     private static partial Regex Word();
+
+    [GeneratedRegex(@"\b(?:не|нет|отсутств\w*|no|not|missing)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Negation();
+
+    [GeneratedRegex(@"(?:проверьте|убедитесь),?\s+что|(?:check|ensure)\s+that", RegexOptions.IgnoreCase)]
+    private static partial Regex PositiveCheck();
 }

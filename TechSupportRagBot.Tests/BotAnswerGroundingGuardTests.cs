@@ -42,7 +42,7 @@ public class BotAnswerGroundingGuardTests
     {
         const string source = "Датчик 87 настраивается на шпулю. Проверьте что на датчике горит индикация. "
             + "Протрите оптику и поверните датчик. Удостоверьтесь, что датчик не сломан и его разъём не повреждён.";
-        var excerpt = BotEvidenceExcerptSelector.Select(source, "На нём лампочка не горит",
+        var excerpt = BotEvidenceExcerptSelector.Select(source, "Где горит лампочка",
             "Проверьте индикацию датчика и разъём. Проверьте предохранители.");
 
         Assert.NotNull(excerpt);
@@ -56,14 +56,23 @@ public class BotAnswerGroundingGuardTests
         const string source = "Датчик 87 настраивается на шпулю. Проверьте что на датчике горит индикация. "
             + "Поверните датчик так, чтобы световое пятно было направлено на шпулю. "
             + "На датчике есть регулировочный винт: в меню ВХОДЫ / ВЫХОДЫ найдите индикатор 87.";
-        var excerpt = BotEvidenceExcerptSelector.Select(source, "Лампочка на датчике не светится",
+        var excerpt = BotEvidenceExcerptSelector.Select(source, "Где светится лампочка на датчике",
             "Поверните датчик и проверьте индикатор, питание и разъём.");
 
         Assert.Equal("Проверьте что на датчике горит индикация.", excerpt);
         var verboseDraft = "В меню ВХОДЫ / ВЫХОДЫ найдите индикатор 87, когда шпуля есть, "
             + "индикатор должен быть оранжевым, а регулировочный винт на датчике настройте.";
         Assert.Equal("Проверьте что на датчике горит индикация.",
-            BotEvidenceExcerptSelector.Select(source, "Не светится лампочка на датчике", verboseDraft));
+            BotEvidenceExcerptSelector.Select(source, "Где светится лампочка на датчике", verboseDraft));
+        Assert.Null(BotEvidenceExcerptSelector.Select(source, "Не светится лампочка на датчике", verboseDraft));
+    }
+
+    [Fact]
+    public void PlainFollowUpDoesNotRepeatImagesButLocationRequestMayUseThem()
+    {
+        var plan = new BotConversationPlan("", "", true, "", false, false);
+        Assert.False(BotFollowUpMediaPolicy.ShouldAttach("Лампочка на датчике не горит", plan));
+        Assert.True(BotFollowUpMediaPolicy.ShouldAttach("Где находится датчик?", plan));
     }
 
     [Fact]

@@ -397,6 +397,7 @@ public class SupportBotService
         mediaQuestion = BotMachineMention.Remove(mediaQuestion, machine);
         var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult,
             conversationPlan.IsFollowUp ? 2 : 1, cancellationToken);
+        if (!BotFollowUpMediaPolicy.ShouldAttach(question, conversationPlan)) answerMedia = [];
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new
         {
