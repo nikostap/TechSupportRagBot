@@ -180,6 +180,29 @@ public class SupportBotService
             MachineId = machineId,
             FinalTopK = 5
         }, cancellationToken);
+        if (conversationPlan.IsCorrection && ragResult.ShouldCallOperator)
+        {
+            var rewritten = await BotFollowUpQueryRewriter.RewriteAsync(question, conversationContext,
+                _ollama, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(rewritten))
+            {
+                conversationPlan = conversationPlan with
+                {
+                    SearchQuestion = rewritten,
+                    FocusedSearchQuestion = rewritten,
+                    OriginalProblem = rewritten
+                };
+                retrievalQuestion = await BuildRussianRetrievalQuestionAsync(rewritten, language, traceId, cancellationToken);
+                Step("BotTraceQueryRewritten", retrievalQuestion);
+                ragResult = await _ragSearch.SearchAsync(new RagSearchRequest
+                {
+                    TraceId = traceId,
+                    Question = retrievalQuestion,
+                    MachineId = machineId,
+                    FinalTopK = 5
+                }, cancellationToken);
+            }
+        }
         string? supplementalRetrievalQuestion = null;
         IReadOnlyList<RagChunkCandidate> unmatchedCodeCandidates = [];
         RagChunkCandidate? nearCodeCandidate = null;

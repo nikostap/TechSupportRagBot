@@ -208,4 +208,17 @@ public sealed class BotDialogueSystemTests
         Assert.Equal([spool, pressure], BotMultiIssueContextSelector.Select(
             "У меня одновременно пропала шпуля и пишет, что мало давления", [spool, pressure, other]));
     }
+
+    [Fact]
+    public void RewrittenCorrectionUsesOnlyClientFacts()
+    {
+        var prior = new[] { "Пропала шпуля и мало давления" };
+        const string correction = "Нет, с воздухом всё хорошо, но катушку не замечает";
+        Assert.Equal("Станок не видит шпулю", BotFollowUpQueryRewriter.Parse(
+            "{\"query\":\"Станок не видит шпулю\"}", correction, prior));
+        Assert.Null(BotFollowUpQueryRewriter.Parse(
+            "{\"query\":\"Ошибка датчика 87\"}", correction, prior));
+        Assert.Null(BotFollowUpQueryRewriter.Parse(
+            "{\"query\":\"Станок не работает\"}", correction, prior));
+    }
 }
