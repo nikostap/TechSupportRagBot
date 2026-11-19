@@ -76,6 +76,14 @@ public class BotAnswerGroundingGuardTests
     }
 
     [Fact]
+    public void SensorNumberSelectsLiteralSourceSentenceForLocationFollowUp()
+    {
+        const string source = "Датчик 87 настраивается на последнюю шпулю. Протрите оптику датчика.";
+        Assert.Equal("Датчик 87 настраивается на последнюю шпулю.",
+            BotEvidenceExcerptSelector.Select(source, "Где датчик 87?", "Проверьте датчик 87 в бункере."));
+    }
+
+    [Fact]
     public void ShortAmbiguousQuestionAsksBetweenEquallyRankedQaIssues()
     {
         var chunks = new List<RagChunkCandidate>

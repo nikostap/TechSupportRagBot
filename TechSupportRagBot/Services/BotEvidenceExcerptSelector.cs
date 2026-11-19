@@ -51,7 +51,7 @@ public static partial class BotEvidenceExcerptSelector
     [GeneratedRegex(@"(?<=[.!?])\s+(?=[\p{Lu}])")]
     private static partial Regex SentenceSplit();
 
-    [GeneratedRegex(@"[\p{L}]{5,}")]
+    [GeneratedRegex(@"[\p{L}]{5,}|(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])")]
     private static partial Regex Word();
 
     [GeneratedRegex(@"\b(?:не|нет|отсутств\w*|no|not|missing)\b", RegexOptions.IgnoreCase)]
