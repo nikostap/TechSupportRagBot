@@ -563,7 +563,17 @@ public class SupportBotService
             ?? ragResult.Chunks.FirstOrDefault()?.Text;
         if (BotAnswerGroundingGuard.HasUnsupportedClaims(cleanAnswer, strongestEvidence ?? string.Empty))
         {
-            var groundedAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
+            string? groundedAnswer;
+            if (conversationPlan.IsFollowUp)
+            {
+                groundedAnswer = BotEvidenceExcerptSelector.Select(strongestEvidence ?? string.Empty, question, cleanAnswer);
+                if (isEnglish && !string.IsNullOrWhiteSpace(groundedAnswer))
+                    groundedAnswer = await _translation.TranslateAsync(groundedAnswer, "Russian", language, cancellationToken);
+            }
+            else
+            {
+                groundedAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
+            }
             cleanAnswer = !string.IsNullOrWhiteSpace(groundedAnswer)
                 ? groundedAnswer
                 : UiText.ForLanguage(isEnglish ? "en" : "ru", "BotGroundingNotFound");
