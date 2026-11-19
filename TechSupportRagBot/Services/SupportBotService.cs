@@ -212,6 +212,36 @@ public class SupportBotService
         IReadOnlyList<RagChunkCandidate> unmatchedCodeCandidates = [];
         RagChunkCandidate? nearCodeCandidate = null;
 
+        // A combined fault can bury one exact QA below the context window.
+        // Retrieve each independently named fault before composing an answer.
+        var combinedSegments = Regex.Split(retrievalQuestion, @"\s+и\s+|\s+and\s+", RegexOptions.IgnoreCase);
+        if (technicalCode == null && !conversationPlan.IsFollowUp
+            && combinedSegments.Length is >= 2 and <= 3
+            && BotAnswerMediaSelector.SelectQaEntryIds(retrievalQuestion, ragResult.Chunks).Count >= 2)
+        {
+            var independentlyMatched = new List<RagChunkCandidate>();
+            foreach (var segment in combinedSegments)
+            {
+                var focused = await _ragSearch.SearchAsync(new RagSearchRequest
+                {
+                    TraceId = traceId,
+                    Question = segment.Trim(),
+                    MachineId = machineId,
+                    FinalTopK = 8
+                }, cancellationToken);
+                var qaId = BotAnswerMediaSelector.SelectQaEntryId(segment, focused.Chunks, minimumScore: 2);
+                var qa = focused.Chunks.FirstOrDefault(x => x.QAEntryId == qaId);
+                if (qa == null) break;
+                independentlyMatched.Add(qa);
+            }
+            if (independentlyMatched.Select(x => x.QAEntryId).Distinct().Count() == combinedSegments.Length)
+            {
+                ragResult.Chunks = independentlyMatched;
+                ragResult.ShouldCallOperator = false;
+                supplementalRetrievalQuestion = string.Join(" | ", combinedSegments.Select(x => x.Trim()));
+            }
+        }
+
         if (technicalCode != null)
         {
             // A short reply can supply the fault code requested by the bot. Search that
