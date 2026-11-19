@@ -11,7 +11,7 @@ namespace TechSupportRagBot.Services;
 public class RagSearchService : IRagSearchService
 {
     private const int RrfK = 60;
-    private static readonly Regex TermRegex = new(@"[\p{L}\p{N}-]{3,}", RegexOptions.Compiled);
+    private static readonly Regex TermRegex = new(@"[\p{L}\p{N}-]{3,}|(?<!\d)\d{2}(?!\d)", RegexOptions.Compiled);
 
     private readonly ApplicationDbContext _db;
     private readonly OllamaClient _ollama;
@@ -900,7 +900,7 @@ public class RagSearchService : IRagSearchService
             "the", "and", "with", "this", "that", "machine", "shows", "error", "fault"
         };
 
-        return Regex.Matches(question.ToLowerInvariant(), @"[\p{L}\p{N}][\p{L}\p{N}_-]{2,}")
+        return Regex.Matches(question.ToLowerInvariant(), @"[\p{L}\p{N}][\p{L}\p{N}_-]{2,}|(?<!\d)\d{2}(?!\d)")
             .Select(x => x.Value)
             .Where(x => !ignored.Contains(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1392,7 +1392,7 @@ public class RagSearchService : IRagSearchService
         var terms = ExtractTerms(question)
             .SelectMany(term => Regex.Split(term, @"[^\p{L}\p{N}]+"))
             .Select(term => term.Trim().ToLowerInvariant())
-            .Where(term => term.Length >= 3)
+            .Where(term => term.Length >= 3 || term.Length == 2 && term.All(char.IsDigit))
             .Distinct()
             .Take(20)
             .ToList();
@@ -1411,7 +1411,7 @@ public class RagSearchService : IRagSearchService
     {
         return TermRegex.Matches(text)
             .Select(x => x.Value.Trim().ToLowerInvariant())
-            .Where(x => x.Length >= 3)
+            .Where(x => x.Length >= 3 || x.Length == 2 && x.All(char.IsDigit))
             .Distinct();
     }
 

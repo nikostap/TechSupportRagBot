@@ -11,7 +11,8 @@ public static class BotAnswerMediaSelector
         "ошиб", "авар", "датч", "стан", "faul", "erro", "sens"
     };
 
-    public static int? SelectQaEntryId(string question, IReadOnlyList<RagChunkCandidate> chunks)
+    public static int? SelectQaEntryId(string question, IReadOnlyList<RagChunkCandidate> chunks,
+        int minimumScore = 1)
     {
         question = Regex.Replace(question.Trim(), @"^(?:(?:а|и)\s+)?(?:теперь\s+|ещ[её]\s+)?(?:пишет|показывает|выда[её]т|ошибка)\s+",
             "", RegexOptions.IgnoreCase);
@@ -38,7 +39,7 @@ public static class BotAnswerMediaSelector
                     + terms.Count(term => !item.TitleTerms.Contains(term) && item.AliasTerms.Contains(term))
                     + (item.PhraseMatch ? 3 : 0)
             })
-            .Where(item => item.Score > 0)
+            .Where(item => item.Score >= minimumScore)
             .OrderByDescending(item => item.Score)
             .ThenByDescending(item => item.Chunk.RerankScore)
             .Select(item => item.Chunk.QAEntryId)
@@ -53,7 +54,7 @@ public static class BotAnswerMediaSelector
         if (segments.Any(segment => !Tokens(segment)
             .Any(term => !term.All(char.IsDigit) && !GenericTerms.Contains(term))))
             return SelectQaEntryId(question, chunks) is int fallback ? [fallback] : [];
-        var ids = segments.Select(segment => SelectQaEntryId(segment, chunks))
+        var ids = segments.Select(segment => SelectQaEntryId(segment, chunks, minimumScore: 3))
             .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
         return ids.Count >= 2 ? ids : SelectQaEntryId(question, chunks) is int single ? [single] : [];
     }

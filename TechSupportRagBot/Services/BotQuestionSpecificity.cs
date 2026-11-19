@@ -9,7 +9,7 @@ public static class BotQuestionSpecificity
     {
         "стан", "маши", "рабо", "дела", "помо", "плох", "хоро", "вооб", "ошиб",
         "вопр", "проб", "сист", "запу", "вклю", "откл", "пише", "пока", "чего", "датч",
-        "слом", "what", "mach", "work", "help", "prob", "erro", "star", "stop"
+        "слом", "штук", "пере", "этой", "само", "what", "mach", "work", "help", "prob", "erro", "star", "stop"
     };
 
     public static bool NeedsSymptom(string question)

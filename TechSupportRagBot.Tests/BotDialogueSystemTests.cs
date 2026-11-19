@@ -101,6 +101,7 @@ public sealed class BotDialogueSystemTests
     public void VagueFirstReportAsksForAnObservableSymptom()
     {
         Assert.True(BotQuestionSpecificity.NeedsSymptom("Станок не работает"));
+        Assert.True(BotQuestionSpecificity.NeedsSymptom("Эта штука перестала работать"));
         Assert.False(BotQuestionSpecificity.NeedsSymptom("Пишет нет шпули"));
         Assert.False(BotQuestionSpecificity.NeedsSymptom("Ошибка низкого давления"));
         Assert.False(BotQuestionSpecificity.NeedsSymptom("Датчик 87 не работает"));
@@ -158,5 +159,21 @@ public sealed class BotDialogueSystemTests
             RerankScore = 0.9
         };
         Assert.Equal(87, BotAnswerMediaSelector.SelectQaEntryId("Нет, 87 вообще не светится", [spool]));
+    }
+
+    [Fact]
+    public void TwoFaultsKeepOnlyTheirMatchedQaInModelContext()
+    {
+        RagChunkCandidate Qa(int id, string title) => new()
+        {
+            QAEntryId = id, QAStatus = "Verified", DocumentType = "QA", Title = title
+        };
+        var pressure = Qa(1, "Ошибка низкое давление");
+        var spool = Qa(2, "Ошибка нет шпули в бункере");
+        var other = Qa(3, "Ошибки датчиков 85 и 81 при подаче шпули");
+        var chunks = new[] { pressure, other, spool };
+        Assert.Equal([pressure, spool], BotMultiIssueContextSelector.Select(
+            "Пишет низкое давление и нет шпули", chunks));
+        Assert.Equal(chunks, BotMultiIssueContextSelector.Select("Не видит шпулю", chunks));
     }
 }
