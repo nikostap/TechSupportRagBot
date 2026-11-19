@@ -289,6 +289,9 @@
         const results = document.querySelector("#botTestResults");
         const diagnostics = document.querySelector("#botTestDiagnostics");
         const requestError = document.querySelector("#botTestRequestError");
+        const expandTraces = (root) => root?.querySelectorAll(".bot-decision-trace")
+            .forEach((details) => { details.open = true; });
+        expandTraces(document);
         const syncBotTestMode = () => {
             const inChat = chatMode?.checked === true;
             if (transcriptPanel) transcriptPanel.hidden = !inChat;
@@ -413,6 +416,8 @@
                 transcript.innerHTML = nextTranscript.innerHTML;
                 results.innerHTML = nextResults.innerHTML;
                 diagnostics.innerHTML = nextDiagnostics.innerHTML;
+                expandTraces(transcript);
+                expandTraces(results);
                 syncBotTestMode();
                 transcript.scrollTop = transcript.scrollHeight;
             } catch (error) {
