@@ -9,10 +9,10 @@ public static partial class BotEvidenceExcerptSelector
     {
         if (string.IsNullOrWhiteSpace(source)) return null;
         var questionTerms = Terms(question);
-        if (questionTerms.Contains("лампо") || questionTerms.Contains("свети") || questionTerms.Contains("горит"))
+        if (questionTerms.Contains("лампо") || questionTerms.Contains("свети") || questionTerms.Contains("гори"))
         {
             questionTerms.Add("индик");
-            questionTerms.Add("горит");
+            questionTerms.Add("гори");
         }
         var draftTerms = Terms(draftAnswer);
         var candidates = SentenceSplit().Split(source.Trim())
@@ -26,7 +26,8 @@ public static partial class BotEvidenceExcerptSelector
                 DraftScore = Terms(item.Text).Count(draftTerms.Contains)
             })
             .Where(item => item.QuestionScore > 0)
-            .OrderByDescending(item => item.QuestionScore * 4 + item.DraftScore)
+            .OrderByDescending(item => item.QuestionScore)
+            .ThenByDescending(item => item.DraftScore)
             .ThenBy(item => item.Index)
             .ToArray();
         if (candidates.Length == 0) return null;
