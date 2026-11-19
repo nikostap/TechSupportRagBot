@@ -120,7 +120,13 @@ public class SupportBotService
         }, traceId, cancellationToken);
         if (turn.Intent == BotTurnIntent.Courtesy)
             return Complete(new BotAnswerResult(
-                UiText.ForLanguage(isEnglish ? "en" : "ru", "BotCourtesyReply"), false, []));
+                UiText.ForLanguage(isEnglish ? "en" : "ru", BotSimplePhrase.Match(question) switch
+                {
+                    BotSimplePhraseKind.Greeting => "BotGreetingReply",
+                    BotSimplePhraseKind.Farewell => "BotFarewellReply",
+                    BotSimplePhraseKind.Acknowledgement => "BotAcknowledgementReply",
+                    _ => "BotCourtesyReply"
+                }), false, []));
         question = BotTurnClassifier.StripOpeningCourtesy(question);
         if (turn.IsReliable && turn.Intent == BotTurnIntent.NewQuestion)
             conversationContext = null;

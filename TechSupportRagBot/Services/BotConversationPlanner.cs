@@ -78,6 +78,7 @@ public static class BotConversationPlanner
         var issueStart = 0;
         for (var i = 1; i < clientTurns.Count; i++)
         {
+            if (BotSimplePhrase.Match(clientTurns[i]) != null) continue;
             var earlier = string.Join("\n", clientTurns.Take(i).Select(x => $"Клиент: {x}"));
             if (PositiveCorrection(clientTurns[i]) is not null
                 || LooksLikeIndependentQuestion(clientTurns[i])
@@ -87,12 +88,14 @@ public static class BotConversationPlanner
                 || BotIssueBoundary.StartsDifferentFault(clientTurns[i], earlier))
                 issueStart = i;
         }
-        var originalProblem = PositiveCorrection(clientTurns[issueStart]) ?? clientTurns[issueStart];
+        var originalProblem = BotSimplePhrase.StripOpening(
+            PositiveCorrection(clientTurns[issueStart]) ?? clientTurns[issueStart]);
         var resolvedReference = BotOrdinalReference.Resolve(question, previousBot);
         var details = clientTurns.Skip(issueStart + 1).Append(question)
-            .Where(x => !IsBareConfirmation(x) && !BotExplanationRequest.IsPureRequest(x))
+            .Where(x => !IsBareConfirmation(x) && BotSimplePhrase.Match(x) == null
+                && !BotExplanationRequest.IsPureRequest(x))
             .TakeLast(4)
-            .Select(x => Truncate(x.Trim(), 90))
+            .Select(x => Truncate(BotSimplePhrase.StripOpening(x), 90))
             .ToArray();
         var detailText = Truncate(string.Join("; ", details), 190);
         if (resolvedReference is not null) detailText = $"{detailText}; {resolvedReference}";

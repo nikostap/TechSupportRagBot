@@ -69,5 +69,7 @@ public sealed class BotTestTraceTests
         foreach (var key in keys)
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
         Assert.NotEqual("BotCourtesyReply", UiText.ForLanguage(language, "BotCourtesyReply"));
+        foreach (var key in new[] { "BotAcknowledgementReply", "BotGreetingReply", "BotFarewellReply" })
+            Assert.NotEqual(key, UiText.ForLanguage(language, key));
     }
 }

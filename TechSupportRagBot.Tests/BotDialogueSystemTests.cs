@@ -6,6 +6,45 @@ namespace TechSupportRagBot.Tests;
 public sealed class BotDialogueSystemTests
 {
     [Theory]
+    [InlineData("ОК", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("окей!", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Понятно", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Теперь понятно", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Ясно,", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Всё ясно", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Понял", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Принято", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Хорошо", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Ладно", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Договорились", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Отлично", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Супер", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Всё заработало", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("OK", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Got it", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Makes sense", BotSimplePhraseKind.Acknowledgement)]
+    [InlineData("Спасибо", BotSimplePhraseKind.Thanks)]
+    [InlineData("Спасибки", BotSimplePhraseKind.Thanks)]
+    [InlineData("Спс", BotSimplePhraseKind.Thanks)]
+    [InlineData("Огромное спасибо", BotSimplePhraseKind.Thanks)]
+    [InlineData("Благодарю вас", BotSimplePhraseKind.Thanks)]
+    [InlineData("Спасибо, всё понятно", BotSimplePhraseKind.Thanks)]
+    [InlineData("Thanks, that helps", BotSimplePhraseKind.Thanks)]
+    [InlineData("Привет", BotSimplePhraseKind.Greeting)]
+    [InlineData("Здравствуйте", BotSimplePhraseKind.Greeting)]
+    [InlineData("Добрый вечер", BotSimplePhraseKind.Greeting)]
+    [InlineData("Hello", BotSimplePhraseKind.Greeting)]
+    [InlineData("Пока", BotSimplePhraseKind.Farewell)]
+    [InlineData("До связи", BotSimplePhraseKind.Farewell)]
+    [InlineData("Goodbye", BotSimplePhraseKind.Farewell)]
+    public async Task SimplePhrasesSkipTechnicalClassification(string reply, BotSimplePhraseKind kind)
+    {
+        Assert.Equal(kind, BotSimplePhrase.Match(reply));
+        var result = await BotTurnClassifier.ClassifyAsync(reply, null, null!, CancellationToken.None);
+        Assert.Equal(BotTurnIntent.Courtesy, result.Intent);
+    }
+
+    [Theory]
     [InlineData("Спасибо")]
     [InlineData("Большое спасибо!")]
     [InlineData("Ок, спасибо, всё понятно")]
@@ -28,6 +67,32 @@ public sealed class BotDialogueSystemTests
     public void CourtesyWithNewTechnicalInformationStillNeedsRouting(string reply)
     {
         Assert.Null(BotTurnClassifier.ClassifyCourtesyReply(reply));
+    }
+
+    [Theory]
+    [InlineData("ОК, а теперь ошибка низкое давление", "а теперь ошибка низкое давление")]
+    [InlineData("Понял, датчик 87 не светится", "датчик 87 не светится")]
+    [InlineData("Спасибки, теперь не крутится барабан", "теперь не крутится барабан")]
+    [InlineData("Ок, спасибо, а теперь аварийный стоп", "а теперь аварийный стоп")]
+    [InlineData("Hello, the machine shows low pressure", "the machine shows low pressure")]
+    public void SimpleOpeningDoesNotBecomeSearchEvidence(string reply, string expected)
+    {
+        Assert.Null(BotSimplePhrase.Match(reply));
+        Assert.Equal(expected, BotSimplePhrase.StripOpening(reply));
+    }
+
+    [Fact]
+    public void PriorSimpleTurnsDoNotPolluteFollowUpSearch()
+    {
+        const string history = "Клиент: Ошибка нет шпули\nБот: Проверьте датчик 87.\n"
+            + "Клиент: Спасибо\nБот: Пожалуйста.\n"
+            + "Клиент: ОК\nБот: Хорошо.";
+        var plan = BotConversationPlanner.Create("Датчик не светится", history, forceFollowUp: true);
+        Assert.True(plan.IsFollowUp);
+        Assert.Contains("Ошибка нет шпули", plan.SearchQuestion);
+        Assert.Contains("Датчик не светится", plan.SearchQuestion);
+        Assert.DoesNotContain("Спасибо", plan.SearchQuestion);
+        Assert.DoesNotContain("ОК", plan.SearchQuestion);
     }
 
     [Theory]

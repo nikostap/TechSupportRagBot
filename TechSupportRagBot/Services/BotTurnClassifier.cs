@@ -63,13 +63,13 @@ public static partial class BotTurnClassifier
 
     public static BotTurnClassification? ClassifyCourtesyReply(string question)
     {
-        var reply = Regex.Replace(question.Trim().TrimEnd('.', '!', '?'), @"[\s,]+", " ").Trim();
-        return Courtesy().IsMatch(reply)
-            ? new(BotTurnIntent.Courtesy, 1, "courtesy-phrase") : null;
+        var kind = BotSimplePhrase.Match(question);
+        return kind is not null
+            ? new(BotTurnIntent.Courtesy, 1, $"simple-{kind.Value.ToString().ToLowerInvariant()}") : null;
     }
 
     public static string StripOpeningCourtesy(string question) =>
-        OpeningCourtesy().Replace(question.TrimStart(), string.Empty).TrimStart();
+        BotSimplePhrase.StripOpening(question);
 
     public static bool AnswersLastQuestion(string answer, string lastBot)
     {
@@ -120,9 +120,4 @@ public static partial class BotTurnClassifier
     [GeneratedRegex(@"^(?:нет|не она|не оно|не то|не эта|неверно|не похоже|ошиблись|нет другая ошибка|нет это другая ошибка|no|nope|wrong|not this one|that's not it)$", RegexOptions.IgnoreCase)]
     private static partial Regex Negation();
 
-    [GeneratedRegex(@"^(?:(?:ну|ок(?:ей)?|ладно|хорошо|всё|все|понял(?:а)?|ясно|большое|got\s+it|okay|ok)\s+)?(?:спасибо(?:\s+(?:большое|вам|за\s+помощь))?|благодарю(?:\s+вас)?|thank\s+you(?:\s+(?:very\s+much|for\s+(?:the\s+)?help))?|thanks(?:\s+(?:a\s+lot|for\s+(?:the\s+)?help))?)(?:\s+(?:всё|все)\s+(?:понятно|ясно)|\s+(?:понятно|ясно|помогло|that\s+helps|understood))?$|^(?:до\s+свидания|пока|bye|goodbye)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex Courtesy();
-
-    [GeneratedRegex(@"^(?:(?:ну|ок(?:ей)?|ладно|хорошо|большое)\s+)?(?:спасибо(?:\s+(?:большое|вам|за\s+помощь))?|благодарю(?:\s+вас)?|thank\s+you|thanks)(?:\s*[,!.:]\s*|\s+)(?=\S)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex OpeningCourtesy();
 }
