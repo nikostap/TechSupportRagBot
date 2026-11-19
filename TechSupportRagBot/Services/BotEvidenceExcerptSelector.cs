@@ -9,21 +9,29 @@ public static partial class BotEvidenceExcerptSelector
     {
         if (string.IsNullOrWhiteSpace(source)) return null;
         var questionTerms = Terms(question);
+        if (questionTerms.Contains("лампо") || questionTerms.Contains("свети") || questionTerms.Contains("горит"))
+        {
+            questionTerms.Add("индик");
+            questionTerms.Add("горит");
+        }
         var draftTerms = Terms(draftAnswer);
-        var sentences = SentenceSplit().Split(source.Trim())
+        var candidates = SentenceSplit().Split(source.Trim())
             .Select((text, index) => new { Text = text.Trim(), Index = index })
             .Where(item => item.Text.Length is >= 20 and <= 500)
             .Select(item => new
             {
                 item.Text,
                 item.Index,
-                Score = Terms(item.Text).Sum(term =>
-                    (questionTerms.Contains(term) ? 2 : 0) + (draftTerms.Contains(term) ? 1 : 0))
+                QuestionScore = Terms(item.Text).Count(questionTerms.Contains),
+                DraftScore = Terms(item.Text).Count(draftTerms.Contains)
             })
-            .Where(item => item.Score >= 2)
-            .OrderByDescending(item => item.Score)
+            .Where(item => item.QuestionScore > 0)
+            .OrderByDescending(item => item.QuestionScore * 4 + item.DraftScore)
             .ThenBy(item => item.Index)
-            .Take(2)
+            .ToArray();
+        if (candidates.Length == 0) return null;
+        var sentences = candidates
+            .Take(1)
             .OrderBy(item => item.Index)
             .Select(item => item.Text)
             .ToArray();

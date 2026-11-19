@@ -51,6 +51,18 @@ public class BotAnswerGroundingGuardTests
     }
 
     [Fact]
+    public void UnlitLampSelectsIndicationInsteadOfUnrelatedAdjustments()
+    {
+        const string source = "Датчик 87 настраивается на шпулю. Проверьте что на датчике горит индикация. "
+            + "Поверните датчик так, чтобы световое пятно было направлено на шпулю. "
+            + "На датчике есть регулировочный винт: в меню ВХОДЫ / ВЫХОДЫ найдите индикатор 87.";
+        var excerpt = BotEvidenceExcerptSelector.Select(source, "Лампочка на датчике не светится",
+            "Поверните датчик и проверьте индикатор, питание и разъём.");
+
+        Assert.Equal("Проверьте что на датчике горит индикация.", excerpt);
+    }
+
+    [Fact]
     public void ShortAmbiguousQuestionAsksBetweenEquallyRankedQaIssues()
     {
         var chunks = new List<RagChunkCandidate>
