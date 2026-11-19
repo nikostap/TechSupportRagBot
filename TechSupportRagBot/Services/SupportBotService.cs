@@ -455,6 +455,27 @@ public class SupportBotService
             context
         }, traceId, cancellationToken);
 
+        var askedSensorNumber = Regex.Match(question,
+            @"(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])").Value;
+        if (conversationPlan.IsFollowUp && BotFollowUpMediaPolicy.RequestsVisual(question)
+            && answerMedia.Count > 0 && ragResult.Chunks.Count == 1
+            && !string.IsNullOrWhiteSpace(askedSensorNumber)
+            && !string.IsNullOrWhiteSpace(ragResult.Chunks[0].NodeName))
+        {
+            var nodeName = ragResult.Chunks[0].NodeName!;
+            if (isEnglish)
+            {
+                var translatedNode = await _translation.TranslateAsync(nodeName, "Russian", language, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(translatedNode)) nodeName = translatedNode;
+            }
+            var locationAnswer = string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotSensorNodeLocation"),
+                askedSensorNumber, nodeName);
+            Step("BotTraceLocationFromQa", nodeName);
+            return Complete(new BotAnswerResult(locationAnswer, false, answerMedia)
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
+                SearchResult = ragResult, ContextForLlm = context });
+        }
+
         var independentQaIds = BotAnswerMediaSelector.SelectQaEntryIds(mediaQuestion, ragResult.Chunks);
         if (independentQaIds.Count >= 2)
         {
