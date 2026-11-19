@@ -708,9 +708,10 @@ public class RagSearchService : IRagSearchService
                 ErrorCode = chunk.ErrorCode,
                 Cause = chunk.Cause,
                 Solution = chunk.Solution,
-                NodeName = chunk.NodeName,
-                Tags = chunk.Tags,
-                SearchQuestions = chunk.SearchQuestions,
+                NodeName = string.IsNullOrWhiteSpace(chunk.NodeName) ? chunk.QAEntry?.NodeName : chunk.NodeName,
+                Tags = string.IsNullOrWhiteSpace(chunk.Tags) ? chunk.QAEntry?.Keywords : chunk.Tags,
+                SearchQuestions = string.IsNullOrWhiteSpace(chunk.SearchQuestions)
+                    ? chunk.QAEntry?.AlternativeQuestions : chunk.SearchQuestions,
                 Operations = chunk.Operations,
                 SheetName = chunk.SheetName,
                 RowNumber = chunk.RowNumber,
