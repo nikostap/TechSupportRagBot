@@ -332,6 +332,7 @@
         };
 
         let requestInFlight = false;
+        const submitButton = botTestForm?.querySelector('button[type="submit"]');
         botTestForm?.addEventListener("submit", async (event) => {
             if (event.defaultPrevented) return;
             event.preventDefault();
@@ -340,6 +341,7 @@
                 || (window.jQuery?.(botTestForm).data("validator") && !window.jQuery(botTestForm).valid())) return;
 
             requestInFlight = true;
+            if (submitButton) submitButton.disabled = true;
             requestError.hidden = true;
             const questionField = botTestForm.querySelector("#Input_Question");
             const question = questionField.value.trim();
@@ -437,6 +439,7 @@
                 clearInterval(progressTimer);
                 clearTimeout(timeout);
                 requestInFlight = false;
+                if (submitButton) submitButton.disabled = false;
             }
         });
 
