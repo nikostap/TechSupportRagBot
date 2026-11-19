@@ -5,6 +5,17 @@ namespace TechSupportRagBot.Tests;
 public sealed class BotIssueMediaBoundaryTests
 {
     [Fact]
+    public void ExplicitTopicShiftAfterBareReplyStartsNewIssue()
+    {
+        const string history = "Клиент: Подключение D-A93Z\nБот: Не найдено. Чем могу помочь ещё?\n"
+            + "Клиент: Нет\nБот: Что именно хотите уточнить?";
+        Assert.True(BotIssueBoundary.StartsDifferentFault("А теперь давление упало", history));
+        Assert.False(BotConversationPlanner.Create("А теперь давление упало", history).IsFollowUp);
+        Assert.False(BotIssueBoundary.StartsDifferentFault("А теперь датчик не горит", 
+            "Клиент: Датчик 87 не видит шпулю\nБот: Проверьте индикацию."));
+    }
+
+    [Fact]
     public async Task SeparateFaultReportsDoNotInheritEarlierTroubleshooting()
     {
         const string first = "Клиент: ошибка низкого давления\nБот: Проверьте реле давления.";

@@ -12,12 +12,33 @@ public static class BotIssueBoundary
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex Number = new(@"(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])", RegexOptions.Compiled);
     private static readonly Regex Word = new(@"[\p{L}]{4,}", RegexOptions.Compiled);
+    private static readonly Regex TopicShift = new(
+        @"^\s*(?:(?:а|и)\s+)?(?:теперь|ещ[её]|также|сейчас|now|also)\b[\s,:-]+(?<topic>.+)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static bool StartsDifferentFault(string question, string? history)
     {
         if (AdditionalFault.IsMatch(question)
             && BotConversationHistory.Parse(history).Any(turn => turn.Role == "Клиент"))
-            return true;
+        {
+            var currentIssueTerms = IssueTerms(question);
+            var previousIssueTerms = BotConversationHistory.Parse(history)
+                .Where(turn => turn.Role == "Клиент")
+                .Select(turn => IssueTerms(turn.Text))
+                .LastOrDefault(terms => terms.Count > 0);
+            if (previousIssueTerms is null || !currentIssueTerms.Overlaps(previousIssueTerms)) return true;
+        }
+        var shift = TopicShift.Match(question);
+        if (shift.Success)
+        {
+            var currentTerms = IssueTerms(shift.Groups["topic"].Value);
+            var previousTerms = BotConversationHistory.Parse(history)
+                .Where(turn => turn.Role == "Клиент")
+                .Select(turn => IssueTerms(turn.Text))
+                .LastOrDefault(terms => terms.Count >= 1);
+            if (currentTerms.Count >= 2 && previousTerms is { Count: >= 1 }
+                && !currentTerms.Overlaps(previousTerms)) return true;
+        }
         var current = Topic(question);
         if (current == null) return false;
         var previous = BotConversationHistory.Parse(history)
@@ -43,4 +64,9 @@ public static class BotIssueBoundary
         var match = FaultReport.Match(text.Trim());
         return match.Success ? match.Groups[1].Value : null;
     }
+
+    private static HashSet<string> IssueTerms(string text) => Word.Matches(text.ToLowerInvariant())
+        .Select(match => BotLexicalTerms.Stem(match.Value))
+        .Where(term => term is not ("тепер" or "сейча" or "меня" or "ошиб" or "также" or "ещё" or "еще"))
+        .ToHashSet();
 }
