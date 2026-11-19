@@ -558,7 +558,21 @@ public class SupportBotService
         }
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
-        if (conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AsksAboutPriorAnswer)
+        var usedGroundedFallback = false;
+        var strongestEvidence = ragResult.Chunks.FirstOrDefault()?.Solution
+            ?? ragResult.Chunks.FirstOrDefault()?.Text;
+        if (BotAnswerGroundingGuard.HasUnsupportedClaims(cleanAnswer, strongestEvidence ?? string.Empty))
+        {
+            var groundedAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
+            cleanAnswer = !string.IsNullOrWhiteSpace(groundedAnswer)
+                ? groundedAnswer
+                : UiText.ForLanguage(isEnglish ? "en" : "ru", "BotGroundingNotFound");
+            usedGroundedFallback = true;
+            if (string.IsNullOrWhiteSpace(groundedAnswer)) answerMedia = [];
+            Step("BotTraceGroundingFallback");
+        }
+        if (conversationPlan.IsFollowUp && technicalCode == null && !conversationPlan.AsksAboutPriorAnswer
+            && !usedGroundedFallback)
         {
             var withoutRepeats = BotResponseDeduplicator.RemoveRepeatedSteps(cleanAnswer, conversationPlan.PreviousBotAnswer);
             if (withoutRepeats != cleanAnswer) Step("BotTraceRepeatedStepsRemoved");
