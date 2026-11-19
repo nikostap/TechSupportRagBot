@@ -184,16 +184,16 @@ public class SupportBotService
         {
             var rewritten = await BotFollowUpQueryRewriter.RewriteAsync(conversationPlan.SearchQuestion, conversationContext,
                 _ollama, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(rewritten))
+            if (rewritten is not null)
             {
                 conversationPlan = conversationPlan with
                 {
-                    SearchQuestion = rewritten,
-                    FocusedSearchQuestion = rewritten,
-                    OriginalProblem = rewritten
+                    SearchQuestion = rewritten.Query,
+                    FocusedSearchQuestion = rewritten.Query,
+                    OriginalProblem = rewritten.Query
                 };
-                retrievalQuestion = await BuildRussianRetrievalQuestionAsync(rewritten, language, traceId, cancellationToken);
-                Step("BotTraceQueryRewritten", retrievalQuestion);
+                retrievalQuestion = await BuildRussianRetrievalQuestionAsync(rewritten.Query, language, traceId, cancellationToken);
+                Step("BotTraceQueryRewritten", $"{retrievalQuestion} ({rewritten.Similarity:F2})");
                 ragResult = await _ragSearch.SearchAsync(new RagSearchRequest
                 {
                     TraceId = traceId,

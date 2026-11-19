@@ -210,12 +210,15 @@ public sealed class BotDialogueSystemTests
     }
 
     [Fact]
-    public void RewrittenCorrectionUsesOnlyClientFacts()
+    public void SemanticIssueSelectionRequiresAStrongUnambiguousMatch()
     {
-        var prior = new[] { "Пропала шпуля", "мало давления" };
-        Assert.Equal("Пропала шпуля", BotFollowUpQueryRewriter.Parse("{\"index\":0}", prior));
-        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"index\":-1}", prior));
-        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"index\":2}", prior));
-        Assert.Null(BotFollowUpQueryRewriter.Parse("{\"query\":\"Ошибка датчика 87\"}", prior));
+        Assert.Equal("Пропала шпуля", BotFollowUpQueryRewriter.Select(
+            [("Пропала шпуля", 0.81), ("мало давления", 0.55)])?.Query);
+        Assert.Null(BotFollowUpQueryRewriter.Select(
+            [("Пропала шпуля", 0.67), ("мало давления", 0.64)]));
+        Assert.Null(BotFollowUpQueryRewriter.Select(
+            [("Пропала шпуля", 0.40), ("мало давления", 0.30)]));
+        Assert.Equal(1, BotFollowUpQueryRewriter.Cosine([1, 0], [1, 0]), 5);
+        Assert.Equal(0, BotFollowUpQueryRewriter.Cosine([1, 0], [0, 1]), 5);
     }
 }

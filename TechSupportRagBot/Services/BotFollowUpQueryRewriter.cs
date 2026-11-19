@@ -1,13 +1,12 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
-/// <summary>Selects the remaining client-reported issue when a correction uses different everyday words.</summary>
+/// <summary>Matches a correction's remaining symptom to earlier client issues by semantic similarity.</summary>
 public static class BotFollowUpQueryRewriter
 {
-    public static async Task<string?> RewriteAsync(string remainingSymptom, string? history,
+    public static async Task<BotIssueMatch?> RewriteAsync(string remainingSymptom, string? history,
         OllamaClient model, CancellationToken cancellationToken)
     {
         var clients = BotConversationHistory.Parse(history)
@@ -16,40 +15,41 @@ public static class BotFollowUpQueryRewriter
             .TakeLast(3)
             .ToArray();
         if (clients.Length == 0) return null;
-        var options = clients.SelectMany(SplitIssues).TakeLast(6).ToArray();
+        var options = clients.SelectMany(SplitIssues).Distinct(StringComparer.OrdinalIgnoreCase)
+            .TakeLast(6).ToArray();
         if (options.Length == 0) return null;
-        var prompt = $$"""
-            Выбери ОДНУ из ранее названных клиентом неисправностей, которая остаётся актуальной
-            после его последнего исправления. Слова клиента могут быть бытовыми синонимами.
-            Не выбирай причину, которую клиент отверг. Если ни одна прежняя неисправность
-            не подходит или выбор неясен, верни -1. Не отвечай на технический вопрос.
-            Верни только JSON: {"index":0}, где index — номер элемента массива с нуля.
-            Ранее названные неисправности: {{JsonSerializer.Serialize(options)}}
-            Только оставшийся симптом после исправления: {{JsonSerializer.Serialize(remainingSymptom)}}
-            """;
-        var raw = await model.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
-        return Parse(raw, options);
+        var symptomVector = await model.EmbedAsync(remainingSymptom, cancellationToken, ApiUsageCategories.RagSearch);
+        if (symptomVector is null) return null;
+        var scored = new List<(string Issue, double Score)>();
+        foreach (var option in options)
+        {
+            var vector = await model.EmbedAsync(option, cancellationToken, ApiUsageCategories.RagSearch);
+            if (vector is not null) scored.Add((option, Cosine(symptomVector, vector)));
+        }
+        return Select(scored);
     }
 
-    public static string? Parse(string? raw, IReadOnlyList<string> options)
+    public static BotIssueMatch? Select(IReadOnlyList<(string Issue, double Score)> scored)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        var start = raw.IndexOf('{');
-        var end = raw.LastIndexOf('}');
-        if (start < 0 || end <= start) return null;
-        try
+        var ranked = scored.Where(x => double.IsFinite(x.Score)).OrderByDescending(x => x.Score).ToList();
+        if (ranked.Count == 0) return null;
+        var best = ranked[0];
+        var margin = ranked.Count > 1 ? best.Score - ranked[1].Score : best.Score;
+        return best.Score >= 0.65 && margin >= 0.06 && best.Issue.Length is >= 5 and <= 160
+            ? new BotIssueMatch(best.Issue, best.Score, margin) : null;
+    }
+
+    public static double Cosine(IReadOnlyList<float> first, IReadOnlyList<float> second)
+    {
+        if (first.Count == 0 || first.Count != second.Count) return 0;
+        double dot = 0, firstNorm = 0, secondNorm = 0;
+        for (var i = 0; i < first.Count; i++)
         {
-            using var json = JsonDocument.Parse(raw[start..(end + 1)]);
-            if (!json.RootElement.TryGetProperty("index", out var value)
-                || !value.TryGetInt32(out var index) || index < 0 || index >= options.Count) return null;
-            var query = options[index].Trim();
-            return query.Length is >= 5 and <= 160 && !BotQuestionSpecificity.NeedsSymptom(query)
-                ? query : null;
+            dot += first[i] * second[i];
+            firstNorm += first[i] * first[i];
+            secondNorm += second[i] * second[i];
         }
-        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
-        {
-            return null;
-        }
+        return firstNorm <= 0 || secondNorm <= 0 ? 0 : dot / Math.Sqrt(firstNorm * secondNorm);
     }
 
     private static IEnumerable<string> SplitIssues(string turn) =>
@@ -57,3 +57,5 @@ public static class BotFollowUpQueryRewriter
             .Select(x => x.Trim(' ', ',', '.', ';'))
             .Where(x => x.Length >= 5 && !BotQuestionSpecificity.NeedsSymptom(x));
 }
+
+public sealed record BotIssueMatch(string Query, double Similarity, double Margin);
