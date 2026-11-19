@@ -202,7 +202,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('details').forEach(detail => { detail.open = false; });
+        document.querySelectorAll('details:not(.bot-decision-trace)').forEach(detail => { detail.open = false; });
         setupQA();
         setupClientTickets();
         setupDashboard();
