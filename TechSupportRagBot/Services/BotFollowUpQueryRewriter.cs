@@ -6,7 +6,7 @@ namespace TechSupportRagBot.Services;
 /// <summary>Matches a correction's remaining symptom to earlier client issues by semantic similarity.</summary>
 public static class BotFollowUpQueryRewriter
 {
-    public static async Task<BotIssueMatch?> RewriteAsync(string remainingSymptom, string? history,
+    public static async Task<BotIssueDecision?> RewriteAsync(string remainingSymptom, string? history,
         OllamaClient model, CancellationToken cancellationToken)
     {
         var clients = BotConversationHistory.Parse(history)
@@ -26,7 +26,7 @@ public static class BotFollowUpQueryRewriter
             var vector = await model.EmbedAsync(option, cancellationToken, ApiUsageCategories.RagSearch);
             if (vector is not null) scored.Add((option, Cosine(symptomVector, vector)));
         }
-        return Select(scored);
+        return new BotIssueDecision(Select(scored), scored.OrderByDescending(x => x.Score).ToList());
     }
 
     public static BotIssueMatch? Select(IReadOnlyList<(string Issue, double Score)> scored)
@@ -59,3 +59,5 @@ public static class BotFollowUpQueryRewriter
 }
 
 public sealed record BotIssueMatch(string Query, double Similarity, double Margin);
+public sealed record BotIssueDecision(BotIssueMatch? Match,
+    IReadOnlyList<(string Issue, double Score)> Scores);

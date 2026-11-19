@@ -110,6 +110,8 @@ public sealed class BotDialogueSystemTests
     [Theory]
     [InlineData("BotTraceNeedSymptom")]
     [InlineData("BotNeedSpecificSymptom")]
+    [InlineData("BotTraceQueryRewritten")]
+    [InlineData("BotTraceIssueMatchUncertain")]
     public void NewMessagesExistInBothLanguages(string key)
     {
         Assert.NotEqual(key, UiText.ForLanguage("ru", key));

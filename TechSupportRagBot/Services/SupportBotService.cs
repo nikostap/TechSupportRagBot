@@ -182,9 +182,9 @@ public class SupportBotService
         }, cancellationToken);
         if (conversationPlan.IsCorrection && ragResult.ShouldCallOperator)
         {
-            var rewritten = await BotFollowUpQueryRewriter.RewriteAsync(conversationPlan.SearchQuestion, conversationContext,
+            var issueDecision = await BotFollowUpQueryRewriter.RewriteAsync(conversationPlan.SearchQuestion, conversationContext,
                 _ollama, cancellationToken);
-            if (rewritten is not null)
+            if (issueDecision?.Match is { } rewritten)
             {
                 conversationPlan = conversationPlan with
                 {
@@ -201,6 +201,11 @@ public class SupportBotService
                     MachineId = machineId,
                     FinalTopK = 5
                 }, cancellationToken);
+            }
+            else if (issueDecision?.Scores.Count > 0)
+            {
+                Step("BotTraceIssueMatchUncertain", string.Join("; ", issueDecision.Scores.Take(3)
+                    .Select(x => $"{x.Issue} ({x.Score:F2})")));
             }
         }
         string? supplementalRetrievalQuestion = null;
