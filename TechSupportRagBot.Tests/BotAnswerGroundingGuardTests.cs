@@ -98,6 +98,17 @@ public class BotAnswerGroundingGuardTests
     }
 
     [Fact]
+    public void ExactIssuePhrasePreventsFalseAmbiguity()
+    {
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { DocumentType = "QA", QAStatus = "Verified", Title = "Ошибка нет шпули в бункере?", RerankScore = 0.882 },
+            new() { DocumentType = "QA", QAStatus = "Verified", Title = "При подаче шпули ошибка датчиков 85 и 81?", RerankScore = 0.881 }
+        };
+        Assert.Null(BotQaAmbiguity.GetChoices("Пишет нет шпули", chunks, false));
+    }
+
+    [Fact]
     public void NegationSelectsMissingSpoolQaOverNearbySpoolSensorQa()
     {
         var chunks = new List<RagChunkCandidate>

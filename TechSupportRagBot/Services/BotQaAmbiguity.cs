@@ -14,7 +14,18 @@ public static partial class BotQaAmbiguity
             .OrderByDescending(chunk => chunk.RerankScore).Take(2).ToArray();
         if (qa.Length < 2 || qa[0].RerankScore - qa[1].RerankScore > 0.05
             || string.Equals(qa[0].Title, qa[1].Title, StringComparison.OrdinalIgnoreCase)) return null;
+        var issuePhrase = NormalizeIssuePhrase(question);
+        if (issuePhrase.Length >= 6 && qa.Count(chunk =>
+            NormalizeIssuePhrase(chunk.Title ?? string.Empty).Contains(issuePhrase, StringComparison.Ordinal)) == 1)
+            return null;
         return (qa[0].Title!.TrimEnd(' ', '?'), qa[1].Title!.TrimEnd(' ', '?'));
+    }
+
+    private static string NormalizeIssuePhrase(string text)
+    {
+        var words = Word().Matches(text.ToLowerInvariant()).Select(match => match.Value)
+            .Where(word => word is not ("пишет" or "показывает" or "ошибка" or "ошибки" or "сейчас" or "теперь" or "ещё" or "еще"));
+        return string.Join(" ", words);
     }
 
     [GeneratedRegex(@"[\p{L}]+")]
