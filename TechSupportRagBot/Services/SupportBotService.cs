@@ -393,8 +393,8 @@ public class SupportBotService
                 var nearDescription = near?.Text.Trim() ?? string.Empty;
                 if (near != null && isEnglish)
                 {
-                    var translated = await _translation.TranslateAsync(nearDescription, "Russian", language, cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(translated)) nearDescription = translated;
+                    nearDescription = await TranslateVerifiedTechnicalTextAsync(nearDescription, cancellationToken)
+                        ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
                 }
                 var reply = near != null
                     ? string.Format(template, technicalCode.ToUpperInvariant(), near.ErrorCode!.ToUpperInvariant(), nearDescription)
@@ -500,8 +500,8 @@ public class SupportBotService
             var documented = ragResult.Chunks[0].Text.Trim();
             if (isEnglish)
             {
-                var translated = await _translation.TranslateAsync(documented, "Russian", language, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(translated)) documented = translated;
+                documented = await TranslateVerifiedTechnicalTextAsync(documented, cancellationToken)
+                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
             }
             Step("BotTraceDirectManual", $"#{ragResult.Chunks[0].ChunkId}");
             return Complete(new BotAnswerResult(documented, false, answerMedia)
@@ -516,7 +516,7 @@ public class SupportBotService
                 && !string.IsNullOrWhiteSpace(exactQa.Solution))
             {
                 var directAnswer = isEnglish
-                    ? await _translation.TranslateAsync(exactQa.Solution, "Russian", language, cancellationToken)
+                    ? await TranslateVerifiedTechnicalTextAsync(exactQa.Solution, cancellationToken)
                     : exactQa.Solution;
                 if (!string.IsNullOrWhiteSpace(directAnswer))
                 {
@@ -539,8 +539,8 @@ public class SupportBotService
             var directAnswer = matchingQa.Solution!.Trim();
             if (isEnglish)
             {
-                var translated = await _translation.TranslateAsync(directAnswer, "Russian", language, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(translated)) directAnswer = translated;
+                directAnswer = await TranslateVerifiedTechnicalTextAsync(directAnswer, cancellationToken)
+                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
             }
             Step("BotTraceDirectQa", $"#{matchingQa.ChunkId}");
             return Complete(new BotAnswerResult(directAnswer, false, answerMedia)
@@ -659,7 +659,7 @@ public class SupportBotService
             {
                 groundedAnswer = BotEvidenceExcerptSelector.Select(strongestEvidence ?? string.Empty, question, cleanAnswer);
                 if (isEnglish && !string.IsNullOrWhiteSpace(groundedAnswer))
-                    groundedAnswer = await _translation.TranslateAsync(groundedAnswer, "Russian", language, cancellationToken);
+                    groundedAnswer = await TranslateVerifiedTechnicalTextAsync(groundedAnswer, cancellationToken);
             }
             else
             {
@@ -718,6 +718,26 @@ public class SupportBotService
         { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = context, LlmInvoked = true });
     }
 
+    private async Task<string?> TranslateVerifiedTechnicalTextAsync(string source,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return null;
+        var prompt = $"""
+            Translate the following Russian machine-support instruction into clear English.
+            Preserve every technical fact, condition, action, number, unit and order of steps.
+            Do not add advice or explanations. Return only the translation.
+            Technical vocabulary: «прозвонка» = continuity test; «контакты замкнулись» = contacts closed;
+            «контакты разомкнулись» = contacts opened; «воздух травит» = air is leaking;
+            «ВХОДЫ / ВЫХОДЫ» = INPUTS / OUTPUTS; «ДЖ» = jumbo roll.
+
+            Russian source:
+            {source}
+            """;
+        var translated = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
+        translated = translated?.Trim();
+        return BotTechnicalTranslationGuard.IsReliableEnglish(source, translated) ? translated : null;
+    }
+
     private async Task<string?> BuildDeterministicAnswerFromContextAsync(
         RagSearchResult ragResult,
         string language,
@@ -749,11 +769,8 @@ public class SupportBotService
 
         if (!language.Equals("Russian", StringComparison.OrdinalIgnoreCase))
         {
-            var translated = await _translation.TranslateAsync(answer, "Russian", language, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(translated))
-            {
-                answer = translated;
-            }
+            answer = await TranslateVerifiedTechnicalTextAsync(answer, cancellationToken)
+                ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
         }
 
         if (!ContainsHelpFollowup(answer))
