@@ -71,12 +71,12 @@ public class SupportBotService
         }
         BotAnswerResult Complete(BotAnswerResult result)
         {
-            var mediaQaId = result.SearchResult is null ? null
-                : BotAnswerMediaSelector.SelectQaEntryId(question, result.SearchResult.Chunks);
+            var mediaQaIds = result.SearchResult is null ? []
+                : BotAnswerMediaSelector.SelectQaEntryIds(question, result.SearchResult.Chunks);
             Step(result.Media.Count > 0 ? "BotTraceMediaAttached" : "BotTraceNoMedia",
                 result.Media.Count > 0
-                    ? string.Join(", ", new[] { mediaQaId is int id ? $"QA #{id}" : null }
-                        .Where(x => x is not null).Concat(result.Media.Select(x => x.OriginalFileName)))
+                    ? string.Join(", ", mediaQaIds.Select(id => $"QA #{id}")
+                        .Concat(result.Media.Select(x => x.OriginalFileName)))
                     : null);
             return result with { DecisionSteps = decisionSteps.ToList() };
         }
@@ -97,7 +97,10 @@ public class SupportBotService
             return Complete(BotAnswerResult.Escalate(EscalationText(isEnglish)));
         }
 
-        var turn = await BotTurnClassifier.ClassifyAsync(question, conversationContext, _ollama, cancellationToken);
+        var machine = await _db.Machines.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == machineId, cancellationToken);
+        var turn = await BotTurnClassifier.ClassifyAsync(question, conversationContext, _ollama,
+            cancellationToken, machine);
         Step(turn.Intent switch
         {
             BotTurnIntent.NewQuestion => "BotTraceNewQuestion",
@@ -116,9 +119,9 @@ public class SupportBotService
         }, traceId, cancellationToken);
         if (turn.IsReliable && turn.Intent == BotTurnIntent.NewQuestion)
             conversationContext = null;
-        var explicitCode = BotTechnicalCode.Extract(question, conversationContext);
+        var explicitCode = BotTechnicalCode.Extract(question, conversationContext, machine);
         var pendingCode = BotTechnicalCode.GetPendingSuggestedCode(conversationContext);
-        var lastReportedCode = BotTechnicalCode.GetLastReportedCode(conversationContext);
+        var lastReportedCode = BotTechnicalCode.GetLastReportedCode(conversationContext, machine);
         if (explicitCode != null && lastReportedCode != null
             && !explicitCode.Equals(lastReportedCode, StringComparison.OrdinalIgnoreCase)
             && !explicitCode.Equals(pendingCode?.SuggestedCode, StringComparison.OrdinalIgnoreCase))
@@ -130,7 +133,7 @@ public class SupportBotService
             conversationPlan.SearchQuestion);
         var suggestedCodeReply = BotTechnicalCode.ResolveSuggestedCodeReply(question, conversationContext,
             turn.IsReliable ? turn.Intent : BotTurnIntent.Unknown);
-        var currentCode = BotTechnicalCode.Extract(question, conversationContext);
+        var currentCode = BotTechnicalCode.Extract(question, conversationContext, machine);
         if (suggestedCodeReply == null && (!turn.IsReliable || turn.Intent == BotTurnIntent.Other)
             && currentCode == null
             && BotTechnicalCode.GetPendingSuggestedCode(conversationContext) is { } pendingSuggestion)
@@ -149,7 +152,7 @@ public class SupportBotService
                 suggestedCodeReply.SuggestedCode.ToUpperInvariant()), false, []));
         }
         var technicalCode = suggestedCodeReply?.SelectedCode
-            ?? BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp);
+            ?? BotTechnicalCode.ExtractForFollowUp(question, conversationContext, conversationPlan.IsFollowUp, machine);
         if (suggestedCodeReply == null && conversationPlan.NeedsChoiceClarification)
         {
             Step("BotTraceChoiceNeeded");
@@ -159,6 +162,13 @@ public class SupportBotService
         {
             Step("BotTraceDetailNeeded");
             return Complete(new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotDescribeFollowUp"), false, []));
+        }
+        if (technicalCode == null && !conversationPlan.IsFollowUp
+            && BotQuestionSpecificity.NeedsSymptom(question))
+        {
+            Step("BotTraceNeedSymptom");
+            return Complete(new BotAnswerResult(
+                UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNeedSpecificSymptom"), false, []));
         }
         var retrievalQuestion = await BuildRussianRetrievalQuestionAsync(conversationPlan.SearchQuestion, language, traceId, cancellationToken);
         Step(technicalCode == null ? "BotTraceHybridSearch" : "BotTraceExactCodeSearch",
@@ -240,7 +250,8 @@ public class SupportBotService
             if (related.Count == 0) ragResult.ShouldCallOperator = true;
         }
 
-        var evidenceText = conversationPlan.ResolvedReference ?? question;
+        var evidenceText = conversationPlan.IsCorrection
+            ? conversationPlan.SearchQuestion : conversationPlan.ResolvedReference ?? question;
         var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
             ? await _translation.TranslateToRussianForSearchAsync(evidenceText, language, cancellationToken)
             : evidenceText;
@@ -298,7 +309,7 @@ public class SupportBotService
 
             if (technicalCode != null && ragResult.Chunks.Count == 0)
             {
-                var priorMentions = BotTechnicalCode.CountConsecutivePriorMentions(technicalCode, conversationContext);
+                var priorMentions = BotTechnicalCode.CountConsecutivePriorMentions(technicalCode, conversationContext, machine);
                 var near = nearCodeCandidate;
                 var key = near != null
                     ? priorMentions > 0 ? "BotFaultCodeNearMatchRepeated" : "BotFaultCodeNearMatch"
@@ -603,18 +614,19 @@ public class SupportBotService
     private async Task<IReadOnlyList<BotAnswerMedia>> LoadAnswerMediaAsync(
         string question, RagSearchResult ragResult, CancellationToken cancellationToken)
     {
-        var qaId = BotAnswerMediaSelector.SelectQaEntryId(question, ragResult.Chunks);
-        if (qaId == null)
+        var qaIds = BotAnswerMediaSelector.SelectQaEntryIds(question, ragResult.Chunks);
+        if (qaIds.Count == 0)
         {
             return [];
         }
 
         return await _db.QAAttachments
             .AsNoTracking()
-            .Where(x => x.QAEntryId == qaId.Value
+            .Where(x => qaIds.Contains(x.QAEntryId)
                 && x.QAEntry != null
                 && x.QAEntry.Status == QAEntryStatuses.Verified)
             .OrderBy(x => x.Id)
+            .Take(12)
             .Select(x => new BotAnswerMedia(
                 x.PublicId,
                 x.OriginalFileName,

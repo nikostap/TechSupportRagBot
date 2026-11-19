@@ -756,7 +756,7 @@ public class RagSearchService : IRagSearchService
 
     private static List<RagChunkCandidate> Rerank(List<RagChunkCandidate> candidates, string question, QueryIntent queryIntent)
     {
-        var terms = ExtractTerms(question).ToList();
+        var terms = ExtractEntityTerms(question);
         foreach (var candidate in candidates)
         {
             var reasons = new List<string>
@@ -782,13 +782,21 @@ public class RagSearchService : IRagSearchService
                 candidate.Operations);
 
             var exactMatches = terms.Count(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
-            var entityTerms = ExtractEntityTerms(question);
-            var hasEntityMatch = entityTerms.Any(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var titleAndAliases = string.Join(' ', candidate.Title, candidate.SearchQuestions,
+                candidate.ErrorName, candidate.ErrorCode, candidate.NodeName, candidate.SectionTitle);
+            var titleMatches = terms.Count(term => titleAndAliases.Contains(term[..Math.Min(4, term.Length)],
+                StringComparison.OrdinalIgnoreCase));
+            var hasEntityMatch = titleMatches > 0;
             var isExactQaQuestion = false;
             var score = candidate.RrfScore + exactMatches * 0.08;
             if (exactMatches > 0)
             {
                 reasons.Add($"exact terms +{exactMatches * 0.08:F2}");
+            }
+            if (titleMatches > 0)
+            {
+                score += titleMatches * 0.12;
+                reasons.Add($"question/title terms +{titleMatches * 0.12:F2}");
             }
 
             if (string.Equals(candidate.DocumentType, "QA", StringComparison.OrdinalIgnoreCase))
@@ -819,7 +827,7 @@ public class RagSearchService : IRagSearchService
             }
 
             if (queryIntent == QueryIntent.ErrorDiagnostic && !string.IsNullOrWhiteSpace(candidate.ErrorCode)
-                && ExtractEntityTerms(question).Any(term => string.Equals(term, candidate.ErrorCode, StringComparison.OrdinalIgnoreCase)))
+                && terms.Any(term => string.Equals(term, candidate.ErrorCode, StringComparison.OrdinalIgnoreCase)))
             {
                 score += 0.80;
                 reasons.Add("exact fault code +0.80");
@@ -883,8 +891,13 @@ public class RagSearchService : IRagSearchService
         var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "как", "что", "где", "для", "или", "при", "надо", "нужно", "можно",
+            "это", "этот", "эта", "есть", "нет", "меня", "теперь", "еще", "ещё",
+            "станок", "станка", "станке", "машина", "машины", "пишет", "показывает",
+            "ошибка", "ошибку", "ошибки", "авария", "проблема", "проблемы",
+            "датчик", "датчика", "датчики", "датчиков", "sensor",
             "настроить", "настройка", "настройки", "установить", "регулировать", "регулировка",
-            "проверить", "сделать", "работает", "работать", "setup", "adjust", "configure"
+            "проверить", "сделать", "работает", "работать", "setup", "adjust", "configure",
+            "the", "and", "with", "this", "that", "machine", "shows", "error", "fault"
         };
 
         return Regex.Matches(question.ToLowerInvariant(), @"[\p{L}\p{N}][\p{L}\p{N}_-]{2,}")

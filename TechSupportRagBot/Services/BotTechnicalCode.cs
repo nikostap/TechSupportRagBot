@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TechSupportRagBot.Models;
 
 namespace TechSupportRagBot.Services;
 
@@ -8,11 +9,17 @@ public static partial class BotTechnicalCode
     private static readonly HashSet<string> FaultReportWords = new(StringComparer.OrdinalIgnoreCase)
     { "error", "fault", "alarm", "code", "on", "new", "drive", "inverter", "appeared", "shows", "showing", "displayed", "now", "a", "the" };
 
-    public static string? Extract(string question, string? history)
+    public static string? Extract(string question, string? history, Machine? machine = null)
     {
         var explicitCode = LabeledCode().Match(question);
-        if (explicitCode.Success && !FaultReportWords.Contains(explicitCode.Groups[1].Value))
+        if (explicitCode.Success && !FaultReportWords.Contains(explicitCode.Groups[1].Value)
+            && !IsMachineDesignation(explicitCode.Groups[1].Value, question, machine))
             return explicitCode.Groups[1].Value;
+
+        var displayedCode = DisplayedCode().Match(question);
+        if (displayedCode.Success && !FaultReportWords.Contains(displayedCode.Groups[1].Value)
+            && !IsMachineDesignation(displayedCode.Groups[1].Value, question, machine))
+            return displayedCode.Groups[1].Value;
 
         // Fault reports often put ordinary words between "ошибка" and a code.
         // This also handles alphabetic codes such as OCN when there is only one
@@ -20,13 +27,13 @@ public static partial class BotTechnicalCode
         if (FaultContext().IsMatch(question))
         {
             var codes = FaultCodeToken().Matches(question).Select(x => x.Value)
-                .Where(x => !FaultReportWords.Contains(x))
+                .Where(x => !FaultReportWords.Contains(x) && !IsMachineDesignation(x, question, machine))
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (codes.Count == 1) return codes[0];
         }
 
         var token = question.Trim().Trim('.', ',', ':', ';', '!', '?');
-        if (!CodeToken().IsMatch(token)) return null;
+        if (!CodeToken().IsMatch(token) || IsMachineDesignation(token, question, machine)) return null;
 
         var turns = BotConversationHistory.Parse(history);
         var lastBot = turns.LastOrDefault(x => x.Role == "Бот")?.Text;
@@ -43,9 +50,10 @@ public static partial class BotTechnicalCode
         || Regex.IsMatch(string.Concat(chunk.Title, " ", chunk.Text, " ", chunk.Solution),
             $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(code)}(?![\p{{L}}\p{{N}}])", RegexOptions.IgnoreCase);
 
-    public static string? ExtractForFollowUp(string question, string? history, bool isFollowUp)
+    public static string? ExtractForFollowUp(string question, string? history, bool isFollowUp,
+        Machine? machine = null)
     {
-        var current = Extract(question, history);
+        var current = Extract(question, history, machine);
         if (current != null || !isFollowUp) return current;
 
         var clientTurns = BotConversationHistory.Parse(history)
@@ -53,11 +61,12 @@ public static partial class BotTechnicalCode
             .Select(x => x.Text)
             .TakeLast(4)
             .Reverse();
-        return clientTurns.Select(turn => Extract(turn, history)).FirstOrDefault(code => code != null);
+        return clientTurns.Select(turn => Extract(turn, history, machine)).FirstOrDefault(code => code != null);
     }
 
     public static BotSuggestedCodeReply? ResolveSuggestedCodeReply(
-        string question, string? history, BotTurnIntent interpretedIntent = BotTurnIntent.Unknown)
+        string question, string? history, BotTurnIntent interpretedIntent = BotTurnIntent.Unknown,
+        Machine? machine = null)
     {
         var pending = GetPendingSuggestedCode(history);
         if (pending == null) return null;
@@ -92,19 +101,36 @@ public static partial class BotTechnicalCode
         return new BotSuggestedCodeReply(reportedCode, suggestedCode, null);
     }
 
-    public static string? GetLastReportedCode(string? history) =>
+    public static string? GetLastReportedCode(string? history, Machine? machine = null) =>
         BotConversationHistory.Parse(history)
             .Where(x => x.Role == "Клиент")
-            .Select(x => Extract(x.Text, null))
+            .Select(x => Extract(x.Text, null, machine))
             .LastOrDefault(x => x != null);
 
-    public static int CountConsecutivePriorMentions(string code, string? history) =>
+    public static int CountConsecutivePriorMentions(string code, string? history, Machine? machine = null) =>
         BotConversationHistory.Parse(history)
             .Where(x => x.Role == "Клиент")
             .Select(x => x.Text)
             .Reverse()
-            .TakeWhile(x => string.Equals(Extract(x, null), code, StringComparison.OrdinalIgnoreCase))
+            .TakeWhile(x => string.Equals(Extract(x, null, machine), code, StringComparison.OrdinalIgnoreCase))
             .Count();
+
+    private static bool IsMachineDesignation(string token, string question, Machine? machine)
+    {
+        static string Normalize(string value) => Regex.Replace(value, @"[^\p{L}\p{N}]", "").ToUpperInvariant();
+        var normalized = Normalize(token);
+        if (machine != null && normalized.Length >= 3)
+        {
+            var serial = machine.SerialNumber.Trim();
+            var aliases = new[] { machine.Model, machine.Name,
+                $"{machine.Model}-{serial}", $"{machine.Name}-{serial}" };
+            if (aliases.Any(alias => normalized == Normalize(alias))) return true;
+        }
+        return token.Contains('-') && token.Any(char.IsDigit)
+            && Regex.IsMatch(question,
+                $@"\b(?:на\s+(?:станк\w*\s+)?|станок\s+|машин\w*\s+|модел\w*\s+|machine\s+|model\s+){Regex.Escape(token)}\b",
+                RegexOptions.IgnoreCase);
+    }
 
     public static RagChunkCandidate? FindSingleNearMatch(string code, IReadOnlyList<RagChunkCandidate> candidates)
     {
@@ -154,13 +180,16 @@ public static partial class BotTechnicalCode
     [GeneratedRegex(@"\b(?:ошибк\w*|авари\w*|код\w*|error|fault|alarm)\s*(?:№|#|:|-)?\s*([A-Za-z][A-Za-z0-9._-]{1,9})\b", RegexOptions.IgnoreCase)]
     private static partial Regex LabeledCode();
 
+    [GeneratedRegex(@"\b(?:пишет|показывает|высвечивает|shows|displays)\s*(?:код\s*)?([A-Za-z][A-Za-z0-9._-]{1,9})\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DisplayedCode();
+
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9._-]{1,9}$")]
     private static partial Regex CodeToken();
 
     [GeneratedRegex(@"(?<![\p{L}\p{N}])[A-Za-z][A-Za-z0-9._-]{1,9}(?![\p{L}\p{N}])", RegexOptions.IgnoreCase)]
     private static partial Regex FaultCodeToken();
 
-    [GeneratedRegex(@"ошибк|авари|код ошиб|инвертор|преобразовател|сервопривод|fault|error|alarm|inverter|drive", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"ошибк|авари|код ошиб|пишет|показывает|высвечивает|инвертор|преобразовател|сервопривод|fault|error|alarm|shows|displays|inverter|drive", RegexOptions.IgnoreCase)]
     private static partial Regex FaultContext();
 
     [GeneratedRegex(@"(?:похожий код|similar code,?)\s+([A-Za-z][A-Za-z0-9._-]{1,9})", RegexOptions.IgnoreCase)]

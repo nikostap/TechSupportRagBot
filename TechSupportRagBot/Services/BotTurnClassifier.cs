@@ -15,7 +15,8 @@ public sealed record BotTurnClassification(BotTurnIntent Intent, double Confiden
 public static partial class BotTurnClassifier
 {
     public static async Task<BotTurnClassification> ClassifyAsync(
-        string question, string? history, OllamaClient model, CancellationToken cancellationToken)
+        string question, string? history, OllamaClient model, CancellationToken cancellationToken,
+        Machine? machine = null)
     {
         var lastTurn = BotConversationHistory.Parse(history).LastOrDefault();
         var lastBot = lastTurn?.Role == "Бот" ? lastTurn.Text : null;
@@ -26,7 +27,9 @@ public static partial class BotTurnClassifier
         if (certain != null) return certain;
         if (BotIssueBoundary.StartsDifferentFault(question, history))
             return new(BotTurnIntent.NewQuestion, 1, "distinct-fault");
-        if (question.Length > 180 || BotTechnicalCode.Extract(question, history) != null)
+        if (AnswersLastQuestion(question, lastBot))
+            return new(BotTurnIntent.Clarification, 1, "answers-last-question");
+        if (question.Length > 180 || BotTechnicalCode.Extract(question, history, machine) != null)
             return new(BotTurnIntent.Unknown, 0, "existing-planner");
 
         var prompt = $$"""
@@ -51,6 +54,18 @@ public static partial class BotTurnClassifier
         if (Affirmation().IsMatch(reply)) return new(BotTurnIntent.Affirmation, 1, "phrase");
         if (Negation().IsMatch(reply)) return new(BotTurnIntent.Negation, 1, "phrase");
         return null;
+    }
+
+    public static bool AnswersLastQuestion(string answer, string lastBot)
+    {
+        if (answer.Length > 80) return false;
+        var lastQuestion = BotConversationPlanner.LastQuestion(lastBot);
+        if (lastQuestion.Length == 0) return false;
+        var answerTerms = Regex.Matches(answer.ToLowerInvariant(), @"[\p{L}\p{N}]{4,}")
+            .Select(x => x.Value[..4]).ToHashSet();
+        if (answerTerms.Count == 0) return false;
+        return Regex.Matches(lastQuestion.ToLowerInvariant(), @"[\p{L}\p{N}]{4,}")
+            .Select(x => x.Value[..4]).Any(answerTerms.Contains);
     }
 
     public static BotTurnClassification? ParseModelReply(string? raw)

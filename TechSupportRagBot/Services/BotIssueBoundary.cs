@@ -4,6 +4,9 @@ namespace TechSupportRagBot.Services;
 
 public static class BotIssueBoundary
 {
+    private static readonly Regex AdditionalFault = new(
+        @"^\s*(?:(?:а|и)\s+)?(?:теперь|ещ[её]|также|сейчас|now|also)\b.{0,100}\b(?:ошиб\w*|авари\w*|пишет|показывает|выда[её]т|горит|снят\w*|не\s+работает|не\s+видит|fault|alarm|error|shows)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex FaultReport = new(
         @"(?:^|(?<![\p{L}\p{N}]))(?:ошибка|авария|fault|alarm)\s+(.+?)\s*[.!?]*\s*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -12,6 +15,9 @@ public static class BotIssueBoundary
 
     public static bool StartsDifferentFault(string question, string? history)
     {
+        if (AdditionalFault.IsMatch(question)
+            && BotConversationHistory.Parse(history).Any(turn => turn.Role == "Клиент"))
+            return true;
         var current = Topic(question);
         if (current == null) return false;
         var previous = BotConversationHistory.Parse(history)

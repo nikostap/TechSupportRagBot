@@ -39,14 +39,13 @@ public static class BotConversationPlanner
         var isShortDetail = question.Length <= 100 && !startsNewQuestion && !question.Contains('?');
         var isFollowUp = hasExchange && (forceFollowUp ?? (isConfirmation || hasReference || answersBotQuestion || isShortDetail || asksAboutPriorAnswer
             || (startsNewQuestion && SharesTechnicalTerm(previousClient!, question))));
-        var lastQuestionMark = previousBot?.LastIndexOf('?') ?? -1;
-        var lastBotQuestion = lastQuestionMark >= 0
-            ? previousBot![Math.Max(0, lastQuestionMark - 160)..(lastQuestionMark + 1)]
-            : string.Empty;
+        var lastBotQuestion = LastQuestion(previousBot);
         var needsChoice = isConfirmation && !isNegative
+            && !BotTurnClassifier.AnswersLastQuestion(question, previousBot ?? string.Empty)
             && (lastBotQuestion.Contains(" или ", StringComparison.OrdinalIgnoreCase)
                 || (lastBotQuestion.Contains('(') && lastBotQuestion.Contains(", ", StringComparison.OrdinalIgnoreCase)));
         var needsDetail = isConfirmation && !isNegative
+            && !BotTurnClassifier.AnswersLastQuestion(question, previousBot ?? string.Empty)
             && (lastBotQuestion.Length == 0
                 || lastBotQuestion.Contains("чем могу помочь", StringComparison.OrdinalIgnoreCase)
                 || lastBotQuestion.Contains("ещё", StringComparison.OrdinalIgnoreCase)
@@ -62,17 +61,24 @@ public static class BotConversationPlanner
             return new BotConversationPlan(question, question, false, string.Empty, false, false);
         }
 
+        var positiveCorrection = PositiveCorrection(question);
+        if (positiveCorrection is not null)
+            return new BotConversationPlan(positiveCorrection, positiveCorrection, true,
+                Truncate(previousBot ?? string.Empty, 4000), false, false, null,
+                answersBotQuestion, positiveCorrection, asksAboutPriorAnswer, previousBot, true);
+
         // Keep every recent client clarification belonging to this issue. Bot answers can ask
         // for details, but must never become search facts. The prompt budget stays bounded.
         var issueStart = 0;
         for (var i = 1; i < clientTurns.Count; i++)
         {
             var earlier = string.Join("\n", clientTurns.Take(i).Select(x => $"Клиент: {x}"));
-            if (LooksLikeIndependentQuestion(clientTurns[i])
+            if (PositiveCorrection(clientTurns[i]) is not null
+                || LooksLikeIndependentQuestion(clientTurns[i])
                 || BotIssueBoundary.StartsDifferentFault(clientTurns[i], earlier))
                 issueStart = i;
         }
-        var originalProblem = clientTurns[issueStart];
+        var originalProblem = PositiveCorrection(clientTurns[issueStart]) ?? clientTurns[issueStart];
         var resolvedReference = BotOrdinalReference.Resolve(question, previousBot);
         var details = clientTurns.Skip(issueStart + 1).Append(question)
             .Where(x => !IsBareConfirmation(x))
@@ -97,6 +103,26 @@ public static class BotConversationPlanner
         var text = value.Trim().ToLowerInvariant();
         return text is "да" or "нет" or "ага" or "угу" or "верно" or "правильно"
             or "yes" or "no" or "yeah" or "yep" or "correct";
+    }
+
+    public static string LastQuestion(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer)) return string.Empty;
+        var questionMark = answer.LastIndexOf('?');
+        if (questionMark < 0) return string.Empty;
+        var start = questionMark == 0 ? -1 : answer.LastIndexOfAny(['?', '!', '.', '\n'], questionMark - 1);
+        return answer[(start + 1)..(questionMark + 1)].Trim();
+    }
+
+    private static string? PositiveCorrection(string question)
+    {
+        if (!question.TrimStart().StartsWith("нет", StringComparison.OrdinalIgnoreCase)
+            && !question.Contains(" no,", StringComparison.OrdinalIgnoreCase)) return null;
+        var match = System.Text.RegularExpressions.Regex.Match(question,
+            @"\b(?:но|только|but|only)\b\s*[,—-]?\s*(.+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success && match.Groups[1].Value.Trim().Length >= 5
+            ? match.Groups[1].Value.Trim() : null;
     }
 
     private static bool SharesTechnicalTerm(string previous, string current)
@@ -133,4 +159,4 @@ public static class BotConversationPlanner
     }
 }
 
-public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null, bool AnswersBotQuestion = false, string? OriginalProblem = null, bool AsksAboutPriorAnswer = false, string? LastBotAnswer = null);
+public sealed record BotConversationPlan(string SearchQuestion, string FocusedSearchQuestion, bool IsFollowUp, string PreviousBotAnswer, bool NeedsChoiceClarification, bool NeedsDetailClarification, string? ResolvedReference = null, bool AnswersBotQuestion = false, string? OriginalProblem = null, bool AsksAboutPriorAnswer = false, string? LastBotAnswer = null, bool IsCorrection = false);
