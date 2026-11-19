@@ -41,4 +41,18 @@ public class BotAnswerGroundingGuardTests
         Assert.Contains("индикация", excerpt);
         Assert.DoesNotContain("предохранители", excerpt);
     }
+
+    [Fact]
+    public void ShortAmbiguousQuestionAsksBetweenEquallyRankedQaIssues()
+    {
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { DocumentType = "QA", QAStatus = "Verified", Title = "Рычаги не захватывают шпулю?", RerankScore = 0.881 },
+            new() { DocumentType = "QA", QAStatus = "Verified", Title = "Нет шпули в бункере?", RerankScore = 0.878 }
+        };
+
+        Assert.NotNull(BotQaAmbiguity.GetChoices("Станок не замечает шпулю", chunks, false));
+        Assert.Null(BotQaAmbiguity.GetChoices("На датчике 87 нет индикации", chunks, false));
+        Assert.Null(BotQaAmbiguity.GetChoices("Станок не замечает шпулю", chunks, true));
+    }
 }

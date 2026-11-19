@@ -382,6 +382,15 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
+        if (BotQaAmbiguity.GetChoices(question, ragResult.Chunks, conversationPlan.IsFollowUp) is { } choices)
+        {
+            Step("BotTraceChoiceNeeded", $"{choices.First}; {choices.Second}");
+            var reply = string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotQaAmbiguityQuestion"),
+                choices.First, choices.Second);
+            return Complete(new BotAnswerResult(reply, false, [])
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult });
+        }
+
         // A correction can reject part of the literal message. Match attachments to
         // the issue that was actually searched, so rejected causes cannot win.
         var mediaQuestion = conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
