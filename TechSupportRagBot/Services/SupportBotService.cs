@@ -344,7 +344,10 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
-        var answerMedia = await LoadAnswerMediaAsync(question, ragResult, cancellationToken);
+        // A correction can reject part of the literal message. Match attachments to
+        // the issue that was actually searched, so rejected causes cannot win.
+        var mediaQuestion = conversationPlan.IsCorrection ? conversationPlan.SearchQuestion : question;
+        var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult, cancellationToken);
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new
         {

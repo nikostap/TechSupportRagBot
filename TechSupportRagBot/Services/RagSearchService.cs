@@ -925,7 +925,13 @@ public class RagSearchService : IRagSearchService
         var topScore = reranked.Max(x => x.RerankScore);
         var scoreWindow = topScore * 0.90;
 
-        var groups = reranked
+        // Once a strong match exists, distant results are retrieval noise. Keep a
+        // broad window for genuinely combined faults, whose two sources may score
+        // differently, and retain the old behavior when no result is strong.
+        var relevant = topScore >= 0.75
+            ? reranked.Where(x => x.RerankScore >= Math.Max(0.25, topScore - 0.45)).ToList()
+            : reranked.ToList();
+        var groups = relevant
             .GroupBy(x => new ContextGroupKey(
                 NormalizeKey(x.DocumentType),
                 x.DocumentId,

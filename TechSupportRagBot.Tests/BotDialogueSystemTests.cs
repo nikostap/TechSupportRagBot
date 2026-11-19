@@ -75,6 +75,18 @@ public sealed class BotDialogueSystemTests
         Assert.DoesNotContain("давление", plan.SearchQuestion);
     }
 
+    [Theory]
+    [InlineData("Станок не работает", "Пишет нет шпули")]
+    [InlineData("Машина сломалась", "Ролик не крутится")]
+    public void SpecificDetailReplacesVagueOpening(string opening, string detail)
+    {
+        var history = $"Клиент: {opening}\nБот: Что именно происходит?";
+        var plan = BotConversationPlanner.Create(detail, history, interpretedIntent: BotTurnIntent.Clarification);
+        Assert.True(plan.IsFollowUp);
+        Assert.Equal(detail, plan.OriginalProblem);
+        Assert.DoesNotContain(opening, plan.SearchQuestion);
+    }
+
     [Fact]
     public void SelectedMachineDesignationIsNotAFaultCode()
     {
@@ -133,5 +145,18 @@ public sealed class BotDialogueSystemTests
         Assert.Single(BotAnswerMediaSelector.SelectQaEntryIds("Пишет нет шпули", chunks));
         Assert.Single(BotAnswerMediaSelector.SelectQaEntryIds("Ошибка датчиков 85 и 81",
             [Qa(4, "Ошибка датчиков 85 и 81", 1.0), Qa(5, "Ошибка датчика 85", 0.8)]));
+    }
+
+    [Fact]
+    public void SensorNumberCanMatchAnAliasWhenQaTitleUsesPlainLanguage()
+    {
+        var spool = new RagChunkCandidate
+        {
+            QAEntryId = 87, QAStatus = "Verified", DocumentType = "QA",
+            Title = "Ошибка нет шпули в бункере?",
+            SearchQuestions = "ошибка датчика 87; где находится датчик 87",
+            RerankScore = 0.9
+        };
+        Assert.Equal(87, BotAnswerMediaSelector.SelectQaEntryId("Нет, 87 вообще не светится", [spool]));
     }
 }

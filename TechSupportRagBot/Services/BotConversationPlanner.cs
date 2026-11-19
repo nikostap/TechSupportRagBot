@@ -66,6 +66,12 @@ public static class BotConversationPlanner
             return new BotConversationPlan(positiveCorrection, positiveCorrection, true,
                 Truncate(previousBot ?? string.Empty, 4000), false, false, null,
                 answersBotQuestion, positiveCorrection, asksAboutPriorAnswer, previousBot, true);
+        if (previousClient is { Length: >= 12 } && !IsBareConfirmation(previousClient)
+            && BotQuestionSpecificity.NeedsSymptom(previousClient)
+            && !BotQuestionSpecificity.NeedsSymptom(question))
+            return new BotConversationPlan(question, question, true,
+                Truncate(previousBot ?? string.Empty, 4000), false, false, null,
+                answersBotQuestion, question, asksAboutPriorAnswer, previousBot);
 
         // Keep every recent client clarification belonging to this issue. Bot answers can ask
         // for details, but must never become search facts. The prompt budget stays bounded.
@@ -75,6 +81,9 @@ public static class BotConversationPlanner
             var earlier = string.Join("\n", clientTurns.Take(i).Select(x => $"Клиент: {x}"));
             if (PositiveCorrection(clientTurns[i]) is not null
                 || LooksLikeIndependentQuestion(clientTurns[i])
+                || (clientTurns[i - 1].Length >= 12 && !IsBareConfirmation(clientTurns[i - 1])
+                    && BotQuestionSpecificity.NeedsSymptom(clientTurns[i - 1])
+                    && !BotQuestionSpecificity.NeedsSymptom(clientTurns[i]))
                 || BotIssueBoundary.StartsDifferentFault(clientTurns[i], earlier))
                 issueStart = i;
         }

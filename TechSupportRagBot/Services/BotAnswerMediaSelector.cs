@@ -26,13 +26,17 @@ public static class BotAnswerMediaSelector
             {
                 Chunk = chunk,
                 TitleTerms = Tokens(chunk.Title ?? string.Empty).ToHashSet(),
+                AliasTerms = Tokens($"{chunk.SearchQuestions} {chunk.Tags}").ToHashSet(),
                 PhraseMatch = Normalize(chunk.Title ?? string.Empty).Contains(Normalize(question), StringComparison.Ordinal)
             })
-            .Where(item => numbers.Length == 0 || numbers.All(number => item.TitleTerms.Contains(number)))
+            .Where(item => numbers.Length == 0 || numbers.All(number =>
+                item.TitleTerms.Contains(number) || item.AliasTerms.Contains(number)))
             .Select(item => new
             {
                 item.Chunk,
-                Score = terms.Count(item.TitleTerms.Contains) + (item.PhraseMatch ? 3 : 0)
+                Score = terms.Count(item.TitleTerms.Contains) * 2
+                    + terms.Count(term => !item.TitleTerms.Contains(term) && item.AliasTerms.Contains(term))
+                    + (item.PhraseMatch ? 3 : 0)
             })
             .Where(item => item.Score > 0)
             .OrderByDescending(item => item.Score)
