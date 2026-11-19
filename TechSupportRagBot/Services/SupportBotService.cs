@@ -171,6 +171,9 @@ public class SupportBotService
                 UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNeedSpecificSymptom"), false, []));
         }
         var retrievalQuestion = await BuildRussianRetrievalQuestionAsync(conversationPlan.SearchQuestion, language, traceId, cancellationToken);
+        if (isEnglish && conversationPlan.IsFollowUp
+            && Regex.IsMatch(question, @"(?<![\p{L}\p{N}])\d{2,4}(?![\p{L}\p{N}])"))
+            retrievalQuestion = await BuildRussianRetrievalQuestionAsync(question, language, traceId, cancellationToken);
         Step(technicalCode == null ? "BotTraceHybridSearch" : "BotTraceExactCodeSearch",
             technicalCode ?? retrievalQuestion);
         var ragResult = await _ragSearch.SearchAsync(new RagSearchRequest
