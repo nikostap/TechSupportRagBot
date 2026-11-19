@@ -443,6 +443,9 @@ public class SupportBotService
         var answerMedia = await LoadAnswerMediaAsync(mediaQuestion, ragResult,
             conversationPlan.IsFollowUp && !BotFollowUpMediaPolicy.RequestsVisual(question) ? 2 : 1,
             cancellationToken);
+        var matchedMediaQaIds = BotAnswerMediaSelector.SelectQaEntryIds(mediaQuestion, ragResult.Chunks);
+        if (matchedMediaQaIds.Count == 1 && ragResult.Chunks.FirstOrDefault() is { DocumentType: "QA" } topQa
+            && topQa.QAEntryId != matchedMediaQaIds[0]) answerMedia = [];
         if (!BotFollowUpMediaPolicy.ShouldAttach(question, conversationPlan)) answerMedia = [];
         var context = _ragSearch.BuildContextForLlm(ragResult);
         await _audit.WriteAsync("Rag.Context.Built", new

@@ -876,6 +876,13 @@ public class RagSearchService : IRagSearchService
                 }
             }
 
+            var specificityPenalty = BotQaTitleSpecificity.UnrequestedSensorPenalty(question, candidate);
+            if (specificityPenalty < 0)
+            {
+                score += specificityPenalty;
+                reasons.Add($"unrequested QA sensor identifiers {specificityPenalty:F2}");
+            }
+
             candidate.RerankScore = score;
             candidate.RetrievalReason = string.Join("; ", reasons) + $"; final {score:F4}";
         }

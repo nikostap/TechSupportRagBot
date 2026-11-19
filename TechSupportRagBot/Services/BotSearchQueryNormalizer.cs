@@ -11,6 +11,8 @@ public static partial class BotSearchQueryNormalizer
         query = Machine().Replace(query, "станок");
         query = Spool().Replace(query, "шпули");
         query = Says().Replace(query, "пишет");
+        query = CannotSee().Replace(query, "не видит");
+        query = CannotSeeSpool().Replace(query, "не видит шпулю");
         return query;
     }
 
@@ -22,4 +24,10 @@ public static partial class BotSearchQueryNormalizer
 
     [GeneratedRegex(@"\b(?:говорит|сказала|сообщает)\b", RegexOptions.IgnoreCase)]
     private static partial Regex Says();
+
+    [GeneratedRegex(@"\bне\s+может\s+видеть\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CannotSee();
+
+    [GeneratedRegex(@"\bне\s+видит\s+шпули\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CannotSeeSpool();
 }
