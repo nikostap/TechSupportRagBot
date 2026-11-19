@@ -7,7 +7,7 @@ namespace TechSupportRagBot.Services;
 /// <summary>Selects the remaining client-reported issue when a correction uses different everyday words.</summary>
 public static class BotFollowUpQueryRewriter
 {
-    public static async Task<string?> RewriteAsync(string question, string? history,
+    public static async Task<string?> RewriteAsync(string remainingSymptom, string? history,
         OllamaClient model, CancellationToken cancellationToken)
     {
         var clients = BotConversationHistory.Parse(history)
@@ -25,7 +25,7 @@ public static class BotFollowUpQueryRewriter
             не подходит или выбор неясен, верни -1. Не отвечай на технический вопрос.
             Верни только JSON: {"index":0}, где index — номер элемента массива с нуля.
             Ранее названные неисправности: {{JsonSerializer.Serialize(options)}}
-            Исправление клиента: {{JsonSerializer.Serialize(question)}}
+            Только оставшийся симптом после исправления: {{JsonSerializer.Serialize(remainingSymptom)}}
             """;
         var raw = await model.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         return Parse(raw, options);

@@ -182,7 +182,7 @@ public class SupportBotService
         }, cancellationToken);
         if (conversationPlan.IsCorrection && ragResult.ShouldCallOperator)
         {
-            var rewritten = await BotFollowUpQueryRewriter.RewriteAsync(question, conversationContext,
+            var rewritten = await BotFollowUpQueryRewriter.RewriteAsync(conversationPlan.SearchQuestion, conversationContext,
                 _ollama, cancellationToken);
             if (!string.IsNullOrWhiteSpace(rewritten))
             {
