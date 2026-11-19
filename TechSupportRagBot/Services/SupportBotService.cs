@@ -409,6 +409,20 @@ public class SupportBotService
             context
         }, traceId, cancellationToken);
 
+        var independentQaIds = BotAnswerMediaSelector.SelectQaEntryIds(mediaQuestion, ragResult.Chunks);
+        if (independentQaIds.Count >= 2)
+        {
+            var combinedAnswer = await BuildDeterministicAnswerFromContextAsync(
+                ragResult, language, isEnglish, cancellationToken, question);
+            if (!string.IsNullOrWhiteSpace(combinedAnswer))
+            {
+                Step("BotTraceMultiQa", string.Join(", ", independentQaIds));
+                return Complete(new BotAnswerResult(combinedAnswer, false, answerMedia)
+                { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
+                    SearchResult = ragResult, ContextForLlm = context });
+            }
+        }
+
         // Prepared manuals carry one verified, self-contained entry per fault code.
         // When exactly one applicable entry matches, return it directly so a previous
         // "not found" answer cannot override newly available evidence.
@@ -641,16 +655,26 @@ public class SupportBotService
         RagSearchResult ragResult,
         string language,
         bool isEnglish,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? question = null)
     {
-        var qa = ragResult.Chunks
+        var qaCandidates = ragResult.Chunks
             .Where(x => string.Equals(x.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(x.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(x.Solution))
             .OrderByDescending(x => x.RerankScore)
-            .FirstOrDefault();
+            .ToList();
 
-        var answer = qa?.Solution?.Trim();
+        var qaIds = !string.IsNullOrWhiteSpace(question)
+            ? BotAnswerMediaSelector.SelectQaEntryIds(question, qaCandidates)
+            : [];
+        var selectedQa = qaIds.Count >= 2
+            ? qaCandidates.Where(x => x.QAEntryId.HasValue && qaIds.Contains(x.QAEntryId.Value)).ToList()
+            : qaCandidates.Take(1).ToList();
+
+        var answer = selectedQa.Count >= 2
+            ? string.Join("\n\n", selectedQa.Select(x => $"{x.Title?.TrimEnd(' ', '?')}:\n{x.Solution!.Trim()}"))
+            : selectedQa.FirstOrDefault()?.Solution?.Trim();
         if (string.IsNullOrWhiteSpace(answer))
         {
             return null;
