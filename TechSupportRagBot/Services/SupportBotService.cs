@@ -778,6 +778,7 @@ public class SupportBotService
         }
 
         var retrievalQuestion = await _translation.TranslateToRussianForSearchAsync(question, language, cancellationToken);
+        retrievalQuestion = BotSearchQueryNormalizer.NormalizeTranslatedRussian(retrievalQuestion);
         await _audit.WriteAsync("Bot.RetrievalQuestion.Built", new
         {
             originalQuestion = question,
