@@ -56,7 +56,7 @@ public sealed class BotTestTraceTests
             "BotTraceAffirmation", "BotTraceNegation", "BotTraceCourtesy", "BotTraceUncertainIntent",
             "BotTraceIntentFromModel", "BotTraceIntentFromRules", "BotTraceFollowUpPlan",
             "BotTraceNewSearchPlan", "BotTraceOperatorRequested", "BotTraceCodeChoiceNeeded",
-            "BotTraceCodeRejected", "BotTraceChoiceNeeded", "BotTraceChoiceResolved", "BotTraceDetailNeeded",
+            "BotTraceCodeRejected", "BotTraceChoiceNeeded", "BotTraceFollowUpFocus", "BotTraceDetailNeeded",
             "BotTraceHybridSearch", "BotTraceExactCodeSearch", "BotTraceAdditionalSearch",
             "BotTraceNoSources", "BotTraceSources", "BotTraceSourceChat",
             "BotTraceSourceDocument", "BotTraceNearCode", "BotTraceCodeNotFound",

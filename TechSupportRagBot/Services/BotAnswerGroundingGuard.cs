@@ -26,6 +26,28 @@ public static partial class BotAnswerGroundingGuard
         return false;
     }
 
+    /// <summary>Rejects an answer that presents a source's scenario condition as a customer fact.</summary>
+    public static bool AttributesUnreportedCondition(string answer, string? sourceTitle, string customerReport)
+    {
+        if (string.IsNullOrWhiteSpace(answer) || string.IsNullOrWhiteSpace(sourceTitle)) return false;
+        var reported = NormalizeWords(customerReport);
+        foreach (Match match in ScenarioCondition().Matches(sourceTitle))
+        {
+            var condition = NormalizeWords(match.Value);
+            if (reported.Contains(condition, StringComparison.Ordinal) || condition.Length < 7) continue;
+            foreach (var sentence in Regex.Split(answer, @"(?<=[.!?])\s+|\n+"))
+            {
+                var normalizedSentence = NormalizeWords(sentence);
+                if (!normalizedSentence.Contains(condition, StringComparison.Ordinal)) continue;
+                if (!ConditionalWording().IsMatch(sentence)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static string NormalizeWords(string value) =>
+        Regex.Replace(value.ToLowerInvariant(), @"[^\p{L}\p{N}]+", " ").Trim();
+
     private static string NormalizeMeasurement(string text) =>
         Regex.Replace(text.ToLowerInvariant().Replace(',', '.'), @"\s+", "");
 
@@ -40,4 +62,10 @@ public static partial class BotAnswerGroundingGuard
 
     [GeneratedRegex(@"[\p{L}]{5,}")]
     private static partial Regex Word();
+
+    [GeneratedRegex(@"\b(?:после|перед|через|при)\s+[\p{L}\p{N}]+", RegexOptions.IgnoreCase)]
+    private static partial Regex ScenarioCondition();
+
+    [GeneratedRegex(@"\b(?:если|при условии|в случае|if|when)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex ConditionalWording();
 }

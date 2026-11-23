@@ -337,6 +337,19 @@ public class SupportBotService
             if (related.Count == 0) ragResult.ShouldCallOperator = true;
         }
 
+        // Let a newly reported symptom discriminate among sources for the established issue.
+        // This applies to ordinary follow-ups as well as answers to a bot question.
+        var focusedEvidence = conversationPlan.IsFollowUp && technicalCode == null
+            && !conversationPlan.AsksAboutPriorAnswer
+            ? BotFollowUpFocus.SelectByLatestDetail(ragResult.Chunks, conversationPlan.OriginalProblem, question)
+            : null;
+        if (focusedEvidence != null)
+        {
+            ragResult.Chunks = [focusedEvidence];
+            ragResult.ShouldCallOperator = false;
+            Step("BotTraceFollowUpFocus", $"#{focusedEvidence.ChunkId}");
+        }
+
         var evidenceText = conversationPlan.IsCorrection
             ? conversationPlan.SearchQuestion : conversationPlan.ResolvedReference ?? question;
         var evidenceQuestion = conversationPlan.IsFollowUp && isEnglish
@@ -430,27 +443,6 @@ public class SupportBotService
             Step("BotTraceEvidenceMissing", string.Join(", ", missingTerms));
             return Complete(new BotAnswerResult(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotFollowUpEvidenceMissing"), false, [])
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
-        }
-
-        if (conversationPlan.IsFollowUp && technicalCode == null
-            && BotQaChoiceResolver.Select(question, conversationPlan.LastBotAnswer, ragResult.Chunks) is { } chosenQa)
-        {
-            ragResult.Chunks = [chosenQa];
-            var choiceTitle = chosenQa.Title!.TrimEnd(' ', '?');
-            var choiceAnswer = chosenQa.Solution!.Trim();
-            if (isEnglish)
-            {
-                choiceTitle = await TranslateVerifiedTechnicalTextAsync(choiceTitle, cancellationToken)
-                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
-                choiceAnswer = await TranslateVerifiedTechnicalTextAsync(choiceAnswer, cancellationToken)
-                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
-            }
-            Step("BotTraceChoiceResolved", $"QA #{chosenQa.ChunkId}");
-            var reply = string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotConditionalQaAnswer"),
-                choiceTitle, choiceAnswer);
-            return Complete(new BotAnswerResult(reply, false, [])
-            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
-                SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
         if (BotQaAmbiguity.GetChoices(retrievalQuestion, ragResult.Chunks, conversationPlan.IsFollowUp) is { } choices)
@@ -620,6 +612,7 @@ public class SupportBotService
         - Если уточнение просит одно значение или параметр, дай это значение и необходимое условие в одном-двух предложениях.
         - Если клиент повторно спрашивает значение, которое уже прозвучало, всё равно назови точное значение из контекста базы знаний. Не заменяй его ссылкой на прежнюю инструкцию.
         - Если новый признак не позволяет дать дополнительный подтверждённый шаг, задай один конкретный уточняющий вопрос.
+        - Если новое наблюдение клиента уточняет неисправность, используй отобранный по нему источник. Не считай остальные условия из заголовка источника подтверждёнными клиентом; сформулируй решение условно.
         - {explanationInstruction}
 
         Вопрос клиента:
@@ -653,7 +646,10 @@ public class SupportBotService
         var answer = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         if (string.IsNullOrWhiteSpace(answer))
         {
-            var deterministicAnswer = await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
+            var deterministicAnswer = focusedEvidence != null
+                ? await BuildConditionalVerifiedAnswerAsync(focusedEvidence, isEnglish, cancellationToken,
+                    conversationPlan.PreviousBotAnswer)
+                : await BuildDeterministicAnswerFromContextAsync(ragResult, language, isEnglish, cancellationToken);
             await _audit.WriteAsync("Bot.Answer.Empty", new
             {
                 machineId,
@@ -691,16 +687,28 @@ public class SupportBotService
 
         var cleanAnswer = CleanHumanAnswer(answer.Trim());
         var usedGroundedFallback = false;
-        var strongestEvidence = ragResult.Chunks.FirstOrDefault()?.Solution
-            ?? ragResult.Chunks.FirstOrDefault()?.Text;
-        if (BotAnswerGroundingGuard.HasUnsupportedClaims(cleanAnswer, strongestEvidence ?? string.Empty))
+        var strongestSource = ragResult.Chunks.FirstOrDefault();
+        var strongestEvidence = strongestSource?.Solution ?? strongestSource?.Text;
+        var unreportedCondition = BotAnswerGroundingGuard.AttributesUnreportedCondition(
+            cleanAnswer, strongestSource?.Title,
+            $"{conversationPlan.OriginalProblem ?? question}. {question}");
+        if (unreportedCondition || BotAnswerGroundingGuard.HasUnsupportedClaims(cleanAnswer, strongestEvidence ?? string.Empty))
         {
             string? groundedAnswer;
-            if (conversationPlan.IsFollowUp)
+            if (unreportedCondition)
+            {
+                groundedAnswer = strongestSource == null ? null
+                    : await BuildConditionalVerifiedAnswerAsync(strongestSource, isEnglish, cancellationToken,
+                        conversationPlan.PreviousBotAnswer);
+            }
+            else if (conversationPlan.IsFollowUp)
             {
                 groundedAnswer = BotEvidenceExcerptSelector.Select(strongestEvidence ?? string.Empty, question, cleanAnswer);
                 if (isEnglish && !string.IsNullOrWhiteSpace(groundedAnswer))
                     groundedAnswer = await TranslateVerifiedTechnicalTextAsync(groundedAnswer, cancellationToken);
+                if (string.IsNullOrWhiteSpace(groundedAnswer) && focusedEvidence != null)
+                    groundedAnswer = await BuildConditionalVerifiedAnswerAsync(focusedEvidence, isEnglish, cancellationToken,
+                        conversationPlan.PreviousBotAnswer);
             }
             else
             {
@@ -777,6 +785,33 @@ public class SupportBotService
         var translated = await _ollama.GenerateAsync(prompt, cancellationToken, ApiUsageCategories.BotAnswers);
         translated = translated?.Trim();
         return BotTechnicalTranslationGuard.IsReliableEnglish(source, translated) ? translated : null;
+    }
+
+    private async Task<string?> BuildConditionalVerifiedAnswerAsync(
+        RagChunkCandidate source, bool isEnglish, CancellationToken cancellationToken,
+        string? previousAnswer = null)
+    {
+        if (!string.Equals(source.DocumentType, "QA", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(source.QAStatus, "Verified", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(source.Title) || string.IsNullOrWhiteSpace(source.Solution))
+            return null;
+        var title = source.Title.Trim().TrimEnd('?');
+        var solution = source.Solution.Trim();
+        if (!string.IsNullOrWhiteSpace(previousAnswer))
+        {
+            solution = BotResponseDeduplicator.RemoveRepeatedSteps(solution, previousAnswer);
+            if (string.IsNullOrWhiteSpace(solution))
+                return UiText.ForLanguage(isEnglish ? "en" : "ru", "BotNoNewSteps");
+        }
+        if (isEnglish)
+        {
+            title = await TranslateVerifiedTechnicalTextAsync(title, cancellationToken)
+                ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
+            solution = await TranslateVerifiedTechnicalTextAsync(solution, cancellationToken)
+                ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
+        }
+        return string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotConditionalQaAnswer"),
+            title, solution);
     }
 
     private async Task<string?> BuildDeterministicAnswerFromContextAsync(

@@ -4,6 +4,21 @@ namespace TechSupportRagBot.Tests;
 
 public class BotAnswerGroundingGuardTests
 {
+    [Fact]
+    public void SourceConditionCannotBecomeAnUnreportedCustomerFact()
+    {
+        const string title = "После замены нити она остаётся холодной?";
+        const string report = "Не работает нить отрезки. Становится холодная";
+        Assert.True(BotAnswerGroundingGuard.AttributesUnreportedCondition(
+            "Понял, нить остаётся холодной после замены.", title, report));
+        Assert.False(BotAnswerGroundingGuard.AttributesUnreportedCondition(
+            "Если это происходит после замены, проверьте кабели.", title, report));
+        Assert.False(BotAnswerGroundingGuard.AttributesUnreportedCondition(
+            "Нить остаётся холодной после замены.", title, "После замены нить холодная"));
+        Assert.True(BotAnswerGroundingGuard.AttributesUnreportedCondition(
+            "Лампа гаснет через час.", "Лампа гаснет через час работы?", "Лампа гаснет"));
+    }
+
     private const string Evidence = "Проверьте индикацию датчика 87. Протрите оптику. "
         + "Настройте датчик регулировочным винтом. Удостоверьтесь, что датчик не сломан и разъём не повреждён.";
 
@@ -107,17 +122,16 @@ public class BotAnswerGroundingGuardTests
         };
         Assert.Null(BotQaAmbiguity.GetChoices("Пишет нет шпули", chunks, false));
         Assert.Null(BotQaAmbiguity.GetChoices("станок пишет, что нет шпули", chunks, false));
+        Assert.Null(BotQaAmbiguity.GetChoices("А теперь ошибка нет шпули", chunks, false));
     }
 
     [Theory]
     [InlineData("Становится холодная", 250)]
     [InlineData("Нить холодная", 250)]
     [InlineData("После двух рулонов", 249)]
-    [InlineData("Вторая", 249)]
-    public void ShortAnswerSelectsOnlyTheOfferedQaScenario(string reply, int expectedChunkId)
+    [InlineData("После замены", 250)]
+    public void LatestDetailNarrowsEvidenceForTheCurrentIssue(string reply, int expectedChunkId)
     {
-        const string lastAnswer = "Уточните, какая ситуация ближе: «После замены нити отрезки она остаётся холодной и появляется ошибка нагрева» "
-            + "или «После двух готовых рулонов станок останавливается с предупреждением о нити отрезки»?";
         var chunks = new List<RagChunkCandidate>
         {
             new() { ChunkId = 250, QAEntryId = 185, DocumentType = "QA", QAStatus = "Verified",
@@ -129,9 +143,46 @@ public class BotAnswerGroundingGuardTests
             new() { ChunkId = 1760, QAEntryId = 231, DocumentType = "QA", QAStatus = "Verified",
                 Title = "Ошибка низкое давление?", Solution = "Проверьте давление." }
         };
-        Assert.Equal(expectedChunkId, BotQaChoiceResolver.Select(reply, lastAnswer, chunks)?.ChunkId);
-        Assert.Null(BotQaChoiceResolver.Select("Нить отрезки", lastAnswer, chunks));
-        Assert.Null(BotQaChoiceResolver.Select("Становится холодная", "Просто проверьте нить.", chunks));
+        Assert.Equal(expectedChunkId, BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Ошибка не работает нитка отрезки", reply)?.ChunkId);
+        Assert.Null(BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Ошибка не работает нитка отрезки", "Нить отрезки"));
+        Assert.Null(BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Ошибка нет шпули", "Становится холодная"));
+    }
+
+    [Theory]
+    [InlineData("Не загорается", 41)]
+    [InlineData("Через час", 42)]
+    [InlineData("При запуске", 41)]
+    public void LatestDetailNarrowsEvidenceAcrossDifferentFaults(string reply, int expectedChunkId)
+    {
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { ChunkId = 41, QAEntryId = 31, DocumentType = "QA", QAStatus = "Verified",
+                Title = "Лампа не загорается при запуске?", Solution = "Проверьте питание лампы." },
+            new() { ChunkId = 42, QAEntryId = 32, DocumentType = "QA", QAStatus = "Verified",
+                Title = "Лампа гаснет через час работы?", Solution = "Проверьте охлаждение лампы." },
+            new() { ChunkId = 43, QAEntryId = 33, DocumentType = "QA", QAStatus = "Verified",
+                Title = "Давление воздуха упало?", Solution = "Проверьте воздух." }
+        };
+        Assert.Equal(expectedChunkId, BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Лампа работает неправильно", reply)?.ChunkId);
+        Assert.Null(BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Лампа работает неправильно", "Лампа"));
+    }
+
+    [Fact]
+    public void LatestDetailExcludesAnUnrelatedSensorEvenWithOnlyOneSourceOnIssue()
+    {
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { ChunkId = 1759, Title = "Ошибка нет шпули в бункере?", Solution = "Проверьте датчик 87." },
+            new() { ChunkId = 229, Title = "Ошибка датчика 85", NodeName = "Бункер",
+                Solution = "Проверьте датчик 85 под бункером, он видит шпулю." }
+        };
+        Assert.Equal(1759, BotFollowUpFocus.SelectByLatestDetail(chunks,
+            "Ошибка нет шпули", "В бункере")?.ChunkId);
     }
 
     [Fact]
