@@ -432,6 +432,27 @@ public class SupportBotService
             { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion, SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
         }
 
+        if (conversationPlan.IsFollowUp && technicalCode == null
+            && BotQaChoiceResolver.Select(question, conversationPlan.LastBotAnswer, ragResult.Chunks) is { } chosenQa)
+        {
+            ragResult.Chunks = [chosenQa];
+            var choiceTitle = chosenQa.Title!.TrimEnd(' ', '?');
+            var choiceAnswer = chosenQa.Solution!.Trim();
+            if (isEnglish)
+            {
+                choiceTitle = await TranslateVerifiedTechnicalTextAsync(choiceTitle, cancellationToken)
+                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
+                choiceAnswer = await TranslateVerifiedTechnicalTextAsync(choiceAnswer, cancellationToken)
+                    ?? UiText.ForLanguage("en", "BotTechnicalTranslationUnavailable");
+            }
+            Step("BotTraceChoiceResolved", $"QA #{chosenQa.ChunkId}");
+            var reply = string.Format(UiText.ForLanguage(isEnglish ? "en" : "ru", "BotConditionalQaAnswer"),
+                choiceTitle, choiceAnswer);
+            return Complete(new BotAnswerResult(reply, false, [])
+            { RetrievalQuestion = retrievalQuestion, SupplementalRetrievalQuestion = supplementalRetrievalQuestion,
+                SearchResult = ragResult, ContextForLlm = _ragSearch.BuildContextForLlm(ragResult) });
+        }
+
         if (BotQaAmbiguity.GetChoices(retrievalQuestion, ragResult.Chunks, conversationPlan.IsFollowUp) is { } choices)
         {
             Step("BotTraceChoiceNeeded", $"{choices.First}; {choices.Second}");

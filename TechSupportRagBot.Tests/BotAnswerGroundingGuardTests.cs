@@ -109,6 +109,31 @@ public class BotAnswerGroundingGuardTests
         Assert.Null(BotQaAmbiguity.GetChoices("станок пишет, что нет шпули", chunks, false));
     }
 
+    [Theory]
+    [InlineData("Становится холодная", 250)]
+    [InlineData("Нить холодная", 250)]
+    [InlineData("После двух рулонов", 249)]
+    [InlineData("Вторая", 249)]
+    public void ShortAnswerSelectsOnlyTheOfferedQaScenario(string reply, int expectedChunkId)
+    {
+        const string lastAnswer = "Уточните, какая ситуация ближе: «После замены нити отрезки она остаётся холодной и появляется ошибка нагрева» "
+            + "или «После двух готовых рулонов станок останавливается с предупреждением о нити отрезки»?";
+        var chunks = new List<RagChunkCandidate>
+        {
+            new() { ChunkId = 250, QAEntryId = 185, DocumentType = "QA", QAStatus = "Verified",
+                Title = "После замены нити отрезки она остаётся холодной и появляется ошибка нагрева?",
+                Solution = "Проверьте гибкие силовые кабели к подвижному узлу нити отрезки." },
+            new() { ChunkId = 249, QAEntryId = 197, DocumentType = "QA", QAStatus = "Verified",
+                Title = "После двух готовых рулонов станок останавливается с предупреждением о нити отрезки?",
+                Solution = "Проверьте подключение проводов нити отрезки." },
+            new() { ChunkId = 1760, QAEntryId = 231, DocumentType = "QA", QAStatus = "Verified",
+                Title = "Ошибка низкое давление?", Solution = "Проверьте давление." }
+        };
+        Assert.Equal(expectedChunkId, BotQaChoiceResolver.Select(reply, lastAnswer, chunks)?.ChunkId);
+        Assert.Null(BotQaChoiceResolver.Select("Нить отрезки", lastAnswer, chunks));
+        Assert.Null(BotQaChoiceResolver.Select("Становится холодная", "Просто проверьте нить.", chunks));
+    }
+
     [Fact]
     public void NegationSelectsMissingSpoolQaOverNearbySpoolSensorQa()
     {

@@ -56,7 +56,7 @@ public sealed class BotTestTraceTests
             "BotTraceAffirmation", "BotTraceNegation", "BotTraceCourtesy", "BotTraceUncertainIntent",
             "BotTraceIntentFromModel", "BotTraceIntentFromRules", "BotTraceFollowUpPlan",
             "BotTraceNewSearchPlan", "BotTraceOperatorRequested", "BotTraceCodeChoiceNeeded",
-            "BotTraceCodeRejected", "BotTraceChoiceNeeded", "BotTraceDetailNeeded",
+            "BotTraceCodeRejected", "BotTraceChoiceNeeded", "BotTraceChoiceResolved", "BotTraceDetailNeeded",
             "BotTraceHybridSearch", "BotTraceExactCodeSearch", "BotTraceAdditionalSearch",
             "BotTraceNoSources", "BotTraceSources", "BotTraceSourceChat",
             "BotTraceSourceDocument", "BotTraceNearCode", "BotTraceCodeNotFound",
@@ -71,5 +71,6 @@ public sealed class BotTestTraceTests
         Assert.NotEqual("BotCourtesyReply", UiText.ForLanguage(language, "BotCourtesyReply"));
         foreach (var key in new[] { "BotAcknowledgementReply", "BotGreetingReply", "BotFarewellReply" })
             Assert.NotEqual(key, UiText.ForLanguage(language, key));
+        Assert.NotEqual("BotConditionalQaAnswer", UiText.ForLanguage(language, "BotConditionalQaAnswer"));
     }
 }
