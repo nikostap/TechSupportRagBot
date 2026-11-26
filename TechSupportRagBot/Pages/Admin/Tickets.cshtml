@@ -54,7 +54,7 @@ else
                     {
                         <section class="tickets-machine-section">
                             <div class="tickets-machine-heading">
-                                <div><span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "Equipment")</span><h3>@machine.MachineName</h3></div>
+                                <div><span class="tickets-overline">@TechSupportRagBot.Services.UiText.T(HttpContext, "Equipment")</span><h3>@machine.MachineName</h3>@if (!string.IsNullOrWhiteSpace(machine.Rows[0].Ticket.Machine?.SerialNumber)) { <small class="ticket-machine-serial">@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber"): @machine.Rows[0].Ticket.Machine?.SerialNumber</small> }</div>
                                 <span class="tickets-machine-count">@machine.Rows.Count</span>
                             </div>
                             <div class="tickets-focus-list">

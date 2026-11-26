@@ -30,11 +30,12 @@
         return button;
     }
 
-    function addPaneHeading(pane, overline, title, count) {
+    function addPaneHeading(pane, overline, title, count, subtitle) {
         const heading = createElement('div', 'focus-list-pane-heading');
         const main = createElement('div', 'focus-list-pane-heading-main');
         main.append(createElement('span', 'focus-list-overline', overline));
         main.append(createElement('h3', '', title));
+        if (subtitle) main.append(createElement('small', 'focus-list-pane-subtitle', subtitle));
         heading.append(main);
         if (count != null) heading.append(createElement('span', 'focus-list-pane-count', count));
         pane.prepend(heading);
@@ -107,8 +108,9 @@
         list.classList.add('focus-client-list');
         const items = groups.map(group => {
             const name = group.querySelector('.machine-summary h2')?.textContent.trim() || t('Equipment');
+            const serial = group.dataset.serial?.trim();
             const count = group.querySelectorAll('.ticket-card').length;
-            const button = addButton(nav, name, String(count), false);
+            const button = addButton(nav, serial ? `${name} · № ${serial}` : name, String(count), false);
             group.open = true;
             return {
                 button,
@@ -116,7 +118,7 @@
                     group.hidden = !selected;
                     if (selected) {
                         list.querySelector('.focus-list-pane-heading')?.remove();
-                        addPaneHeading(list, t('Equipment'), name, `${count} ${t('TicketsGenitive')}`);
+                        addPaneHeading(list, t('Equipment'), name, `${count} ${t('TicketsGenitive')}`, serial ? `${t('SerialNumber')}: ${serial}` : null);
                     }
                 }
             };
@@ -132,8 +134,9 @@
             list.classList.add('focus-dashboard-list');
             const items = groups.map(group => {
                 const name = group.querySelector('.dashboard-machine-title strong')?.textContent.trim() || t('Equipment');
+                const serial = group.dataset.serial?.trim();
                 const count = group.querySelectorAll('.focus-dashboard-record').length;
-                const button = addButton(nav, name, String(count), false);
+                const button = addButton(nav, serial ? `${name} · № ${serial}` : name, String(count), false);
                 group.open = true;
                 return {
                     button,
@@ -141,7 +144,7 @@
                         group.hidden = !selected;
                         if (selected) {
                             list.querySelector('.focus-list-pane-heading')?.remove();
-                            addPaneHeading(list, t('Tickets'), name, `${count}`);
+                            addPaneHeading(list, t('Tickets'), name, `${count}`, serial ? `${t('SerialNumber')}: ${serial}` : null);
                         }
                     }
                 };

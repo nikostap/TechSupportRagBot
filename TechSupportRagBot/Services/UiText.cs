@@ -1770,7 +1770,7 @@ public static class UiText
 
     private static readonly string[] ClientKeys =
     [
-        "ModelsAndSerials", "UnspecifiedFemale", "UnspecifiedMale", "Equipment", "Tickets",
+        "ModelsAndSerials", "UnspecifiedFemale", "UnspecifiedMale", "Equipment", "Tickets", "SerialNumber",
         "TicketsGenitive", "Solutions", "PendingReview", "InIndex", "FoundChunks",
         "SelectedChunk", "Chunk", "BotTyping", "Bot", "QuestionRequired", "VideoUploading",
         "VideoUnavailable", "VideoProcessing", "VideoConverting", "You", "MachineRequired",

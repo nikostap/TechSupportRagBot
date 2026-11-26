@@ -86,6 +86,8 @@ html[data-theme="dark"] .dispatch-theme .tickets-client-total,
 html[data-theme="dark"] .dispatch-theme .tickets-ticket-ident small,
 html[data-theme="dark"] .dispatch-theme .focus-dashboard-record small,
 html[data-theme="dark"] .dispatch-theme .client-ticket-record-main small{color:#a8bdc5}
+html[data-theme="dark"] .dispatch-theme .focus-list-pane-subtitle,
+html[data-theme="dark"] .dispatch-theme .ticket-machine-serial{color:#a8bdc5}
 html[data-theme="dark"] .dispatch-theme label{color:#c7d9df}
 html[data-theme="dark"] .dispatch-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 html[data-theme="dark"] .dispatch-theme select,

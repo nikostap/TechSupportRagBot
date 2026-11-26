@@ -19,6 +19,10 @@
             <div>
                 <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p>
                 <h2>@group.MachineName</h2>
+                @if (!string.IsNullOrWhiteSpace(group.Rows[0].Ticket.Machine?.SerialNumber))
+                {
+                    <small class="ticket-machine-serial">@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber"): @group.Rows[0].Ticket.Machine?.SerialNumber</small>
+                }
             </div>
             <span class="status-pill">@group.Rows.Count</span>
         </div>

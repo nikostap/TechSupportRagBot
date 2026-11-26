@@ -38,11 +38,15 @@
 <div class="ticket-group-list">
 @foreach (var group in Model.TicketGroups)
 {
-    <details class="ticket-machine-group panel client-ticket-machine-group" data-details-key="machine-@group.MachineId">
+    <details class="ticket-machine-group panel client-ticket-machine-group" data-details-key="machine-@group.MachineId" data-serial="@group.Rows[0].Ticket.Machine?.SerialNumber">
         <summary class="ticket-accordion-summary machine-summary">
             <div>
                 <p class="eyebrow">@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</p>
                 <h2>@group.MachineName</h2>
+                @if (!string.IsNullOrWhiteSpace(group.Rows[0].Ticket.Machine?.SerialNumber))
+                {
+                    <small class="ticket-machine-serial">@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber"): @group.Rows[0].Ticket.Machine?.SerialNumber</small>
+                }
             </div>
             <div class="ticket-summary-counts">
                 @if (group.UnreadCount > 0)

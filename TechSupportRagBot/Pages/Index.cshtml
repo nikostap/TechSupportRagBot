@@ -161,7 +161,7 @@ else
                     <div class="dashboard-machine-list">
                         @foreach (var group in Model.AssignedTicketGroups)
                         {
-                            <details class="dashboard-machine-group">
+                            <details class="dashboard-machine-group" data-serial="@group.MachineSerialNumber">
                                 <summary>
                                     <span class="dashboard-machine-title">
                                         <strong>@group.MachineName</strong>
@@ -206,7 +206,7 @@ else
                     <div class="dashboard-machine-list">
                         @foreach (var group in Model.AttentionTicketGroups)
                         {
-                            <details class="dashboard-machine-group">
+                            <details class="dashboard-machine-group" data-serial="@group.MachineSerialNumber">
                                 <summary>
                                     <span class="dashboard-machine-title">
                                         <strong>@group.MachineName</strong>
@@ -252,7 +252,7 @@ else
                     <div class="dashboard-machine-list">
                         @foreach (var group in Model.RecentClientTicketGroups)
                         {
-                            <details class="dashboard-machine-group">
+                            <details class="dashboard-machine-group" data-serial="@group.MachineSerialNumber">
                                 <summary>
                                     <span class="dashboard-machine-title">
                                         <strong>@group.MachineName</strong>

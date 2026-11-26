@@ -96,6 +96,7 @@ namespace TechSupportRagBot.Pages
         public sealed record DashboardTicketGroup(
             string MachineName,
             string? MachineModel,
+            string? MachineSerialNumber,
             int TicketCount,
             int UnreadCount,
             List<DashboardTicketRow> Rows);
@@ -107,13 +108,15 @@ namespace TechSupportRagBot.Pages
                 {
                     x.Ticket.MachineId,
                     Name = string.IsNullOrWhiteSpace(x.Ticket.Machine?.Name) ? x.Ticket.Machine?.Model ?? "Machine" : x.Ticket.Machine.Name,
-                    Model = x.Ticket.Machine?.Model
+                    Model = x.Ticket.Machine?.Model,
+                    SerialNumber = x.Ticket.Machine?.SerialNumber
                 })
                 .OrderByDescending(x => x.Sum(r => r.UnreadCount))
                 .ThenBy(x => x.Key.Name)
                 .Select(x => new DashboardTicketGroup(
                     x.Key.Name,
                     x.Key.Model,
+                    x.Key.SerialNumber,
                     x.Count(),
                     x.Sum(r => r.UnreadCount),
                     x.OrderByDescending(r => r.UnreadCount).ThenByDescending(r => r.Ticket.CreatedAt).ToList()))
