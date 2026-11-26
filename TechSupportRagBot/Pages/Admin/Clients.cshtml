@@ -57,11 +57,13 @@
                             <td><code>@user.UserName</code></td>
                             <td>@user.Email</td>
                             <td>@client.ContactPhone</td>
-                            <td class="table-actions">
-                                <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
-                                <form method="post" asp-page-handler="Delete" asp-route-id="@client.Id" class="row-action">
-                                    <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
-                                </form>
+                            <td>
+                                <div class="table-actions">
+                                    <a class="btn-secondary as-link" asp-page="/Admin/UserProfile" asp-route-id="@user.Id">@TechSupportRagBot.Services.UiText.T(HttpContext, "Profile", "Профиль")</a>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@client.Id" class="row-action">
+                                        <button class="btn-danger" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete", "Удалить")</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     }
