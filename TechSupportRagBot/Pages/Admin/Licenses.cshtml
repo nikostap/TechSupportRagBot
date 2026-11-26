@@ -40,7 +40,7 @@
     <div class="panel">
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "AccessKeys")</h2>
         <div class="table-wrap">
-            <table>
+            <table class="license-table">
                 <thead>
                     <tr>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Key")</th>
@@ -64,15 +64,11 @@
                             <div class="license-row-actions">
                                 @if (license.IsActive && license.ExpiresAt.HasValue)
                                 {
-                                    <details class="license-renew">
-                                        <summary class="btn-secondary">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</summary>
-                                        <form method="post" asp-page-handler="Renew" asp-route-id="@license.Id" class="license-renew-form">
-                                            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewExpiryDate")
-                                                <input name="RenewalExpiresAt" type="date" min="@Model.RenewalMinDate(license.ExpiresAt.Value)" required />
-                                            </label>
-                                            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</button>
-                                        </form>
-                                    </details>
+                                    <button class="btn-secondary" type="button" data-license-renew
+                                            data-license-id="@license.Id"
+                                            data-license-machine="@license.Machine?.Name"
+                                            data-license-serial="@license.Machine?.SerialNumber"
+                                            data-license-min="@Model.RenewalMinDate(license.ExpiresAt.Value)">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</button>
                                 }
                                 <form method="post" asp-page-handler="SendKey" asp-route-id="@license.Id" class="row-action">
                                     <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SendLicenseMail")</button>
@@ -89,3 +85,47 @@
         </div>
     </div>
 </div>
+
+<dialog id="license-renew-dialog" class="license-renew-dialog" aria-labelledby="license-renew-title">
+    <div class="license-renew-dialog-head">
+        <h2 id="license-renew-title">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicenseTitle")</h2>
+        <button type="button" class="license-renew-close" data-license-renew-close aria-label="@TechSupportRagBot.Services.UiText.T(HttpContext, "Cancel")">&times;</button>
+    </div>
+    <p id="license-renew-machine" class="muted"></p>
+    <form method="post" asp-page-handler="Renew" class="license-renew-dialog-form">
+        <input type="hidden" name="id" id="license-renew-id" />
+        <label for="license-renew-date">@TechSupportRagBot.Services.UiText.T(HttpContext, "NewExpiryDate")</label>
+        <input id="license-renew-date" name="RenewalExpiresAt" type="date" required />
+        <div class="license-renew-dialog-actions">
+            <button type="button" class="btn-secondary" data-license-renew-close>@TechSupportRagBot.Services.UiText.T(HttpContext, "Cancel")</button>
+            <button type="submit" class="btn-main">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+(() => {
+    const dialog = document.getElementById('license-renew-dialog');
+    const id = document.getElementById('license-renew-id');
+    const date = document.getElementById('license-renew-date');
+    const machine = document.getElementById('license-renew-machine');
+    document.querySelectorAll('[data-license-renew]').forEach(button => {
+        button.addEventListener('click', () => {
+            id.value = button.dataset.licenseId;
+            date.value = '';
+            date.min = button.dataset.licenseMin;
+            machine.textContent = button.dataset.licenseSerial
+                ? `${button.dataset.licenseMachine} · № ${button.dataset.licenseSerial}`
+                : button.dataset.licenseMachine;
+            dialog.showModal();
+            date.focus();
+        });
+    });
+    dialog.querySelectorAll('[data-license-renew-close]').forEach(button => {
+        button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('click', event => {
+        if (event.target === dialog) dialog.close();
+    });
+})();
+</script>

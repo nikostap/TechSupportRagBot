@@ -55,6 +55,7 @@ html[data-theme="dark"] .dispatch-theme .qa-model-summary,
 html[data-theme="dark"] .dispatch-theme .qa-serial-summary,
 html[data-theme="dark"] .dispatch-theme th{background:#263a44;border-color:#3a515c;color:#c9dbe1}
 html[data-theme="dark"] .dispatch-theme .machine-admin-row{background:#21343e;border-color:#405965;color:#e5edf0}
+html[data-theme="dark"] .dispatch-theme .license-renew-dialog{background:#1b2a32;border-color:#506a76;color:#edf4f5}
 html[data-theme="dark"] .dispatch-theme .machine-admin-group{background:#1b2a32;border-color:#405965}
 html[data-theme="dark"] .dispatch-theme .machine-admin-group-summary strong{color:#edf4f5}
 html[data-theme="dark"] .dispatch-theme .machine-admin-group-summary small{color:#a8bdc5}
