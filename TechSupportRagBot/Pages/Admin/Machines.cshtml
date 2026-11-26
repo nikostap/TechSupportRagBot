@@ -41,8 +41,16 @@
         <h2>@TechSupportRagBot.Services.UiText.T(HttpContext, "MachineFleet")</h2>
         <div class="machine-admin-scroll">
             <div class="machine-admin-list">
-                @foreach (var machine in Model.Machines)
+                @foreach (var group in Model.Machines.GroupBy(machine => machine.Model, StringComparer.OrdinalIgnoreCase).OrderBy(group => group.Key))
                 {
+                    <details class="machine-admin-group">
+                        <summary class="machine-admin-group-summary">
+                            <span><small>@TechSupportRagBot.Services.UiText.T(HttpContext, "Model")</small><strong>@group.Key</strong></span>
+                            <span class="machine-admin-group-count">@group.Count()</span>
+                        </summary>
+                        <div class="machine-admin-group-rows">
+                    @foreach (var machine in group)
+                    {
                     <div class="machine-admin-row">
                         <form method="post" asp-page-handler="Update" asp-route-id="@machine.Id" class="machine-admin-form">
                             <label>
@@ -81,6 +89,9 @@
                             <button class="btn-danger machine-row-button" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "Delete")</button>
                         </form>
                     </div>
+                    }
+                        </div>
+                    </details>
                 }
             </div>
         </div>

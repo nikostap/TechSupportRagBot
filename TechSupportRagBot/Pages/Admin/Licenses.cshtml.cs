@@ -15,17 +15,23 @@ public class LicensesModel : PageModel
 {
     private readonly ApplicationDbContext _db;
     private readonly LicenseMailService _mail;
+    private readonly AccessProfileService _access;
     private readonly ILogger<LicensesModel> _logger;
+    private static readonly TimeZoneInfo MoscowTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
 
-    public LicensesModel(ApplicationDbContext db, LicenseMailService mail, ILogger<LicensesModel> logger)
+    public LicensesModel(ApplicationDbContext db, LicenseMailService mail, AccessProfileService access, ILogger<LicensesModel> logger)
     {
         _db = db;
         _mail = mail;
+        _access = access;
         _logger = logger;
     }
 
     [BindProperty]
     public LicenseInput Input { get; set; } = new();
+
+    [BindProperty]
+    public DateTime? RenewalExpiresAt { get; set; }
 
     public List<License> Licenses { get; private set; } = new();
     public SelectList ClientOptions { get; private set; } = new(Array.Empty<object>());
@@ -96,6 +102,46 @@ public class LicensesModel : PageModel
             TempData["LicenseMailStatus"] = UiText.T(HttpContext, "LicenseMailFailed");
         }
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostRenewAsync(int id)
+    {
+        if (!await _access.IsAllowedAsync(User, "ManageLicenses", HttpContext.RequestAborted))
+        {
+            return Forbid();
+        }
+
+        var license = await _db.Licenses.FindAsync([id], HttpContext.RequestAborted);
+        if (license == null || !license.IsActive || !license.ExpiresAt.HasValue)
+        {
+            TempData["LicenseRenewStatus"] = UiText.T(HttpContext, "LicenseRenewUnavailable");
+            return RedirectToPage();
+        }
+
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone).Date;
+        var currentEnd = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(license.ExpiresAt.Value, DateTimeKind.Utc), MoscowTimeZone).Date;
+        if (!RenewalExpiresAt.HasValue || RenewalExpiresAt.Value.Date <= today || RenewalExpiresAt.Value.Date <= currentEnd)
+        {
+            TempData["LicenseRenewStatus"] = UiText.T(HttpContext, "LicenseRenewInvalidDate");
+            return RedirectToPage();
+        }
+
+        license.ExpiresAt = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(RenewalExpiresAt.Value.Date.AddDays(1), DateTimeKind.Unspecified), MoscowTimeZone).AddTicks(-1);
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+        TempData["LicenseRenewStatus"] = UiText.T(HttpContext, "LicenseRenewed");
+        return RedirectToPage();
+    }
+
+    public string ExpiryDate(DateTime? expiresAt) => expiresAt.HasValue
+        ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(expiresAt.Value, DateTimeKind.Utc), MoscowTimeZone).ToString("dd.MM.yyyy")
+        : UiText.T(HttpContext, "NoExpiry");
+
+    public string RenewalMinDate(DateTime expiresAt)
+    {
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone).Date;
+        var currentEnd = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc), MoscowTimeZone).Date;
+        return (today > currentEnd ? today : currentEnd).AddDays(1).ToString("yyyy-MM-dd");
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)

@@ -15,6 +15,10 @@
 {
     <div class="panel" role="status">@mailStatus</div>
 }
+@if (TempData["LicenseRenewStatus"] is string renewStatus)
+{
+    <div class="panel" role="status">@renewStatus</div>
+}
 
 <div class="split-layout">
     <form method="post" class="panel">
@@ -42,6 +46,7 @@
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Key")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Client")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Machine")</th>
+                        <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "ExpiresAt")</th>
                         <th>@TechSupportRagBot.Services.UiText.T(HttpContext, "Status")</th>
                         <th></th>
                     </tr>
@@ -52,10 +57,23 @@
                     <tr>
                         <td><code>@license.Key</code></td>
                         <td>@license.Client?.Name<br /><small>@license.Client?.ContactEmail</small></td>
-                        <td>@license.Machine?.Name</td>
+                        <td>@license.Machine?.Name@if (!string.IsNullOrWhiteSpace(license.Machine?.SerialNumber)) { <br /><small>@TechSupportRagBot.Services.UiText.T(HttpContext, "SerialNumber"): @license.Machine.SerialNumber</small> }</td>
+                        <td>@Model.ExpiryDate(license.ExpiresAt)</td>
                         <td>@(license.IsActivated ? TechSupportRagBot.Services.UiText.T(HttpContext, "Activated") : TechSupportRagBot.Services.UiText.T(HttpContext, "Issued"))</td>
                         <td>
                             <div class="license-row-actions">
+                                @if (license.IsActive && license.ExpiresAt.HasValue)
+                                {
+                                    <details class="license-renew">
+                                        <summary class="btn-secondary">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</summary>
+                                        <form method="post" asp-page-handler="Renew" asp-route-id="@license.Id" class="license-renew-form">
+                                            <label>@TechSupportRagBot.Services.UiText.T(HttpContext, "NewExpiryDate")
+                                                <input name="RenewalExpiresAt" type="date" min="@Model.RenewalMinDate(license.ExpiresAt.Value)" required />
+                                            </label>
+                                            <button class="btn-main" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "RenewLicense")</button>
+                                        </form>
+                                    </details>
+                                }
                                 <form method="post" asp-page-handler="SendKey" asp-route-id="@license.Id" class="row-action">
                                     <button class="btn-secondary" type="submit">@TechSupportRagBot.Services.UiText.T(HttpContext, "SendLicenseMail")</button>
                                 </form>
